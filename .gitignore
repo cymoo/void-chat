@@ -1,0 +1,207 @@
+# ============================================================
+#  .gitignore — Kotlin/Java Backend + React + Vite Frontend
+# ============================================================
+
+
+# ============================================================
+# Java / Kotlin
+# ============================================================
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+*.zip
+*.tar.gz
+*.rar
+
+hs_err_pid*
+replay_pid*
+
+
+# ============================================================
+# Maven
+# ============================================================
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+
+# ============================================================
+# Gradle
+# ============================================================
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+gradle-app.setting
+.gradletasknamecache
+
+
+# ============================================================
+# Spring Boot
+# ============================================================
+HELP.md
+spring-shell.log
+
+
+# ============================================================
+# Node.js / npm / pnpm / yarn
+# ============================================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.pnpm-store/
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+package-lock.json   # uncomment if using yarn/pnpm exclusively
+# yarn.lock          # uncomment if using npm/pnpm exclusively
+
+
+# ============================================================
+# Vite / React Build Output
+# ============================================================
+dist/
+dist-ssr/
+*.local
+
+# Vite cache
+.vite/
+
+
+# ============================================================
+# Environment & Secrets
+# ============================================================
+.env
+.env.local
+.env.*.local
+.env.development
+.env.staging
+.env.production
+
+# Keep example env files
+!.env.example
+!.env.template
+
+
+# ============================================================
+# IDE — IntelliJ IDEA / WebStorm
+# ============================================================
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+
+# ============================================================
+# IDE — VS Code
+# ============================================================
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json   # remove "!" if settings contain secrets
+.history/
+*.vsix
+
+
+# ============================================================
+# IDE — Eclipse
+# ============================================================
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings/
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+
+# ============================================================
+# OS Generated
+# ============================================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+*~
+
+
+# ============================================================
+# Logs & Runtime
+# ============================================================
+logs/
+*.log
+*.log.*
+log/
+
+# JVM crash logs
+hs_err_pid*.log
+replay_pid*.log
+
+
+# ============================================================
+# Test & Coverage Reports
+# ============================================================
+coverage/
+.nyc_output/
+test-results/
+surefire-reports/
+jacoco.exec
+*.lcov
+
+
+# ============================================================
+# Docker
+# ============================================================
+.dockerignore  # keep this only if you want to ignore it from VCS
+docker-compose.override.yml
+
+
+# ============================================================
+# Misc
+# ============================================================
+*.swp
+*.swo
+*.tmp
+*.bak
+*.orig
+.cache/
+tmp/
+temp/
+uploads/
+chat.db
