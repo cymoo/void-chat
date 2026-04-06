@@ -22,7 +22,10 @@ function getToken(): string | null {
   return localStorage.getItem("authToken");
 }
 
-function isGenericErrorMessage(message: string | undefined, status: number): boolean {
+function isGenericErrorMessage(
+  message: string | undefined,
+  status: number,
+): boolean {
   if (!message) return true;
   return message === "Request failed" || message === `Server error (${status})`;
 }
@@ -34,19 +37,23 @@ function toFriendlyErrorMessage(
 ): string {
   if (
     url === "/api/auth/login" &&
-    (status === 401 || message?.toLowerCase().includes("invalid username or password"))
+    (status === 401 ||
+      message?.toLowerCase().includes("invalid username or password"))
   ) {
-    return "用户名或密码错误";
+    return "Invalid username or password";
   }
   if (
     url === "/api/auth/register" &&
     (message?.toLowerCase().includes("already exists") ||
       (status === 400 && isGenericErrorMessage(message, status)))
   ) {
-    return "用户名已存在或输入不合法";
+    return "Username already exists or input is invalid";
   }
-  if ((url === "/api/upload/image" || url === "/api/upload/file") && status === 413) {
-    return "文件过大，超出服务器限制";
+  if (
+    (url === "/api/upload/image" || url === "/api/upload/file") &&
+    status === 413
+  ) {
+    return "File too large, exceeds server limit";
   }
   return message ?? `Server error (${status})`;
 }
@@ -90,7 +97,10 @@ async function request<T>(
       (data?.message as string) ??
       (data?.error as string) ??
       `Server error (${res.status})`;
-    throw new ApiError(res.status, toFriendlyErrorMessage(url, res.status, rawMsg));
+    throw new ApiError(
+      res.status,
+      toFriendlyErrorMessage(url, res.status, rawMsg),
+    );
   }
 
   if (data === undefined || data === null) {
@@ -185,7 +195,7 @@ async function uploadMultipart(
       body: formData,
     });
   } catch {
-    throw new ApiError(0, "网络错误，请检查服务器是否可用");
+    throw new ApiError(0, "Network error — is the server running?");
   }
 
   let data: Record<string, unknown> | undefined;
@@ -200,19 +210,22 @@ async function uploadMultipart(
       (data?.message as string) ??
       (data?.error as string) ??
       `Server error (${res.status})`;
-    throw new ApiError(res.status, toFriendlyErrorMessage(url, res.status, rawMsg));
+    throw new ApiError(
+      res.status,
+      toFriendlyErrorMessage(url, res.status, rawMsg),
+    );
   }
 
   if (!data) {
-    throw new ApiError(res.status, "上传失败：服务器响应格式异常");
+    throw new ApiError(res.status, "Upload failed: abnormal server response");
   }
 
   const upload = data as Partial<UploadResponse>;
   if (typeof upload.success !== "boolean") {
-    throw new ApiError(res.status, "上传失败：服务器响应格式异常");
+    throw new ApiError(res.status, "Upload failed: abnormal server response");
   }
   if (!upload.success) {
-    throw new ApiError(res.status, upload.error ?? "上传失败");
+    throw new ApiError(res.status, upload.error ?? "Upload failed");
   }
   return upload as UploadResponse;
 }
