@@ -1,0 +1,263 @@
+// ============================================
+// TypeScript types matching backend Kotlin models
+// ============================================
+
+export interface User {
+  id: number;
+  username: string;
+  avatarUrl?: string | null;
+  bio?: string | null;
+  status?: string | null;
+  role?: string | null;
+  createdAt: number;
+  lastSeen: number;
+}
+
+export interface Room {
+  id: number;
+  name: string;
+  description?: string | null;
+  isPrivate: boolean;
+  creatorId?: number | null;
+  createdAt: number;
+  maxUsers: number;
+}
+
+export interface RoomInfo {
+  id: number;
+  name: string;
+  description?: string | null;
+  isPrivate: boolean;
+  creatorId?: number | null;
+  onlineUsers: number;
+  maxUsers: number;
+}
+
+export interface ReplyInfo {
+  id: number;
+  username: string;
+  content: string;
+  messageType: string;
+}
+
+// Discriminated union for chat messages
+export type ChatMessage =
+  | TextMessage
+  | ImageMessage
+  | FileMessage
+  | SystemMessage;
+
+interface BaseMessage {
+  id: number;
+  timestamp: number;
+  replyTo?: ReplyInfo | null;
+}
+
+export interface TextMessage extends BaseMessage {
+  messageType: "text";
+  userId: number;
+  username: string;
+  avatarUrl?: string | null;
+  content: string;
+  editedAt?: number | null;
+}
+
+export interface ImageMessage extends BaseMessage {
+  messageType: "image";
+  userId: number;
+  username: string;
+  avatarUrl?: string | null;
+  imageUrl: string;
+  thumbnailUrl?: string | null;
+}
+
+export interface FileMessage extends BaseMessage {
+  messageType: "file";
+  userId: number;
+  username: string;
+  avatarUrl?: string | null;
+  fileName: string;
+  fileUrl: string;
+  fileSize: number;
+  mimeType: string;
+}
+
+export interface SystemMessage extends BaseMessage {
+  messageType: "system";
+  content: string;
+}
+
+export interface PrivateMessage {
+  id: number;
+  senderId: number;
+  senderUsername: string;
+  senderAvatarUrl?: string | null;
+  receiverId: number;
+  receiverUsername: string;
+  messageType: string;
+  content?: string | null;
+  fileUrl?: string | null;
+  fileName?: string | null;
+  fileSize?: number | null;
+  mimeType?: string | null;
+  thumbnailUrl?: string | null;
+  isRead: boolean;
+  timestamp: number;
+}
+
+// WebSocket message payloads (client → server)
+export interface WsSendPayload {
+  type: string;
+  content?: string;
+  imageUrl?: string;
+  thumbnailUrl?: string;
+  fileName?: string;
+  fileUrl?: string;
+  fileSize?: number;
+  mimeType?: string;
+  messageId?: number;
+  targetUserId?: number;
+  replyToId?: number;
+  beforeId?: number;
+  query?: string;
+  role?: string;
+  avatarUrl?: string;
+  bio?: string;
+  status?: string;
+}
+
+// WebSocket events (server → client)
+export interface WsHistoryEvent {
+  type: "history";
+  messages: ChatMessage[];
+  hasMore: boolean;
+}
+
+export interface WsUsersEvent {
+  type: "users";
+  users: User[];
+}
+
+export interface WsMessageEvent {
+  type: "message";
+  message: ChatMessage;
+}
+
+export interface WsUserJoinedEvent {
+  type: "user_joined";
+  user: User;
+}
+
+export interface WsUserLeftEvent {
+  type: "user_left";
+  userId: number;
+  username: string;
+}
+
+export interface WsErrorEvent {
+  type: "error";
+  message: string;
+}
+
+export interface WsMessageEditedEvent {
+  type: "message_edited";
+  messageId: number;
+  content: string;
+  editedAt: number;
+}
+
+export interface WsMessageDeletedEvent {
+  type: "message_deleted";
+  messageId: number;
+}
+
+export interface WsPrivateMessageEvent {
+  type: "private_message";
+  message: PrivateMessage;
+}
+
+export interface WsPrivateHistoryEvent {
+  type: "private_history";
+  messages: PrivateMessage[];
+  hasMore: boolean;
+}
+
+export interface WsMentionEvent {
+  type: "mention";
+  messageId: number;
+  mentionedBy: string;
+  content: string;
+}
+
+export interface WsUserUpdatedEvent {
+  type: "user_updated";
+  user: User;
+}
+
+export interface WsKickedEvent {
+  type: "kicked";
+  reason: string;
+}
+
+export interface WsRoleChangedEvent {
+  type: "role_changed";
+  userId: number;
+  role: string;
+}
+
+export interface WsSearchResultsEvent {
+  type: "search_results";
+  messages: ChatMessage[];
+  query: string;
+}
+
+export interface WsUnreadCountsEvent {
+  type: "unread_counts";
+  unreadDms: number;
+}
+
+export type WsEvent =
+  | WsHistoryEvent
+  | WsUsersEvent
+  | WsMessageEvent
+  | WsUserJoinedEvent
+  | WsUserLeftEvent
+  | WsErrorEvent
+  | WsMessageEditedEvent
+  | WsMessageDeletedEvent
+  | WsPrivateMessageEvent
+  | WsPrivateHistoryEvent
+  | WsMentionEvent
+  | WsUserUpdatedEvent
+  | WsKickedEvent
+  | WsRoleChangedEvent
+  | WsSearchResultsEvent
+  | WsUnreadCountsEvent;
+
+// API request/response types
+export interface AuthResponse {
+  token: string;
+  user: User;
+}
+
+export interface CreateRoomRequest {
+  name: string;
+  description?: string | null;
+  isPrivate?: boolean;
+  password?: string | null;
+}
+
+export interface UpdateProfileRequest {
+  avatarUrl?: string | null;
+  bio?: string | null;
+  status?: string | null;
+}
+
+export interface UploadResponse {
+  success: boolean;
+  url?: string | null;
+  thumbnail?: string | null;
+  fileName?: string | null;
+  fileSize?: number | null;
+  error?: string | null;
+}

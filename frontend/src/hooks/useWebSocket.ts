@@ -1,0 +1,101 @@
+import { useEffect, useRef, useCallback } from "react";
+import type { WsEvent, WsSendPayload } from "@/api/types";
+import { useChatStore } from "@/stores/chatStore";
+import { useUiStore } from "@/stores/uiStore";
+
+interface UseWebSocketOptions {
+  roomId: number;
+  token: string;
+  roomPassword?: string;
+  onKicked?: (reason: string) => void;
+}
+
+export function useWebSocket({
+  roomId,
+  token,
+  roomPassword,
+  onKicked,
+}: UseWebSocketOptions) {
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+  const intentionalCloseRef = useRef(false);
+  const handleWsEvent = useChatStore((s) => s.handleWsEvent);
+  const addToast = useUiStore((s) => s.addToast);
+
+  const connect = useCallback(() => {
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const host = window.location.host;
+    let url = `${protocol}//${host}/chat/${roomId}?token=${encodeURIComponent(token)}`;
+    if (roomPassword) {
+      url += `&roomPassword=${encodeURIComponent(roomPassword)}`;
+    }
+
+    const ws = new WebSocket(url);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      reconnectAttemptsRef.current = 0;
+    };
+
+    ws.onmessage = (e) => {
+      try {
+        const event = JSON.parse(e.data) as WsEvent;
+
+        if (event.type === "kicked") {
+          intentionalCloseRef.current = true;
+          ws.close();
+          onKicked?.(event.reason);
+          return;
+        }
+
+        if (event.type === "error") {
+          addToast(event.message, "error");
+          return;
+        }
+
+        if (event.type === "mention") {
+          addToast(`@${event.mentionedBy} mentioned you`, "info");
+        }
+
+        handleWsEvent(event);
+      } catch {
+        // ignore malformed messages
+      }
+    };
+
+    ws.onclose = () => {
+      if (intentionalCloseRef.current) return;
+
+      const attempts = reconnectAttemptsRef.current;
+      if (attempts < 5) {
+        const delay = Math.min(1000 * Math.pow(2, attempts), 16000);
+        reconnectAttemptsRef.current = attempts + 1;
+        setTimeout(connect, delay);
+      } else {
+        addToast("Connection lost. Please refresh.", "error");
+      }
+    };
+
+    ws.onerror = () => {
+      // onclose will fire after this
+    };
+  }, [roomId, token, roomPassword, handleWsEvent, addToast, onKicked]);
+
+  useEffect(() => {
+    connect();
+
+    return () => {
+      intentionalCloseRef.current = true;
+      wsRef.current?.close();
+    };
+  }, [connect]);
+
+  const send = useCallback((payload: WsSendPayload) => {
+    const ws = wsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(payload));
+    }
+  }, []);
+
+  return { send };
+}

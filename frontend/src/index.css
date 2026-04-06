@@ -1,0 +1,116 @@
+@import "tailwindcss";
+
+/* ============================================
+   TERMINAL.CHAT — Terminal Theme
+   ============================================ */
+
+@theme {
+  --color-terminal-bg: #0a0a0a;
+  --color-terminal-surface: #111111;
+  --color-terminal-surface-2: #1a1a1a;
+  --color-terminal-border: #2a2a2a;
+  --color-terminal-border-bright: #3a3a3a;
+  --color-terminal-text: #cccccc;
+  --color-terminal-text-dim: #666666;
+  --color-terminal-text-bright: #ffffff;
+  --color-terminal-green: #00ff41;
+  --color-terminal-green-dim: #00cc33;
+  --color-terminal-amber: #ffb000;
+  --color-terminal-red: #ff3333;
+  --color-terminal-cyan: #00d4ff;
+  --color-terminal-purple: #b967ff;
+
+  --font-mono: "IBM Plex Mono", "Consolas", "Monaco", monospace;
+  --font-display: "Bebas Neue", sans-serif;
+}
+
+/* Base styles */
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--color-terminal-bg);
+  color: var(--color-terminal-text);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-terminal-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-terminal-border-bright);
+  border-radius: 3px;
+}
+
+/* Selection */
+::selection {
+  background: var(--color-terminal-green);
+  color: var(--color-terminal-bg);
+}
+
+/* Terminal cursor blink */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.cursor-blink::after {
+  content: "█";
+  animation: blink 1s infinite;
+  color: var(--color-terminal-green);
+}
+
+/* ASCII decorations */
+.ascii-border {
+  border: 1px solid var(--color-terminal-border);
+  position: relative;
+}
+
+.ascii-border::before {
+  content: "┌─";
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  color: var(--color-terminal-border-bright);
+  font-size: 12px;
+  line-height: 1;
+}
+
+/* Glow effect for active elements */
+.glow-green {
+  text-shadow: 0 0 8px var(--color-terminal-green);
+}
+
+.glow-amber {
+  text-shadow: 0 0 8px var(--color-terminal-amber);
+}
+
+/* Scanline overlay (subtle) */
+.scanlines::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.03) 2px,
+    rgba(0, 0, 0, 0.03) 4px
+  );
+  z-index: 9999;
+}
