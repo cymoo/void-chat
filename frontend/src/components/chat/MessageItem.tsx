@@ -8,9 +8,15 @@ interface MessageItemProps {
   message: ChatMessage;
   currentUser: User;
   send: (payload: WsSendPayload) => void;
+  onMediaLoad?: () => void;
 }
 
-export function MessageItem({ message, currentUser, send }: MessageItemProps) {
+export function MessageItem({
+  message,
+  currentUser,
+  send,
+  onMediaLoad,
+}: MessageItemProps) {
   const setEditingMessage = useChatStore((s) => s.setEditingMessage);
   const setReplyingTo = useChatStore((s) => s.setReplyingTo);
   const showUserCard = useUiStore((s) => s.showUserCard);
@@ -64,12 +70,13 @@ export function MessageItem({ message, currentUser, send }: MessageItemProps) {
       return (
         <>
           <div className="message-text">shared an image</div>
-          <img
-            src={message.imageUrl}
-            className="message-image"
-            onClick={() => setImageModal(message.imageUrl)}
-            alt="Shared image"
-          />
+            <img
+              src={message.imageUrl}
+              className="message-image"
+              onClick={() => setImageModal(message.imageUrl)}
+              onLoad={onMediaLoad}
+              alt="Shared image"
+            />
         </>
       );
     }

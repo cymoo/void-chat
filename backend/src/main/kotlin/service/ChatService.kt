@@ -27,6 +27,9 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
     // Room ID -> Set of WS connections
     private val roomConnections = ConcurrentHashMap<Int, CopyOnWriteArraySet<WsConnection>>()
 
+    // Room ID -> (User ID -> active connection count in this room)
+    private val roomUserConnectionCounts = ConcurrentHashMap<Int, ConcurrentHashMap<Int, Int>>()
+
     // User ID -> Connection
     private val userConnections = ConcurrentHashMap<Int, WsConnection>()
 
@@ -44,55 +47,69 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
         connections.add(connection)
         userConnections[user.id] = connection
 
-        // Add to database
-        roomMemberRepo.addMember(roomId, user.id)
-        userRepo.updateLastSeen(user.id)
+        // Track per-room active connection count for this user
+        val userCounts = roomUserConnectionCounts.computeIfAbsent(roomId) { ConcurrentHashMap() }
+        val activeCount = userCounts.merge(user.id, 1) { prev, _ -> prev + 1 } ?: 1
 
-        // Save system message
-        val systemMessageId = messageRepo.saveSystemMessage(
-            roomId,
-            "${user.username} joined the room"
-        )
+        // Add to members and broadcast join only on first active connection
+        if (activeCount == 1) {
+            roomMemberRepo.addMember(roomId, user.id)
+            userRepo.updateLastSeen(user.id)
 
-        // Broadcast join event
-        val joinMessage = ChatMessage.System(
-            id = systemMessageId,
-            content = "${user.username} joined the room",
-            timestamp = System.currentTimeMillis()
-        )
+            val systemMessageId = messageRepo.saveSystemMessage(
+                roomId,
+                "${user.username} joined the room"
+            )
 
-        broadcastToRoom(roomId, WsEvent.Message(joinMessage))
-        broadcastToRoom(roomId, WsEvent.UserJoined(user))
+            val joinMessage = ChatMessage.System(
+                id = systemMessageId,
+                content = "${user.username} joined the room",
+                timestamp = System.currentTimeMillis()
+            )
+
+            broadcastToRoom(roomId, WsEvent.Message(joinMessage))
+            broadcastToRoom(roomId, WsEvent.UserJoined(user))
+        }
     }
 
     fun leaveRoom(roomId: Int, user: User, connection: WsConnection) {
         // Remove from tracking
         roomConnections[roomId]?.remove(connection)
-        userConnections.remove(user.id)
+        if (userConnections[user.id] == connection) {
+            userConnections.remove(user.id)
+        }
 
-        // Remove from database
-        roomMemberRepo.removeMember(roomId, user.id)
+        val userCounts = roomUserConnectionCounts[roomId]
+        val remainingConnections = userCounts?.compute(user.id) { _, count ->
+            if (count == null || count <= 1) null else count - 1
+        }
 
-        // Clean up empty room connections
+        // Remove member and broadcast leave only when no active connections remain
+        if (remainingConnections == null) {
+            roomMemberRepo.removeMember(roomId, user.id)
+
+            val systemMessageId = messageRepo.saveSystemMessage(
+                roomId,
+                "${user.username} left the room"
+            )
+
+            val leaveMessage = ChatMessage.System(
+                id = systemMessageId,
+                content = "${user.username} left the room",
+                timestamp = System.currentTimeMillis()
+            )
+
+            broadcastToRoom(roomId, WsEvent.Message(leaveMessage))
+            broadcastToRoom(roomId, WsEvent.UserLeft(user.id, user.username))
+        }
+
+        // Clean up empty room tracking
         if (roomConnections[roomId]?.isEmpty() == true) {
             roomConnections.remove(roomId)
         }
-
-        // Save system message
-        val systemMessageId = messageRepo.saveSystemMessage(
-            roomId,
-            "${user.username} left the room"
-        )
-
-        // Broadcast leave event
-        val leaveMessage = ChatMessage.System(
-            id = systemMessageId,
-            content = "${user.username} left the room",
-            timestamp = System.currentTimeMillis()
-        )
-
-        broadcastToRoom(roomId, WsEvent.Message(leaveMessage))
-        broadcastToRoom(roomId, WsEvent.UserLeft(user.id, user.username))
+        if (userCounts?.isEmpty() == true) {
+            roomUserConnectionCounts.remove(roomId)
+        }
     }
 
     fun sendTextMessage(roomId: Int, user: User, content: String, replyToId: Int? = null) {

@@ -52,6 +52,12 @@ export function MessageList({ send, currentUser }: MessageListProps) {
     bottomRef.current?.scrollIntoView();
   }, []);
 
+  const handleMediaLoad = useCallback(() => {
+    if (isAtBottomRef.current && bottomRef.current) {
+      bottomRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, []);
+
   return (
     <div
       ref={containerRef}
@@ -69,6 +75,7 @@ export function MessageList({ send, currentUser }: MessageListProps) {
           message={msg}
           currentUser={currentUser}
           send={send}
+          onMediaLoad={handleMediaLoad}
         />
       ))}
       <div ref={bottomRef} />

@@ -23,7 +23,16 @@ export function DmInboxModal({ send }: DmInboxModalProps) {
 
   useEffect(() => {
     if (dmInboxOpen) {
-      api.getUnreadDmSenders().then(setSenders).catch(() => {});
+      api
+        .getUnreadDmSenders()
+        .then((rows) =>
+          setSenders(
+            rows.filter(
+              (row) => row.senderId > 0 && row.senderUsername.trim().length > 0,
+            ),
+          ),
+        )
+        .catch(() => {});
     }
   }, [dmInboxOpen]);
 

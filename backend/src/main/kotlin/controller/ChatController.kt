@@ -66,6 +66,7 @@ class ChatController(
                 conn.close()
                 return
             }
+        var joinedRoom = false
 
         // Verify room exists
         val room = roomService.getRoomById(roomId)
@@ -87,6 +88,7 @@ class ChatController(
 
         // Join room
         chatService.joinRoom(roomId, conn, currentUser)
+        joinedRoom = true
 
         // Send message history with hasMore flag
         val history = chatService.getMessageHistory(roomId)
@@ -198,7 +200,9 @@ class ChatController(
 
         // Handle disconnect
         conn.onClose { reason ->
-            chatService.leaveRoom(roomId, currentUser, conn)
+            if (joinedRoom) {
+                chatService.leaveRoom(roomId, currentUser, conn)
+            }
         }
 
         conn.onError { error ->

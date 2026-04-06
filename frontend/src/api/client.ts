@@ -119,7 +119,20 @@ export async function updateProfile(req: UpdateProfileRequest): Promise<User> {
 export async function getUnreadDmSenders(): Promise<
   Array<{ senderId: number; senderUsername: string; unreadCount: number }>
 > {
-  return request("GET", "/api/dms/unread-senders");
+  const data = await request<
+    Array<{
+      senderId?: number;
+      senderUsername?: string;
+      userId?: number;
+      username?: string;
+      unreadCount?: number;
+    }>
+  >("GET", "/api/dms/unread-senders");
+  return data.map((item) => ({
+    senderId: item.senderId ?? item.userId ?? 0,
+    senderUsername: item.senderUsername ?? item.username ?? "",
+    unreadCount: item.unreadCount ?? 0,
+  }));
 }
 
 // File upload API
