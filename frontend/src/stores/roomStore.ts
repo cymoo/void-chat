@@ -11,6 +11,7 @@ interface RoomState {
 
   fetchRooms: () => Promise<void>;
   createRoom: (req: CreateRoomRequest) => Promise<Room>;
+  deleteRoom: (roomId: number) => Promise<void>;
   joinRoom: (roomId: number, roomName: string, password?: string) => void;
   leaveRoom: () => void;
 }
@@ -34,10 +35,15 @@ export const useRoomStore = create<RoomState>((set) => ({
 
   createRoom: async (req) => {
     const room = await api.createRoom(req);
-    // Refresh rooms list
     const rooms = await api.getRooms();
     set({ rooms });
     return room;
+  },
+
+  deleteRoom: async (roomId) => {
+    await api.deleteRoom(roomId);
+    const rooms = await api.getRooms();
+    set({ rooms });
   },
 
   joinRoom: (roomId, roomName, password = "") => {

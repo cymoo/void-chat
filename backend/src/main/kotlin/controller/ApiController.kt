@@ -34,6 +34,15 @@ class ApiController(
         return roomService.createRoom(request.name, request.description, request.isPrivate, request.password, userId)
     }
 
+    @Delete("/rooms/{roomId}")
+    fun deleteRoom(ctx: Context, roomId: Path<Int>) {
+        val userId = ctx.requireAuth()
+        if (!roomService.deleteRoom(roomId.value, userId)) {
+            throw BadRequest("Cannot delete room: not found or not the owner")
+        }
+        ctx.status(204)
+    }
+
     @Post("/upload/image")
     fun uploadImage(ctx: Context, image: UploadedFile): UploadResponse {
         ctx.requireAuth()

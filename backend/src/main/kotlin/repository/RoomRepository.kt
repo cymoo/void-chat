@@ -1,5 +1,6 @@
 package repository
 
+import chatroom.jooq.generated.Tables.MESSAGES
 import chatroom.jooq.generated.Tables.ROOMS
 import chatroom.jooq.generated.Tables.ROOM_MEMBERS
 import chatroom.jooq.generated.tables.records.RoomsRecord
@@ -59,6 +60,21 @@ class RoomRepository(private val dsl: DSLContext) {
             .from(ROOM_MEMBERS)
             .where(ROOM_MEMBERS.ROOM_ID.eq(roomId))
             .fetchOne(0, Int::class.java) ?: 0
+    }
+
+    fun delete(roomId: Int) {
+        // Remove messages first (no FK cascading in SQLite without pragma)
+        dsl.deleteFrom(MESSAGES)
+            .where(MESSAGES.ROOM_ID.eq(roomId))
+            .execute()
+        // Remove all members
+        dsl.deleteFrom(ROOM_MEMBERS)
+            .where(ROOM_MEMBERS.ROOM_ID.eq(roomId))
+            .execute()
+        // Delete the room
+        dsl.deleteFrom(ROOMS)
+            .where(ROOMS.ID.eq(roomId))
+            .execute()
     }
 
     private fun RoomsRecord.toModel(): Room {

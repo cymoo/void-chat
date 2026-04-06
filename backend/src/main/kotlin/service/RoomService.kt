@@ -50,4 +50,11 @@ class RoomService(dsl: DSLContext) {
         val storedHash = roomRepo.getPasswordHash(roomId) ?: return false
         return PasswordUtils.verifyPassword(password, storedHash)
     }
+
+    fun deleteRoom(roomId: Int, userId: Int): Boolean {
+        val room = roomRepo.findById(roomId) ?: return false
+        if (room.creatorId != userId) return false
+        roomRepo.delete(roomId)
+        return true
+    }
 }

@@ -576,6 +576,21 @@ body {
     opacity: 0.8;
 }
 
+.room-delete-btn {
+    opacity: 0;
+    color: var(--color-error);
+    transition: opacity 0.2s;
+    padding: 4px;
+}
+
+.room-card:hover .room-delete-btn {
+    opacity: 0.7;
+}
+
+.room-delete-btn:hover {
+    opacity: 1 !important;
+}
+
 .room-card-desc {
     font-size: 12px;
     color: var(--color-text-muted);

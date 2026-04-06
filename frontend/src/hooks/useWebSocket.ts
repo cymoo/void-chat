@@ -8,6 +8,7 @@ interface UseWebSocketOptions {
   token: string;
   roomPassword?: string;
   onKicked?: (reason: string) => void;
+  onConnectionError?: (message: string) => void;
 }
 
 export function useWebSocket({
@@ -15,10 +16,12 @@ export function useWebSocket({
   token,
   roomPassword,
   onKicked,
+  onConnectionError,
 }: UseWebSocketOptions) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const intentionalCloseRef = useRef(false);
+  const joinedRef = useRef(false);
   const handleWsEvent = useChatStore((s) => s.handleWsEvent);
   const addToast = useUiStore((s) => s.addToast);
 
@@ -49,8 +52,20 @@ export function useWebSocket({
         }
 
         if (event.type === "error") {
-          addToast(event.message, "error");
+          // If we haven't joined yet, this is a connection rejection (e.g. wrong password)
+          if (!joinedRef.current) {
+            intentionalCloseRef.current = true;
+            ws.close();
+            onConnectionError?.(event.message);
+          } else {
+            addToast(event.message, "error");
+          }
           return;
+        }
+
+        // Mark as successfully joined once we receive users or history
+        if (event.type === "users" || event.type === "history") {
+          joinedRef.current = true;
         }
 
         if (event.type === "mention") {
@@ -79,9 +94,10 @@ export function useWebSocket({
     ws.onerror = () => {
       // onclose will fire after this
     };
-  }, [roomId, token, roomPassword, handleWsEvent, addToast, onKicked]);
+  }, [roomId, token, roomPassword, handleWsEvent, addToast, onKicked, onConnectionError]);
 
   useEffect(() => {
+    joinedRef.current = false;
     connect();
 
     return () => {

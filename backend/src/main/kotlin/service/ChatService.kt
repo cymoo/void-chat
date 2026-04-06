@@ -373,11 +373,11 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
             )
             is WsEvent.PrivateMessageEvent -> mapOf(
                 "type" to "private_message",
-                "message" to event.message
+                "message" to objectMapper.valueToTree<JsonNode>(event.message)
             )
             is WsEvent.PrivateHistory -> mapOf(
                 "type" to "private_history",
-                "messages" to event.messages,
+                "messages" to event.messages.map { objectMapper.valueToTree<JsonNode>(it) },
                 "hasMore" to event.hasMore
             )
             is WsEvent.Mention -> mapOf(

@@ -31,11 +31,21 @@ export function ChatPage() {
     [leaveRoom, navigate],
   );
 
+  const onConnectionError = useCallback(
+    (message: string) => {
+      alert(message);
+      leaveRoom();
+      navigate("/lobby");
+    },
+    [leaveRoom, navigate],
+  );
+
   const { send } = useWebSocket({
     roomId: Number(roomId),
     token: token!,
     roomPassword: currentRoomPassword || undefined,
     onKicked,
+    onConnectionError,
   });
 
   useEffect(() => {

@@ -12,8 +12,9 @@ export function LobbyPage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
-  const { rooms, loading, fetchRooms, joinRoom } = useRoomStore();
+  const { rooms, loading, fetchRooms, joinRoom, deleteRoom } = useRoomStore();
   const { profileOpen, setProfileOpen, createRoomOpen, setCreateRoomOpen } = useUiStore();
+  const addToast = useUiStore((s) => s.addToast);
 
   const [passwordRoom, setPasswordRoom] = useState<RoomInfo | null>(null);
 
@@ -35,6 +36,17 @@ export function LobbyPage() {
       joinRoom(passwordRoom.id, passwordRoom.name, password);
       navigate(`/chat/${passwordRoom.id}`);
       setPasswordRoom(null);
+    }
+  };
+
+  const handleDeleteRoom = async (e: React.MouseEvent, room: RoomInfo) => {
+    e.stopPropagation();
+    if (!confirm(`Delete room "${room.name}"? This cannot be undone.`)) return;
+    try {
+      await deleteRoom(room.id);
+      addToast(`Room "${room.name}" deleted`, "success");
+    } catch {
+      addToast("Failed to delete room", "error");
     }
   };
 
@@ -100,6 +112,21 @@ export function LobbyPage() {
                     {room.name}
                     {room.isPrivate && <span className="room-lock-icon">🔒</span>}
                   </div>
+                  {room.creatorId === user?.id && (
+                    <button
+                      className="icon-btn room-delete-btn"
+                      title="Delete room"
+                      onClick={(e) => handleDeleteRoom(e, room)}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="3 6 5 6 21 6" />
+                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                        <path d="M10 11v6" />
+                        <path d="M14 11v6" />
+                        <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                      </svg>
+                    </button>
+                  )}
                 </div>
                 {room.description && (
                   <div className="room-card-desc">{room.description}</div>

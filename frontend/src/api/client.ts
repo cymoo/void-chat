@@ -49,18 +49,25 @@ async function request<T>(
 
   if (res.status === 204) return null as T;
 
-  const contentType = res.headers.get("content-type") ?? "";
-  if (!contentType.includes("application/json")) {
-    throw new ApiError(
-      res.status,
-      res.ok ? "Unexpected response from server" : `Server error (${res.status})`,
-    );
+  let data: Record<string, unknown> | undefined;
+  try {
+    data = await res.json();
+  } catch {
+    // Response body is not valid JSON
   }
 
-  const data = await res.json();
   if (!res.ok) {
-    throw new ApiError(res.status, data.message ?? data.error ?? "Request failed");
+    const msg =
+      (data?.message as string) ??
+      (data?.error as string) ??
+      `Server error (${res.status})`;
+    throw new ApiError(res.status, msg);
   }
+
+  if (data === undefined || data === null) {
+    throw new ApiError(res.status, "Unexpected response from server");
+  }
+
   return data as T;
 }
 
@@ -94,6 +101,10 @@ export async function getRooms(): Promise<RoomInfo[]> {
 
 export async function createRoom(req: CreateRoomRequest): Promise<Room> {
   return request("POST", "/api/rooms", req);
+}
+
+export async function deleteRoom(roomId: number): Promise<void> {
+  return request("DELETE", `/api/rooms/${roomId}`);
 }
 
 // User API

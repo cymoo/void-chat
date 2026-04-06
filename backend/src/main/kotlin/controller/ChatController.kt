@@ -91,18 +91,15 @@ class ChatController(
         // Send message history with hasMore flag
         val history = chatService.getMessageHistory(roomId)
         val hasMore = history.size >= 30
-        conn.send(objectMapper.writeValueAsString(mapOf(
-            "type" to "history",
-            "messages" to history,
-            "hasMore" to hasMore
-        )))
+        conn.send(chatService.serializeEvent(
+            WsEvent.History(history, hasMore)
+        ))
 
         // Send current users
         val users = chatService.getRoomUsers(roomId)
-        conn.send(objectMapper.writeValueAsString(mapOf(
-            "type" to "users",
-            "users" to users
-        )))
+        conn.send(chatService.serializeEvent(
+            WsEvent.Users(users)
+        ))
 
         // Send initial unread DM count
         val unreadCount = chatService.getUnreadDmCount(currentUser.id)
