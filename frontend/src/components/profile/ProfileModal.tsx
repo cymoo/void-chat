@@ -24,8 +24,9 @@ export function ProfileModal() {
         updateUser(updated);
         addToast("Avatar updated", "success");
       }
-    } catch {
-      addToast("Failed to upload avatar", "error");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "头像上传失败";
+      addToast(msg, "error");
     }
     e.target.value = "";
   };

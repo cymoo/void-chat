@@ -22,6 +22,35 @@ function getToken(): string | null {
   return localStorage.getItem("authToken");
 }
 
+function isGenericErrorMessage(message: string | undefined, status: number): boolean {
+  if (!message) return true;
+  return message === "Request failed" || message === `Server error (${status})`;
+}
+
+function toFriendlyErrorMessage(
+  url: string,
+  status: number,
+  message: string | undefined,
+): string {
+  if (
+    url === "/api/auth/login" &&
+    (status === 401 || message?.toLowerCase().includes("invalid username or password"))
+  ) {
+    return "用户名或密码错误";
+  }
+  if (
+    url === "/api/auth/register" &&
+    (message?.toLowerCase().includes("already exists") ||
+      (status === 400 && isGenericErrorMessage(message, status)))
+  ) {
+    return "用户名已存在或输入不合法";
+  }
+  if ((url === "/api/upload/image" || url === "/api/upload/file") && status === 413) {
+    return "文件过大，超出服务器限制";
+  }
+  return message ?? `Server error (${status})`;
+}
+
 async function request<T>(
   method: string,
   url: string,
@@ -57,11 +86,11 @@ async function request<T>(
   }
 
   if (!res.ok) {
-    const msg =
+    const rawMsg =
       (data?.message as string) ??
       (data?.error as string) ??
       `Server error (${res.status})`;
-    throw new ApiError(res.status, msg);
+    throw new ApiError(res.status, toFriendlyErrorMessage(url, res.status, rawMsg));
   }
 
   if (data === undefined || data === null) {
@@ -136,36 +165,64 @@ export async function getUnreadDmSenders(): Promise<
 }
 
 // File upload API
-export async function uploadImage(file: File): Promise<UploadResponse> {
+async function uploadMultipart(
+  url: "/api/upload/image" | "/api/upload/file",
+  fieldName: "image" | "file",
+  file: File,
+): Promise<UploadResponse> {
   const formData = new FormData();
-  formData.append("image", file);
+  formData.append(fieldName, file);
 
   const token = getToken();
   const headers: Record<string, string> = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch("/api/upload/image", {
-    method: "POST",
-    headers,
-    body: formData,
-  });
-  return res.json();
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers,
+      body: formData,
+    });
+  } catch {
+    throw new ApiError(0, "网络错误，请检查服务器是否可用");
+  }
+
+  let data: Record<string, unknown> | undefined;
+  try {
+    data = await res.json();
+  } catch {
+    // server may return plain text for large payload (e.g. 413)
+  }
+
+  if (!res.ok) {
+    const rawMsg =
+      (data?.message as string) ??
+      (data?.error as string) ??
+      `Server error (${res.status})`;
+    throw new ApiError(res.status, toFriendlyErrorMessage(url, res.status, rawMsg));
+  }
+
+  if (!data) {
+    throw new ApiError(res.status, "上传失败：服务器响应格式异常");
+  }
+
+  const upload = data as Partial<UploadResponse>;
+  if (typeof upload.success !== "boolean") {
+    throw new ApiError(res.status, "上传失败：服务器响应格式异常");
+  }
+  if (!upload.success) {
+    throw new ApiError(res.status, upload.error ?? "上传失败");
+  }
+  return upload as UploadResponse;
+}
+
+export async function uploadImage(file: File): Promise<UploadResponse> {
+  return uploadMultipart("/api/upload/image", "image", file);
 }
 
 export async function uploadFile(file: File): Promise<UploadResponse> {
-  const formData = new FormData();
-  formData.append("file", file);
-
-  const token = getToken();
-  const headers: Record<string, string> = {};
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-
-  const res = await fetch("/api/upload/file", {
-    method: "POST",
-    headers,
-    body: formData,
-  });
-  return res.json();
+  return uploadMultipart("/api/upload/file", "file", file);
 }
 
 export { ApiError };

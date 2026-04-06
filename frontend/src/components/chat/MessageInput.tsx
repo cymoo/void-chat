@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback, type KeyboardEvent, type ChangeEvent } from "react";
 import { useChatStore, getMessageContent } from "@/stores/chatStore";
+import { useUiStore } from "@/stores/uiStore";
 import * as api from "@/api/client";
 import type { User, WsSendPayload } from "@/api/types";
 
@@ -17,6 +18,7 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
   const setReplyingTo = useChatStore((s) => s.setReplyingTo);
   const messages = useChatStore((s) => s.messages);
   const users = useChatStore((s) => s.users);
+  const addToast = useUiStore((s) => s.addToast);
 
   // Mention dropdown
   const [, setMentionQuery] = useState<string | null>(null);
@@ -144,8 +146,9 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
           thumbnailUrl: result.thumbnail ?? undefined,
         });
       }
-    } catch {
-      // error handled by toast
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "图片上传失败";
+      addToast(msg, "error");
     }
     e.target.value = "";
   };
@@ -164,8 +167,9 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
           mimeType: file.type,
         });
       }
-    } catch {
-      // error handled by toast
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "文件上传失败";
+      addToast(msg, "error");
     }
     e.target.value = "";
   };

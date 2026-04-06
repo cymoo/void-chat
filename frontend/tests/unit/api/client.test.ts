@@ -92,7 +92,7 @@ describe("API client", () => {
     );
 
     await expect(client.login("bad", "wrong")).rejects.toThrow(
-      "Invalid credentials",
+      "用户名或密码错误",
     );
   });
 

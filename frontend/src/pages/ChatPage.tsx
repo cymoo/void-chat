@@ -17,10 +17,12 @@ export function ChatPage() {
   const { roomId } = useParams<{ roomId: string }>();
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
-  const { currentRoomName, currentRoomPassword, leaveRoom } = useRoomStore();
+  const { currentRoomName, currentRoomPassword, leaveRoom, rooms, fetchRooms, joinRoom } =
+    useRoomStore();
   const reset = useChatStore((s) => s.reset);
   const { profileOpen, userCardUserId } = useUiStore();
   const privateChatUserId = useChatStore((s) => s.privateChatUserId);
+  const roomIdNum = Number(roomId);
 
   const onKicked = useCallback(
     (reason: string) => {
@@ -54,16 +56,36 @@ export function ChatPage() {
     };
   }, [reset]);
 
+  useEffect(() => {
+    if (!roomIdNum || currentRoomName) return;
+
+    const matched = rooms.find((r) => r.id === roomIdNum);
+    if (matched) {
+      joinRoom(matched.id, matched.name, currentRoomPassword);
+      return;
+    }
+
+    fetchRooms().then(() => {
+      const latest = useRoomStore.getState().rooms.find((r) => r.id === roomIdNum);
+      if (latest) {
+        joinRoom(latest.id, latest.name, currentRoomPassword);
+      }
+    });
+  }, [roomIdNum, currentRoomName, currentRoomPassword, rooms, fetchRooms, joinRoom]);
+
   const handleDisconnect = () => {
     leaveRoom();
     navigate("/lobby");
   };
 
+  const displayedRoomName =
+    currentRoomName || rooms.find((r) => r.id === roomIdNum)?.name || `Room ${roomId}`;
+
   return (
     <div id="chat-screen" className="screen active">
       <ChatView
         send={send}
-        roomName={currentRoomName || `Room ${roomId}`}
+        roomName={displayedRoomName}
         currentUser={user!}
         onDisconnect={handleDisconnect}
       />
