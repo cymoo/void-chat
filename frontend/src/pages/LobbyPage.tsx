@@ -44,7 +44,7 @@ export function LobbyPage() {
   };
 
   return (
-    <div id="lobby-screen" className="screen">
+    <div id="lobby-screen" className="screen active">
       <div className="lobby-container">
         <div className="lobby-header">
           <div className="lobby-title-section">

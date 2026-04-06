@@ -50,7 +50,7 @@ export function ChatPage() {
   };
 
   return (
-    <div id="chat-screen" className="screen">
+    <div id="chat-screen" className="screen active">
       <ChatView
         send={send}
         roomName={currentRoomName || `Room ${roomId}`}
