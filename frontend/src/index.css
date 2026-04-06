@@ -641,7 +641,7 @@ body {
     height: 100%;
     display: flex;
     flex-direction: column;
-    background: var(--color-surface);
+    background: rgba(15, 20, 28, 0.72);
 }
 
 .chat-header {
@@ -649,7 +649,7 @@ body {
     justify-content: space-between;
     align-items: center;
     padding: 20px 30px;
-    background: var(--color-bg);
+    background: rgba(10, 14, 20, 0.82);
     border-bottom: 2px solid var(--color-border-bright);
     position: relative;
 }
@@ -901,6 +901,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 20px;
+    background: rgba(10, 14, 20, 0.24);
 }
 
 .messages-container::-webkit-scrollbar {
@@ -1084,7 +1085,7 @@ body {
 
 .users-sidebar {
     width: 280px;
-    background: var(--color-bg);
+    background: rgba(10, 14, 20, 0.8);
     border-left: 2px solid var(--color-border-bright);
     display: flex;
     flex-direction: column;
