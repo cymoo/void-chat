@@ -1,3 +1,4 @@
+import { memo, useCallback, useMemo } from "react";
 import { useChatStore } from "@/stores/chatStore";
 import { useUiStore } from "@/stores/uiStore";
 import { renderMarkdown, highlightMentions } from "@/lib/markdown";
@@ -11,7 +12,7 @@ interface MessageItemProps {
   onMediaLoad?: () => void;
 }
 
-export function MessageItem({
+function MessageItemInner({
   message,
   currentUser,
   send,
@@ -34,13 +35,13 @@ export function MessageItem({
 
   const isOwn = message.userId === currentUser.id;
 
-  const handleDelete = () => {
+  const handleDelete = useCallback(() => {
     if (confirm("Delete this message?")) {
       send({ type: "delete", messageId: message.id });
     }
-  };
+  }, [message.id, send]);
 
-  const handleReplyClick = () => {
+  const handleReplyClick = useCallback(() => {
     if (message.replyTo) {
       const target = document.querySelector(`[data-message-id="${message.replyTo.id}"]`);
       if (target) {
@@ -49,17 +50,20 @@ export function MessageItem({
         setTimeout(() => target.classList.remove("message-highlight"), 2000);
       }
     }
-  };
+  }, [message.replyTo]);
+
+  const textHtml = useMemo(() => {
+    if (message.messageType !== "text") return null;
+    return highlightMentions(renderMarkdown(message.content), currentUser.username);
+  }, [message, currentUser.username]);
 
   const renderContent = () => {
     if (message.messageType === "text") {
-      let html = renderMarkdown(message.content);
-      html = highlightMentions(html, currentUser.username);
       return (
         <>
           <div
             className="message-text markdown-body"
-            dangerouslySetInnerHTML={{ __html: html }}
+            dangerouslySetInnerHTML={{ __html: textHtml ?? "" }}
           />
           {message.editedAt && <span className="edited-tag">(edited)</span>}
         </>
@@ -167,3 +171,13 @@ export function MessageItem({
     </div>
   );
 }
+
+export const MessageItem = memo(
+  MessageItemInner,
+  (prev, next) =>
+    prev.message === next.message &&
+    prev.currentUser.id === next.currentUser.id &&
+    prev.currentUser.username === next.currentUser.username &&
+    prev.send === next.send &&
+    prev.onMediaLoad === next.onMediaLoad,
+);

@@ -227,12 +227,16 @@ class MessageRepository(private val dsl: DSLContext) {
             MESSAGES.MESSAGE_TYPE,
             MESSAGES.CONTENT,
             MESSAGES.FILE_NAME,
+            MESSAGES.IS_DELETED,
             USERS.USERNAME
         )
             .from(MESSAGES)
             .leftJoin(USERS).on(MESSAGES.USER_ID.eq(USERS.ID))
             .where(MESSAGES.ID.eq(messageId))
             .fetchOne() ?: return null
+
+        val isDeleted = (record.get(MESSAGES.IS_DELETED) ?: 0) == 1
+        if (isDeleted) return null
 
         val msgType = record.get(MESSAGES.MESSAGE_TYPE) ?: "text"
         val content = when (msgType) {

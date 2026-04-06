@@ -20,12 +20,18 @@ export function useWebSocket({
 }: UseWebSocketOptions) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectAttemptsRef = useRef(0);
+  const reconnectTimerRef = useRef<number | null>(null);
   const intentionalCloseRef = useRef(false);
   const joinedRef = useRef(false);
   const handleWsEvent = useChatStore((s) => s.handleWsEvent);
   const addToast = useUiStore((s) => s.addToast);
 
   const connect = useCallback(() => {
+    if (!token || !Number.isFinite(roomId) || roomId <= 0) {
+      return;
+    }
+
+    intentionalCloseRef.current = false;
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const host = window.location.host;
     let url = `${protocol}//${host}/chat/${roomId}?token=${encodeURIComponent(token)}`;
@@ -37,6 +43,10 @@ export function useWebSocket({
     wsRef.current = ws;
 
     ws.onopen = () => {
+      if (reconnectTimerRef.current !== null) {
+        window.clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
       reconnectAttemptsRef.current = 0;
     };
 
@@ -85,7 +95,7 @@ export function useWebSocket({
       if (attempts < 5) {
         const delay = Math.min(1000 * Math.pow(2, attempts), 16000);
         reconnectAttemptsRef.current = attempts + 1;
-        setTimeout(connect, delay);
+        reconnectTimerRef.current = window.setTimeout(connect, delay);
       } else {
         addToast("Connection lost. Please refresh.", "error");
       }
@@ -102,7 +112,19 @@ export function useWebSocket({
 
     return () => {
       intentionalCloseRef.current = true;
-      wsRef.current?.close();
+      if (reconnectTimerRef.current !== null) {
+        window.clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+      const ws = wsRef.current;
+      if (!ws) return;
+      if (ws.readyState === WebSocket.CONNECTING) {
+        ws.onopen = () => ws.close();
+        return;
+      }
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.close();
+      }
     };
   }, [connect]);
 

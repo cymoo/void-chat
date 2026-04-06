@@ -16,47 +16,67 @@ export function MessageList({ send, currentUser }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const isAtBottomRef = useRef(true);
   const loadingRef = useRef(false);
+  const scrollingRef = useRef(false);
+
+  const syncToBottom = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+    requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight;
+      requestAnimationFrame(() => {
+        el.scrollTop = el.scrollHeight;
+      });
+    });
+  }, []);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    if (isAtBottomRef.current && bottomRef.current) {
-      bottomRef.current.scrollIntoView({ behavior: "smooth" });
+    if (isAtBottomRef.current) {
+      syncToBottom();
     }
-  }, [messages]);
+  }, [messages, syncToBottom]);
 
   // Track scroll position
   const handleScroll = useCallback(() => {
     const el = containerRef.current;
     if (!el) return;
-    const threshold = 100;
-    isAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
+    if (scrollingRef.current) return;
+    scrollingRef.current = true;
 
-    // Load more history when scrolled to top
-    if (el.scrollTop < 50 && hasMore && !loadingRef.current && oldestMessageId) {
-      loadingRef.current = true;
-      const prevHeight = el.scrollHeight;
-      send({ type: "load_history", beforeId: oldestMessageId });
-      // Restore scroll position after history loads
-      requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const threshold = 100;
+      isAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
+
+      // Load more history when scrolled to top
+      if (el.scrollTop < 50 && hasMore && !loadingRef.current && oldestMessageId) {
+        loadingRef.current = true;
+        const prevHeight = el.scrollHeight;
+        send({ type: "load_history", beforeId: oldestMessageId });
+        // Restore scroll position after history loads
         requestAnimationFrame(() => {
-          const newHeight = el.scrollHeight;
-          el.scrollTop = newHeight - prevHeight;
-          loadingRef.current = false;
+          requestAnimationFrame(() => {
+            const newHeight = el.scrollHeight;
+            el.scrollTop = newHeight - prevHeight;
+            loadingRef.current = false;
+          });
         });
-      });
-    }
+      }
+
+      scrollingRef.current = false;
+    });
   }, [hasMore, oldestMessageId, send]);
 
   // Initial scroll to bottom
   useEffect(() => {
-    bottomRef.current?.scrollIntoView();
-  }, []);
+    syncToBottom();
+  }, [syncToBottom]);
 
   const handleMediaLoad = useCallback(() => {
-    if (isAtBottomRef.current && bottomRef.current) {
-      bottomRef.current.scrollIntoView({ behavior: "smooth" });
+    if (isAtBottomRef.current) {
+      syncToBottom();
     }
-  }, []);
+  }, [syncToBottom]);
 
   return (
     <div

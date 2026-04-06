@@ -7,6 +7,27 @@ import type {
   TextMessage,
 } from "@/api/types";
 
+function mergeUniqueById<T extends { id: number }>(items: T[]): T[] {
+  const seen = new Set<number>();
+  const result: T[] = [];
+  for (const item of items) {
+    if (seen.has(item.id)) continue;
+    seen.add(item.id);
+    result.push(item);
+  }
+  return result;
+}
+
+function clearReplyReference(
+  messages: ChatMessage[],
+  deletedMessageId: number,
+): ChatMessage[] {
+  return messages.map((message) => {
+    if (message.replyTo?.id !== deletedMessageId) return message;
+    return { ...message, replyTo: null };
+  });
+}
+
 interface ChatState {
   messages: ChatMessage[];
   users: User[];
@@ -61,11 +82,34 @@ export const useChatStore = create<ChatState>((set, get) => ({
   handleWsEvent: (event: WsEvent) => {
     switch (event.type) {
       case "history":
-        set({
-          messages: event.messages,
-          hasMore: event.hasMore,
-          oldestMessageId:
-            event.messages.length > 0 ? event.messages[0]!.id : null,
+        set((state) => {
+          const incoming = mergeUniqueById(event.messages);
+          if (state.messages.length === 0) {
+            return {
+              messages: incoming,
+              hasMore: event.hasMore,
+              oldestMessageId: incoming.length > 0 ? incoming[0]!.id : null,
+            };
+          }
+
+          const knownIds = new Set(state.messages.map((m) => m.id));
+          const freshIncoming = incoming.filter((m) => !knownIds.has(m.id));
+          const oldestCurrent = state.messages[0]?.id ?? null;
+          const newestIncoming = incoming[incoming.length - 1]?.id ?? null;
+          const prependHistory =
+            oldestCurrent !== null &&
+            newestIncoming !== null &&
+            newestIncoming < oldestCurrent;
+
+          const merged = prependHistory
+            ? [...freshIncoming, ...state.messages]
+            : mergeUniqueById([...state.messages, ...incoming]);
+
+          return {
+            messages: merged,
+            hasMore: event.hasMore,
+            oldestMessageId: merged.length > 0 ? merged[0]!.id : null,
+          };
         });
         break;
 
@@ -74,9 +118,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
         break;
 
       case "message":
-        set((state) => ({
-          messages: [...state.messages, event.message],
-        }));
+        set((state) => {
+          if (state.messages.some((m) => m.id === event.message.id)) {
+            return state;
+          }
+          return { messages: [...state.messages, event.message] };
+        });
         break;
 
       case "user_joined":
@@ -97,17 +144,31 @@ export const useChatStore = create<ChatState>((set, get) => ({
       case "message_edited":
         set((state) => ({
           messages: state.messages.map((m) =>
-            m.id === event.messageId && m.messageType === "text"
-              ? { ...m, content: event.content, editedAt: event.editedAt }
-              : m,
+            m.id === event.messageId
+              ? m.messageType === "text"
+                ? { ...m, content: event.content, editedAt: event.editedAt }
+                : m
+              : m.replyTo?.id === event.messageId
+                ? {
+                    ...m,
+                    replyTo: {
+                      ...m.replyTo,
+                      content: event.content,
+                    },
+                  }
+                : m,
           ),
         }));
         break;
 
       case "message_deleted":
-        set((state) => ({
-          messages: state.messages.filter((m) => m.id !== event.messageId),
-        }));
+        set((state) => {
+          const remaining = state.messages.filter((m) => m.id !== event.messageId);
+          return {
+            messages: clearReplyReference(remaining, event.messageId),
+            oldestMessageId: remaining.length > 0 ? remaining[0]!.id : null,
+          };
+        });
         break;
 
       case "private_message":
@@ -118,6 +179,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
             privateChatUserId === msg.senderId ||
             privateChatUserId === msg.receiverId
           ) {
+            if (state.privateMessages.some((m) => m.id === msg.id)) {
+              return state;
+            }
             return {
               privateMessages: [...state.privateMessages, msg],
               unreadDmCount: state.unreadDmCount,
@@ -129,7 +193,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
       case "private_history":
         set({
-          privateMessages: event.messages,
+          privateMessages: mergeUniqueById(event.messages),
           privateHasMore: event.hasMore,
         });
         break;

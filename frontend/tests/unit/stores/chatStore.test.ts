@@ -175,6 +175,56 @@ describe("chatStore", () => {
     expect(useChatStore.getState().messages[0]!.id).toBe(2);
   });
 
+  it("should clear reply previews that point to deleted message", () => {
+    useChatStore.setState({
+      messages: [
+        {
+          id: 1,
+          messageType: "text",
+          userId: 1,
+          username: "alice",
+          content: "origin",
+          timestamp: Date.now(),
+        },
+        {
+          id: 2,
+          messageType: "text",
+          userId: 2,
+          username: "bob",
+          content: "reply",
+          timestamp: Date.now(),
+          replyTo: { id: 1, username: "alice", content: "origin", messageType: "text" },
+        },
+      ],
+    });
+
+    useChatStore.getState().handleWsEvent({
+      type: "message_deleted",
+      messageId: 1,
+    });
+
+    const remaining = useChatStore.getState().messages[0]!;
+    expect(remaining.id).toBe(2);
+    expect(remaining.replyTo).toBeNull();
+  });
+
+  it("should avoid duplicate messages by id", () => {
+    const message: ChatMessage = {
+      id: 1,
+      messageType: "text",
+      userId: 1,
+      username: "alice",
+      content: "dup",
+      timestamp: Date.now(),
+    };
+
+    const store = useChatStore.getState();
+    store.handleWsEvent({ type: "message", message });
+    store.handleWsEvent({ type: "message", message });
+
+    expect(useChatStore.getState().messages).toHaveLength(1);
+  });
+
   it("should handle search_results event", () => {
     const results: ChatMessage[] = [
       {

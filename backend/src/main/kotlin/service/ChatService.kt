@@ -223,8 +223,28 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
     }
 
     // Private messaging
-    fun sendPrivateMessage(sender: User, receiverId: Int, content: String) {
-        val messageId = privateMessageRepo.saveMessage(sender.id, receiverId, "text", content)
+    fun sendPrivateMessage(
+        sender: User,
+        receiverId: Int,
+        messageType: String,
+        content: String? = null,
+        fileUrl: String? = null,
+        fileName: String? = null,
+        fileSize: Long? = null,
+        mimeType: String? = null,
+        thumbnailUrl: String? = null
+    ) {
+        val messageId = privateMessageRepo.saveMessage(
+            senderId = sender.id,
+            receiverId = receiverId,
+            messageType = messageType,
+            content = content,
+            fileUrl = fileUrl,
+            fileName = fileName,
+            fileSize = fileSize,
+            mimeType = mimeType,
+            thumbnailUrl = thumbnailUrl
+        )
         val receiver = userRepo.findById(receiverId) ?: return
 
         val pm = PrivateMessage(
@@ -234,8 +254,13 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
             senderAvatarUrl = sender.avatarUrl,
             receiverId = receiverId,
             receiverUsername = receiver.username,
-            messageType = "text",
+            messageType = messageType,
             content = content,
+            fileUrl = fileUrl,
+            fileName = fileName,
+            fileSize = fileSize,
+            mimeType = mimeType,
+            thumbnailUrl = thumbnailUrl,
             timestamp = System.currentTimeMillis()
         )
 

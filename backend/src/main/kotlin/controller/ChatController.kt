@@ -177,8 +177,37 @@ class ChatController(
                         }
                     }
                     "private_message" -> {
-                        if (targetUserId != null && content != null) {
-                            chatService.sendPrivateMessage(currentUser, targetUserId, content)
+                        if (targetUserId != null) {
+                            when {
+                                content != null -> {
+                                    chatService.sendPrivateMessage(
+                                        sender = currentUser,
+                                        receiverId = targetUserId,
+                                        messageType = "text",
+                                        content = content
+                                    )
+                                }
+                                imageUrl != null -> {
+                                    chatService.sendPrivateMessage(
+                                        sender = currentUser,
+                                        receiverId = targetUserId,
+                                        messageType = "image",
+                                        fileUrl = imageUrl,
+                                        thumbnailUrl = thumbnailUrl
+                                    )
+                                }
+                                fileUrl != null && fileName != null && fileSize != null && mimeType != null -> {
+                                    chatService.sendPrivateMessage(
+                                        sender = currentUser,
+                                        receiverId = targetUserId,
+                                        messageType = "file",
+                                        fileUrl = fileUrl,
+                                        fileName = fileName,
+                                        fileSize = fileSize,
+                                        mimeType = mimeType
+                                    )
+                                }
+                            }
                         }
                     }
                     "private_history" -> {

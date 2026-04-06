@@ -13,12 +13,27 @@ class PrivateMessageRepository(private val dsl: DSLContext) {
     private val SENDER = USERS.`as`("sender")
     private val RECEIVER = USERS.`as`("receiver")
 
-    fun saveMessage(senderId: Int, receiverId: Int, messageType: String, content: String?): Int {
+    fun saveMessage(
+        senderId: Int,
+        receiverId: Int,
+        messageType: String,
+        content: String? = null,
+        fileUrl: String? = null,
+        fileName: String? = null,
+        fileSize: Long? = null,
+        mimeType: String? = null,
+        thumbnailUrl: String? = null
+    ): Int {
         return dsl.insertInto(PRIVATE_MESSAGES)
             .set(PRIVATE_MESSAGES.SENDER_ID, senderId)
             .set(PRIVATE_MESSAGES.RECEIVER_ID, receiverId)
             .set(PRIVATE_MESSAGES.MESSAGE_TYPE, messageType)
             .set(PRIVATE_MESSAGES.CONTENT, content)
+            .set(PRIVATE_MESSAGES.FILE_URL, fileUrl)
+            .set(PRIVATE_MESSAGES.FILE_NAME, fileName)
+            .set(PRIVATE_MESSAGES.FILE_SIZE, fileSize?.toInt())
+            .set(PRIVATE_MESSAGES.MIME_TYPE, mimeType)
+            .set(PRIVATE_MESSAGES.THUMBNAIL_URL, thumbnailUrl)
             .returningResult(PRIVATE_MESSAGES.ID)
             .fetchOne()!!
             .get(PRIVATE_MESSAGES.ID)!!
