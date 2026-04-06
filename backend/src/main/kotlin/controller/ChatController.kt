@@ -8,7 +8,6 @@ import io.github.cymoo.colleen.ws.WsConnection
 import io.github.cymoo.colleen.ws.WsUse
 import model.User
 import model.WsEvent
-import model.WsMessagePayload
 import service.ChatService
 import service.RoomService
 import service.SessionService
@@ -110,83 +109,100 @@ class ChatController(
         // Handle incoming messages
         conn.onMessage { msg ->
             try {
-                val payload = objectMapper.readValue(msg, WsMessagePayload::class.java)
+                val payload = objectMapper.readTree(msg)
+                val type = payload.path("type").asText("")
+                val content = payload.path("content").takeIf { !it.isMissingNode && !it.isNull }?.asText()
+                val imageUrl = payload.path("imageUrl").takeIf { !it.isMissingNode && !it.isNull }?.asText()
+                val thumbnailUrl = payload.path("thumbnailUrl").takeIf { !it.isMissingNode && !it.isNull }?.asText()
+                val fileName = payload.path("fileName").takeIf { !it.isMissingNode && !it.isNull }?.asText()
+                val fileUrl = payload.path("fileUrl").takeIf { !it.isMissingNode && !it.isNull }?.asText()
+                val mimeType = payload.path("mimeType").takeIf { !it.isMissingNode && !it.isNull }?.asText()
+                val messageId = payload.path("messageId").takeIf { !it.isMissingNode && !it.isNull }?.asInt()
+                val targetUserId = payload.path("targetUserId").takeIf { !it.isMissingNode && !it.isNull }?.asInt()
+                val replyToId = payload.path("replyToId").takeIf { !it.isMissingNode && !it.isNull }?.asInt()
+                val beforeId = payload.path("beforeId").takeIf { !it.isMissingNode && !it.isNull }?.asInt()
+                val query = payload.path("query").takeIf { !it.isMissingNode && !it.isNull }?.asText()
+                val role = payload.path("role").takeIf { !it.isMissingNode && !it.isNull }?.asText()
+                val avatarUrl = payload.path("avatarUrl").takeIf { !it.isMissingNode && !it.isNull }?.asText()
+                val bio = payload.path("bio").takeIf { !it.isMissingNode && !it.isNull }?.asText()
+                val status = payload.path("status").takeIf { !it.isMissingNode && !it.isNull }?.asText()
+                val fileSize = payload.path("fileSize").takeIf { !it.isMissingNode && !it.isNull }?.asLong()
 
-                when (payload.type) {
+                when (type) {
                     "text" -> {
-                        payload.content?.let { content ->
-                            chatService.sendTextMessage(roomId, currentUser, content, payload.replyToId)
+                        content?.let { text ->
+                            chatService.sendTextMessage(roomId, currentUser, text, replyToId)
                         }
                     }
                     "image" -> {
-                        payload.imageUrl?.let { imageUrl ->
-                            chatService.sendImageMessage(roomId, currentUser, imageUrl, payload.thumbnailUrl, payload.replyToId)
+                        imageUrl?.let { image ->
+                            chatService.sendImageMessage(roomId, currentUser, image, thumbnailUrl, replyToId)
                         }
                     }
                     "file" -> {
-                        if (payload.fileName != null && payload.fileUrl != null &&
-                            payload.fileSize != null && payload.mimeType != null) {
+                        if (fileName != null && fileUrl != null &&
+                            fileSize != null && mimeType != null) {
                             chatService.sendFileMessage(
-                                roomId, currentUser, payload.fileName, payload.fileUrl,
-                                payload.fileSize, payload.mimeType, payload.replyToId
+                                roomId, currentUser, fileName, fileUrl,
+                                fileSize, mimeType, replyToId
                             )
                         }
                     }
                     "edit" -> {
-                        if (payload.messageId != null && payload.content != null) {
-                            chatService.editMessage(roomId, currentUser, payload.messageId, payload.content)
+                        if (messageId != null && content != null) {
+                            chatService.editMessage(roomId, currentUser, messageId, content)
                         }
                     }
                     "delete" -> {
-                        payload.messageId?.let { messageId ->
-                            chatService.deleteMessage(roomId, currentUser, messageId)
+                        messageId?.let { id ->
+                            chatService.deleteMessage(roomId, currentUser, id)
                         }
                     }
                     "load_history" -> {
-                        payload.beforeId?.let { beforeId ->
-                            val (messages, hasMore) = chatService.getOlderMessages(roomId, beforeId)
+                        beforeId?.let { id ->
+                            val (messages, hasMore) = chatService.getOlderMessages(roomId, id)
                             conn.send(chatService.serializeEvent(
                                 WsEvent.History(messages, hasMore)
                             ))
                         }
                     }
                     "search" -> {
-                        payload.query?.let { query ->
-                            if (query.isNotBlank()) {
-                                val results = chatService.searchMessages(roomId, query)
+                        query?.let { q ->
+                            if (q.isNotBlank()) {
+                                val results = chatService.searchMessages(roomId, q)
                                 conn.send(chatService.serializeEvent(
-                                    WsEvent.SearchResults(results, query)
+                                    WsEvent.SearchResults(results, q)
                                 ))
                             }
                         }
                     }
                     "private_message" -> {
-                        if (payload.targetUserId != null && payload.content != null) {
-                            chatService.sendPrivateMessage(currentUser, payload.targetUserId, payload.content)
+                        if (targetUserId != null && content != null) {
+                            chatService.sendPrivateMessage(currentUser, targetUserId, content)
                         }
                     }
                     "private_history" -> {
-                        payload.targetUserId?.let { targetUserId ->
-                            val (messages, hasMore) = chatService.getPrivateHistory(currentUser.id, targetUserId, payload.beforeId)
+                        targetUserId?.let { userId ->
+                            val (messages, hasMore) = chatService.getPrivateHistory(currentUser.id, userId, beforeId)
                             conn.send(chatService.serializeEvent(
                                 WsEvent.PrivateHistory(messages, hasMore)
                             ))
                         }
                     }
                     "set_role" -> {
-                        if (payload.targetUserId != null && payload.role != null) {
-                            chatService.setUserRole(roomId, currentUser, payload.targetUserId, payload.role)
+                        if (targetUserId != null && role != null) {
+                            chatService.setUserRole(roomId, currentUser, targetUserId, role)
                         }
                     }
                     "kick" -> {
-                        payload.targetUserId?.let { targetUserId ->
-                            chatService.kickUser(roomId, currentUser, targetUserId)
+                        targetUserId?.let { userId ->
+                            chatService.kickUser(roomId, currentUser, userId)
                         }
                     }
                     "update_profile" -> {
                         // Update currentUser so subsequent messages carry the new avatar/status
                         currentUser = chatService.updateUserProfile(
-                            currentUser, payload.avatarUrl, payload.bio, payload.status
+                            currentUser, avatarUrl, bio, status
                         )
                     }
                 }
