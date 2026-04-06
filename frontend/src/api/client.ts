@@ -40,20 +40,20 @@ function toFriendlyErrorMessage(
     (status === 401 ||
       message?.toLowerCase().includes("invalid username or password"))
   ) {
-    return "Invalid username or password";
+    return "用户名或密码错误";
   }
   if (
     url === "/api/auth/register" &&
     (message?.toLowerCase().includes("already exists") ||
       (status === 400 && isGenericErrorMessage(message, status)))
   ) {
-    return "Username already exists or input is invalid";
+    return "用户名已存在或输入不合法";
   }
   if (
     (url === "/api/upload/image" || url === "/api/upload/file") &&
     status === 413
   ) {
-    return "File too large, exceeds server limit";
+    return "文件过大，超出服务器限制";
   }
   return message ?? `Server error (${status})`;
 }

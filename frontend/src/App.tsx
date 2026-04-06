@@ -4,6 +4,7 @@ import { AuthPage } from "@/pages/AuthPage";
 import { LobbyPage } from "@/pages/LobbyPage";
 import { ChatPage } from "@/pages/ChatPage";
 import { ToastContainer } from "@/components/ui/Toast";
+import { MatrixRain } from "@/components/effects/MatrixRain";
 import { useEffect } from "react";
 
 export function App() {
@@ -16,6 +17,7 @@ export function App() {
 
   return (
     <>
+      <MatrixRain />
       <div className="noise-overlay" />
       <Routes>
         <Route
