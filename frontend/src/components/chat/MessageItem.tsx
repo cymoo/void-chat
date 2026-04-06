@@ -1,146 +1,161 @@
-import type { ChatMessage, WsSendPayload } from "@/api/types";
 import { useChatStore } from "@/stores/chatStore";
 import { useUiStore } from "@/stores/uiStore";
-import { formatTime, formatFileSize, cn } from "@/lib/utils";
+import { renderMarkdown, highlightMentions } from "@/lib/markdown";
+import { formatTime, formatFileSize, getInitials } from "@/lib/utils";
+import type { ChatMessage, User, WsSendPayload } from "@/api/types";
 
 interface MessageItemProps {
   message: ChatMessage;
-  isOwn: boolean;
+  currentUser: User;
   send: (payload: WsSendPayload) => void;
 }
 
-export function MessageItem({ message, isOwn, send }: MessageItemProps) {
+export function MessageItem({ message, currentUser, send }: MessageItemProps) {
   const setEditingMessage = useChatStore((s) => s.setEditingMessage);
   const setReplyingTo = useChatStore((s) => s.setReplyingTo);
   const showUserCard = useUiStore((s) => s.showUserCard);
+  const setImageModal = useUiStore((s) => s.setImageModal);
 
   if (message.messageType === "system") {
     return (
-      <div className="text-center text-terminal-text-dim text-xs py-1">
-        <span className="text-terminal-amber">*</span> {message.content}{" "}
-        <span className="text-terminal-border">
-          [{formatTime(message.timestamp)}]
-        </span>
+      <div className="message system">
+        <div className="message-content">
+          <div className="message-text">{message.content}</div>
+        </div>
       </div>
     );
   }
 
+  const isOwn = message.userId === currentUser.id;
+
   const handleDelete = () => {
-    send({ type: "delete", messageId: message.id });
+    if (confirm("Delete this message?")) {
+      send({ type: "delete", messageId: message.id });
+    }
+  };
+
+  const handleReplyClick = () => {
+    if (message.replyTo) {
+      const target = document.querySelector(`[data-message-id="${message.replyTo.id}"]`);
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+        target.classList.add("message-highlight");
+        setTimeout(() => target.classList.remove("message-highlight"), 2000);
+      }
+    }
+  };
+
+  const renderContent = () => {
+    if (message.messageType === "text") {
+      let html = renderMarkdown(message.content);
+      html = highlightMentions(html, currentUser.username);
+      return (
+        <>
+          <div
+            className="message-text markdown-body"
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
+          {message.editedAt && <span className="edited-tag">(edited)</span>}
+        </>
+      );
+    }
+
+    if (message.messageType === "image") {
+      return (
+        <>
+          <div className="message-text">shared an image</div>
+          <img
+            src={message.imageUrl}
+            className="message-image"
+            onClick={() => setImageModal(message.imageUrl)}
+            alt="Shared image"
+          />
+        </>
+      );
+    }
+
+    if (message.messageType === "file") {
+      return (
+        <>
+          <div className="message-text">shared a file</div>
+          <div className="message-file">
+            <div className="file-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
+                <polyline points="13 2 13 9 20 9" />
+              </svg>
+            </div>
+            <div className="file-info">
+              <div className="file-name">{message.fileName}</div>
+              <div className="file-size">{formatFileSize(message.fileSize)}</div>
+            </div>
+            <a href={message.fileUrl} download className="file-download">
+              DOWNLOAD
+            </a>
+          </div>
+        </>
+      );
+    }
+
+    return null;
   };
 
   return (
-    <div
-      className={cn(
-        "group py-1 hover:bg-terminal-surface/50 px-2 -mx-2 rounded",
-        isOwn && "border-l-2 border-terminal-green/20",
-      )}
-    >
-      {/* Reply reference */}
-      {message.replyTo && (
-        <div className="text-xs text-terminal-text-dim ml-6 mb-0.5 flex items-center gap-1">
-          <span className="text-terminal-cyan">↳</span>
-          <span className="text-terminal-cyan">@{message.replyTo.username}</span>
-          <span className="truncate max-w-xs">
-            {message.replyTo.content}
-          </span>
-        </div>
-      )}
-
-      <div className="flex items-start gap-2">
-        {/* Timestamp */}
-        <span className="text-terminal-border text-xs shrink-0 w-12 pt-0.5">
-          {formatTime(message.timestamp)}
-        </span>
-
-        {/* Username */}
-        {"username" in message && (
-          <button
-            onClick={() => "userId" in message && showUserCard(message.userId)}
-            className={cn(
-              "text-sm font-bold shrink-0 hover:underline",
-              isOwn ? "text-terminal-green" : "text-terminal-cyan",
-            )}
-          >
-            {message.username}
-          </button>
+    <div className="message" data-message-id={message.id}>
+      <div
+        className="message-avatar"
+        style={{ cursor: "pointer" }}
+        onClick={() => showUserCard(message.userId)}
+      >
+        {message.avatarUrl ? (
+          <img
+            src={message.avatarUrl}
+            alt={message.username}
+            style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "2px" }}
+          />
+        ) : (
+          getInitials(message.username)
         )}
-
-        {/* Message content */}
-        <div className="flex-1 min-w-0">
-          {message.messageType === "text" && (
-            <div className="text-terminal-text text-sm break-words">
-              {message.content}
-              {message.editedAt && (
-                <span className="text-terminal-text-dim text-xs ml-1">
-                  (edited)
-                </span>
-              )}
-            </div>
-          )}
-
-          {message.messageType === "image" && (
-            <div className="mt-1">
-              <a
-                href={message.imageUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-block"
+      </div>
+      <div className="message-content">
+        {message.replyTo && (
+          <div className="reply-preview" onClick={handleReplyClick}>
+            <span className="reply-author">↩ {message.replyTo.username}</span>
+            <span className="reply-content">{message.replyTo.content}</span>
+          </div>
+        )}
+        <div className="message-header">
+          <div className="message-author">{message.username}</div>
+          <div className="message-time">{formatTime(message.timestamp)}</div>
+          <div className="message-actions">
+            <button
+              className="msg-action-btn msg-action-reply"
+              onClick={() => setReplyingTo(message)}
+              title="Reply"
+            >
+              ↩
+            </button>
+            {isOwn && message.messageType === "text" && (
+              <button
+                className="msg-action-btn msg-action-edit"
+                onClick={() => setEditingMessage(message.id)}
+                title="Edit"
               >
-                <img
-                  src={message.thumbnailUrl ?? message.imageUrl}
-                  alt="shared image"
-                  className="max-w-xs max-h-48 border border-terminal-border rounded"
-                  loading="lazy"
-                />
-              </a>
-            </div>
-          )}
-
-          {message.messageType === "file" && (
-            <a
-              href={message.fileUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 border border-terminal-border px-3 py-1 text-sm hover:border-terminal-green transition-colors mt-1"
-            >
-              <span className="text-terminal-amber">📎</span>
-              <span className="text-terminal-text">{message.fileName}</span>
-              <span className="text-terminal-text-dim text-xs">
-                ({formatFileSize(message.fileSize)})
-              </span>
-            </a>
-          )}
+                ✎
+              </button>
+            )}
+            {isOwn && (
+              <button
+                className="msg-action-btn msg-action-delete"
+                onClick={handleDelete}
+                title="Delete"
+              >
+                ✕
+              </button>
+            )}
+          </div>
         </div>
-
-        {/* Action buttons (visible on hover) */}
-        <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 shrink-0 transition-opacity">
-          <button
-            onClick={() => setReplyingTo(message)}
-            className="text-terminal-text-dim hover:text-terminal-cyan text-xs px-1"
-            title="Reply"
-          >
-            ↩
-          </button>
-          {isOwn && message.messageType === "text" && (
-            <button
-              onClick={() => setEditingMessage(message.id)}
-              className="text-terminal-text-dim hover:text-terminal-amber text-xs px-1"
-              title="Edit"
-            >
-              ✎
-            </button>
-          )}
-          {isOwn && (
-            <button
-              onClick={handleDelete}
-              className="text-terminal-text-dim hover:text-terminal-red text-xs px-1"
-              title="Delete"
-            >
-              ×
-            </button>
-          )}
-        </div>
+        {renderContent()}
       </div>
     </div>
   );

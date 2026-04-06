@@ -36,13 +36,26 @@ async function request<T>(
     headers["Content-Type"] = "application/json";
   }
 
-  const res = await fetch(url, {
-    method,
-    headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method,
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    throw new ApiError(0, "Network error — is the server running?");
+  }
 
   if (res.status === 204) return null as T;
+
+  const contentType = res.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) {
+    throw new ApiError(
+      res.status,
+      res.ok ? "Unexpected response from server" : `Server error (${res.status})`,
+    );
+  }
 
   const data = await res.json();
   if (!res.ok) {

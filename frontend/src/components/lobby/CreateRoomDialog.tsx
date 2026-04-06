@@ -1,139 +1,113 @@
 import { useState, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import { useRoomStore } from "@/stores/roomStore";
 import { useUiStore } from "@/stores/uiStore";
 
-export function CreateRoomDialog() {
-  const open = useUiStore((s) => s.createRoomOpen);
-  const setOpen = useUiStore((s) => s.setCreateRoomOpen);
-  const createRoom = useRoomStore((s) => s.createRoom);
-  const addToast = useUiStore((s) => s.addToast);
-
+export function CreateRoomModal() {
+  const navigate = useNavigate();
+  const { createRoom, joinRoom } = useRoomStore();
+  const { setCreateRoomOpen, addToast } = useUiStore();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [isPrivate, setIsPrivate] = useState(false);
+  const [visibility, setVisibility] = useState<"public" | "private">("public");
   const [password, setPassword] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-
-  if (!open) return null;
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) {
-      addToast("Room name is required", "error");
-      return;
-    }
-    if (isPrivate && !password) {
-      addToast("Private rooms require a password", "error");
-      return;
-    }
-
-    setSubmitting(true);
     try {
-      await createRoom({
-        name: name.trim(),
-        description: description.trim() || null,
-        isPrivate,
-        password: isPrivate ? password : null,
+      const room = await createRoom({
+        name,
+        description: description || null,
+        isPrivate: visibility === "private",
+        password: visibility === "private" ? password : null,
       });
-      addToast(`Room "${name}" created`, "success");
-      setName("");
-      setDescription("");
-      setIsPrivate(false);
-      setPassword("");
-      setOpen(false);
+      setCreateRoomOpen(false);
+      joinRoom(room.id, room.name, visibility === "private" ? password : undefined);
+      navigate(`/chat/${room.id}`);
     } catch (err) {
       addToast(err instanceof Error ? err.message : "Failed to create room", "error");
-    } finally {
-      setSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-      <div className="bg-terminal-surface border border-terminal-border p-6 max-w-md w-full mx-4">
-        <div className="text-terminal-green text-sm mb-4 font-bold">
-          ┌── CREATE NEW ROOM ──┐
+    <div className="modal active">
+      <div className="modal-backdrop" onClick={() => setCreateRoomOpen(false)} />
+      <div className="create-room-panel">
+        <div className="panel-header">
+          <span className="panel-title">NEW ROOM</span>
+          <button
+            className="modal-close panel-close-btn"
+            onClick={() => setCreateRoomOpen(false)}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
         </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-terminal-green text-xs mb-1">
-              ROOM NAME:
-            </label>
+        <form className="create-room-content" onSubmit={handleSubmit}>
+          <div className="input-group">
+            <label className="input-label">&gt; ROOM NAME</label>
             <input
+              className="terminal-input"
               type="text"
+              placeholder="my-awesome-room"
+              required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full bg-terminal-bg border border-terminal-border px-3 py-2 text-terminal-text font-mono text-sm focus:border-terminal-green focus:outline-none"
-              placeholder="enter room name..."
-              autoFocus
             />
           </div>
-
-          <div>
-            <label className="block text-terminal-green text-xs mb-1">
-              DESCRIPTION (OPTIONAL):
-            </label>
+          <div className="input-group">
+            <label className="input-label">&gt; DESCRIPTION (optional)</label>
             <input
+              className="terminal-input"
               type="text"
+              placeholder="What is this room about?"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full bg-terminal-bg border border-terminal-border px-3 py-2 text-terminal-text font-mono text-sm focus:border-terminal-green focus:outline-none"
-              placeholder="describe your room..."
             />
           </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setIsPrivate(!isPrivate)}
-              className={`w-4 h-4 border text-xs flex items-center justify-center ${
-                isPrivate
-                  ? "border-terminal-amber text-terminal-amber"
-                  : "border-terminal-border text-transparent"
-              }`}
-            >
-              ×
-            </button>
-            <label
-              onClick={() => setIsPrivate(!isPrivate)}
-              className="text-terminal-text text-sm cursor-pointer"
-            >
-              PRIVATE ROOM (password required)
-            </label>
-          </div>
-
-          {isPrivate && (
-            <div>
-              <label className="block text-terminal-amber text-xs mb-1">
-                ROOM PASSWORD:
+          <div className="input-group">
+            <label className="input-label">&gt; VISIBILITY</label>
+            <div className="radio-group">
+              <label className="radio-label">
+                <input
+                  type="radio"
+                  name="room-visibility"
+                  value="public"
+                  checked={visibility === "public"}
+                  onChange={() => setVisibility("public")}
+                />
+                PUBLIC
               </label>
+              <label className="radio-label">
+                <input
+                  type="radio"
+                  name="room-visibility"
+                  value="private"
+                  checked={visibility === "private"}
+                  onChange={() => setVisibility("private")}
+                />
+                PRIVATE
+              </label>
+            </div>
+          </div>
+          {visibility === "private" && (
+            <div className="input-group">
+              <label className="input-label">&gt; ROOM PASSWORD</label>
               <input
+                className="terminal-input"
                 type="password"
+                placeholder="Room password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-terminal-bg border border-terminal-border px-3 py-2 text-terminal-text font-mono text-sm focus:border-terminal-amber focus:outline-none"
-                placeholder="enter password..."
               />
             </div>
           )}
-
-          <div className="flex gap-2 pt-2">
-            <button
-              type="submit"
-              disabled={submitting}
-              className="flex-1 border border-terminal-green text-terminal-green px-3 py-2 text-sm hover:bg-terminal-green hover:text-terminal-bg transition-colors disabled:opacity-50"
-            >
-              {submitting ? "CREATING..." : "[ CREATE ]"}
-            </button>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="flex-1 border border-terminal-border text-terminal-text-dim px-3 py-2 text-sm hover:border-terminal-red hover:text-terminal-red transition-colors"
-            >
-              [ CANCEL ]
-            </button>
-          </div>
+          <button className="connect-btn" type="submit" style={{ marginTop: 0 }}>
+            <span className="btn-text">CREATE ROOM &gt;&gt;</span>
+            <span className="btn-scan" />
+          </button>
         </form>
       </div>
     </div>

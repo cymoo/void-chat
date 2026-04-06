@@ -1,46 +1,31 @@
-import {
-  useState,
-  useRef,
-  useCallback,
-  useEffect,
-  type KeyboardEvent,
-  type ChangeEvent,
-} from "react";
-import type { WsSendPayload } from "@/api/types";
+import { useState, useRef, useEffect, useCallback, type KeyboardEvent, type ChangeEvent } from "react";
 import { useChatStore, getMessageContent } from "@/stores/chatStore";
-import { useUiStore } from "@/stores/uiStore";
 import * as api from "@/api/client";
+import type { User, WsSendPayload } from "@/api/types";
 
 interface MessageInputProps {
   send: (payload: WsSendPayload) => void;
-  userId: number;
-  username: string;
+  currentUser: User;
 }
 
-export function MessageInput({ send, userId, username }: MessageInputProps) {
+export function MessageInput({ send, currentUser }: MessageInputProps) {
   const [text, setText] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const imageInputRef = useRef<HTMLInputElement>(null);
-
   const editingMessageId = useChatStore((s) => s.editingMessageId);
   const replyingTo = useChatStore((s) => s.replyingTo);
   const setEditingMessage = useChatStore((s) => s.setEditingMessage);
   const setReplyingTo = useChatStore((s) => s.setReplyingTo);
   const messages = useChatStore((s) => s.messages);
   const users = useChatStore((s) => s.users);
-  const addToast = useUiStore((s) => s.addToast);
 
-  // Mention autocomplete state
-  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
-  const [mentionResults, setMentionResults] = useState<
-    Array<{ id: number; username: string }>
-  >([]);
+  // Mention dropdown
+  const [, setMentionQuery] = useState<string | null>(null);
+  const [mentionResults, setMentionResults] = useState<typeof users>([]);
   const [mentionIndex, setMentionIndex] = useState(0);
 
-  // Populate edit field when editing
+  // Populate edit text
   useEffect(() => {
-    if (editingMessageId !== null) {
+    if (editingMessageId) {
       const msg = messages.find((m) => m.id === editingMessageId);
       if (msg) {
         setText(getMessageContent(msg));
@@ -49,27 +34,76 @@ export function MessageInput({ send, userId, username }: MessageInputProps) {
     }
   }, [editingMessageId, messages]);
 
-  const handleSend = useCallback(() => {
+  // Auto-resize textarea
+  const autoResize = useCallback(() => {
+    const el = textareaRef.current;
+    if (el) {
+      el.style.height = "auto";
+      el.style.height = Math.min(el.scrollHeight, 200) + "px";
+    }
+  }, []);
+
+  useEffect(() => {
+    autoResize();
+  }, [text, autoResize]);
+
+  const handleChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setText(val);
+
+    // Check for @mention
+    const cursorPos = e.target.selectionStart;
+    const textBeforeCursor = val.slice(0, cursorPos);
+    const mentionMatch = textBeforeCursor.match(/@(\w*)$/);
+
+    if (mentionMatch) {
+      const query = mentionMatch[1]!.toLowerCase();
+      setMentionQuery(query);
+      const filtered = users
+        .filter((u) => u.id !== currentUser.id && u.username.toLowerCase().includes(query))
+        .slice(0, 5);
+      setMentionResults(filtered);
+      setMentionIndex(0);
+    } else {
+      setMentionQuery(null);
+      setMentionResults([]);
+    }
+  };
+
+  const insertMention = (username: string) => {
+    const el = textareaRef.current;
+    if (!el) return;
+    const cursorPos = el.selectionStart;
+    const textBefore = text.slice(0, cursorPos);
+    const textAfter = text.slice(cursorPos);
+    const newTextBefore = textBefore.replace(/@\w*$/, `@${username} `);
+    setText(newTextBefore + textAfter);
+    setMentionQuery(null);
+    setMentionResults([]);
+    el.focus();
+  };
+
+  const handleSend = () => {
     const trimmed = text.trim();
     if (!trimmed) return;
 
-    if (editingMessageId !== null) {
+    if (editingMessageId) {
       send({ type: "edit", messageId: editingMessageId, content: trimmed });
       setEditingMessage(null);
     } else {
-      send({
-        type: "text",
-        content: trimmed,
-        replyToId: replyingTo?.id,
-      });
+      const payload: WsSendPayload = { type: "text", content: trimmed };
+      if (replyingTo) {
+        payload.replyToId = replyingTo.id;
+      }
+      send(payload);
       setReplyingTo(null);
     }
     setText("");
-  }, [text, editingMessageId, replyingTo, send, setEditingMessage, setReplyingTo]);
+  };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    // Handle mention navigation
-    if (mentionQuery !== null && mentionResults.length > 0) {
+    // Mention navigation
+    if (mentionResults.length > 0) {
       if (e.key === "ArrowDown") {
         e.preventDefault();
         setMentionIndex((i) => (i + 1) % mentionResults.length);
@@ -82,14 +116,12 @@ export function MessageInput({ send, userId, username }: MessageInputProps) {
       }
       if (e.key === "Enter" || e.key === "Tab") {
         e.preventDefault();
-        const selected = mentionResults[mentionIndex];
-        if (selected) {
-          insertMention(selected.username);
-        }
+        insertMention(mentionResults[mentionIndex]!.username);
         return;
       }
       if (e.key === "Escape") {
         setMentionQuery(null);
+        setMentionResults([]);
         return;
       }
     }
@@ -98,52 +130,6 @@ export function MessageInput({ send, userId, username }: MessageInputProps) {
       e.preventDefault();
       handleSend();
     }
-
-    if (e.key === "Escape" && editingMessageId !== null) {
-      setEditingMessage(null);
-      setText("");
-    }
-  };
-
-  const insertMention = (uname: string) => {
-    if (mentionQuery === null) return;
-    const ta = textareaRef.current;
-    if (!ta) return;
-
-    const pos = ta.selectionStart;
-    const before = text.substring(0, pos);
-    const after = text.substring(pos);
-    const atIndex = before.lastIndexOf("@");
-    const newText = before.substring(0, atIndex) + `@${uname} ` + after;
-    setText(newText);
-    setMentionQuery(null);
-
-    requestAnimationFrame(() => {
-      const newPos = atIndex + uname.length + 2;
-      ta.setSelectionRange(newPos, newPos);
-      ta.focus();
-    });
-  };
-
-  const handleChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
-    const val = e.target.value;
-    setText(val);
-
-    // Check for @mention
-    const pos = e.target.selectionStart;
-    const beforeCursor = val.substring(0, pos);
-    const atMatch = beforeCursor.match(/@(\w*)$/);
-    if (atMatch) {
-      const query = atMatch[1]!.toLowerCase();
-      setMentionQuery(query);
-      const results = users
-        .filter((u) => u.id !== userId && u.username.toLowerCase().includes(query))
-        .slice(0, 5);
-      setMentionResults(results);
-      setMentionIndex(0);
-    } else {
-      setMentionQuery(null);
-    }
   };
 
   const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -151,19 +137,15 @@ export function MessageInput({ send, userId, username }: MessageInputProps) {
     if (!file) return;
     try {
       const result = await api.uploadImage(file);
-      if (result.success && result.url) {
+      if (result.url) {
         send({
           type: "image",
           imageUrl: result.url,
           thumbnailUrl: result.thumbnail ?? undefined,
-          replyToId: replyingTo?.id,
         });
-        setReplyingTo(null);
-      } else {
-        addToast(result.error ?? "Upload failed", "error");
       }
     } catch {
-      addToast("Upload failed", "error");
+      // error handled by toast
     }
     e.target.value = "";
   };
@@ -173,154 +155,108 @@ export function MessageInput({ send, userId, username }: MessageInputProps) {
     if (!file) return;
     try {
       const result = await api.uploadFile(file);
-      if (result.success && result.url) {
+      if (result.url) {
         send({
           type: "file",
           fileName: result.fileName ?? file.name,
           fileUrl: result.url,
           fileSize: result.fileSize ?? file.size,
-          mimeType: file.type || "application/octet-stream",
-          replyToId: replyingTo?.id,
+          mimeType: file.type,
         });
-        setReplyingTo(null);
-      } else {
-        addToast(result.error ?? "Upload failed", "error");
       }
     } catch {
-      addToast("Upload failed", "error");
+      // error handled by toast
     }
     e.target.value = "";
   };
 
-  // Handle paste for image upload
-  useEffect(() => {
-    const handlePaste = async (e: ClipboardEvent) => {
-      const items = e.clipboardData?.items;
-      if (!items) return;
-      for (const item of items) {
-        if (item.type.startsWith("image/")) {
-          e.preventDefault();
-          const file = item.getAsFile();
-          if (file) {
-            try {
-              const result = await api.uploadImage(file);
-              if (result.success && result.url) {
-                send({ type: "image", imageUrl: result.url, thumbnailUrl: result.thumbnail ?? undefined });
-              }
-            } catch {
-              addToast("Paste upload failed", "error");
-            }
-          }
-          return;
-        }
-      }
-    };
-
-    document.addEventListener("paste", handlePaste);
-    return () => document.removeEventListener("paste", handlePaste);
-  }, [send, addToast]);
+  const cancelIndicator = () => {
+    setEditingMessage(null);
+    setReplyingTo(null);
+    setText("");
+  };
 
   return (
-    <div className="border-t border-terminal-border bg-terminal-surface shrink-0">
+    <>
       {/* Reply / Edit indicator */}
-      {(replyingTo || editingMessageId !== null) && (
-        <div className="flex items-center justify-between px-4 py-1 bg-terminal-surface-2 text-xs border-b border-terminal-border">
+      {(editingMessageId || replyingTo) && (
+        <div className="input-indicator">
           <span>
-            {editingMessageId !== null ? (
-              <span className="text-terminal-amber">✎ Editing message...</span>
-            ) : (
-              <span className="text-terminal-cyan">
-                ↩ Replying to @
-                {"username" in replyingTo! ? replyingTo!.username : "user"}
-              </span>
-            )}
+            {editingMessageId
+              ? "Editing message..."
+              : `Replying to ${replyingTo?.messageType !== "system" ? replyingTo?.username : ""}...`}
           </span>
-          <button
-            onClick={() => {
-              setEditingMessage(null);
-              setReplyingTo(null);
-              setText("");
-            }}
-            className="text-terminal-text-dim hover:text-terminal-red"
-          >
+          <button className="indicator-cancel" onClick={cancelIndicator}>
             ×
           </button>
         </div>
       )}
 
       {/* Mention dropdown */}
-      {mentionQuery !== null && mentionResults.length > 0 && (
-        <div className="border-b border-terminal-border bg-terminal-surface-2">
+      {mentionResults.length > 0 && (
+        <div className="mention-dropdown" style={{ display: "block" }}>
           {mentionResults.map((u, i) => (
-            <button
+            <div
               key={u.id}
+              className={`mention-item${i === mentionIndex ? " selected" : ""}`}
               onClick={() => insertMention(u.username)}
-              className={`block w-full text-left px-4 py-1 text-sm ${
-                i === mentionIndex
-                  ? "bg-terminal-green/20 text-terminal-green"
-                  : "text-terminal-text hover:bg-terminal-surface"
-              }`}
             >
-              @{u.username}
-            </button>
+              <span className="mention-item-name">{u.username}</span>
+              <span className="mention-item-username">@{u.username}</span>
+            </div>
           ))}
         </div>
       )}
 
-      {/* Input area */}
-      <div className="flex items-end gap-2 px-4 py-2">
-        <span className="text-terminal-green shrink-0 pb-1">
-          {username}@chat $
-        </span>
-        <textarea
-          ref={textareaRef}
-          value={text}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-          rows={1}
-          className="flex-1 bg-transparent text-terminal-text font-mono text-sm resize-none focus:outline-none min-h-[24px] max-h-32"
-          placeholder="type a message..."
-          style={{
-            height: "auto",
-            overflow: "hidden",
-          }}
-          onInput={(e) => {
-            const el = e.currentTarget;
-            el.style.height = "auto";
-            el.style.height = `${el.scrollHeight}px`;
-          }}
-        />
-        <div className="flex items-center gap-1 shrink-0 pb-1">
-          <button
-            onClick={() => imageInputRef.current?.click()}
-            className="text-terminal-text-dim hover:text-terminal-green text-sm px-1"
-            title="Upload image"
-          >
-            🖼
-          </button>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="text-terminal-text-dim hover:text-terminal-green text-sm px-1"
-            title="Upload file"
-          >
-            📎
-          </button>
+      <div className="input-panel">
+        <div className="input-wrapper">
+          <textarea
+            ref={textareaRef}
+            className="message-input"
+            placeholder="Type message... (Markdown supported)"
+            autoComplete="off"
+            rows={1}
+            value={text}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+          />
+          <div className="input-actions">
+            <label className="icon-btn" title="Upload Image">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <polyline points="21 15 16 10 5 21" />
+              </svg>
+              <input
+                type="file"
+                accept="image/*"
+                style={{ display: "none" }}
+                onChange={handleImageUpload}
+              />
+            </label>
+            <label className="icon-btn" title="Upload File">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
+                <polyline points="13 2 13 9 20 9" />
+              </svg>
+              <input
+                type="file"
+                style={{ display: "none" }}
+                onChange={handleFileUpload}
+              />
+            </label>
+            <button className="icon-btn send-btn" onClick={handleSend}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="22" y1="2" x2="11" y2="13" />
+                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div className="input-hint">
+          Press <kbd>Enter</kbd> to send • <kbd>Shift+Enter</kbd> for new line • Supports <strong>Markdown</strong> and <code>code</code> • Use @username to mention
         </div>
       </div>
-
-      <input
-        ref={imageInputRef}
-        type="file"
-        accept="image/jpeg,image/png,image/gif,image/webp"
-        className="hidden"
-        onChange={handleImageUpload}
-      />
-      <input
-        ref={fileInputRef}
-        type="file"
-        className="hidden"
-        onChange={handleFileUpload}
-      />
-    </div>
+    </>
   );
 }

@@ -1,98 +1,85 @@
-import { useCallback } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { useAuthStore } from "@/stores/authStore";
-import { useRoomStore } from "@/stores/roomStore";
 import { useChatStore } from "@/stores/chatStore";
 import { useUiStore } from "@/stores/uiStore";
-import { useWebSocket } from "@/hooks/useWebSocket";
 import { MessageList } from "./MessageList";
 import { MessageInput } from "./MessageInput";
 import { UserSidebar } from "./UserSidebar";
 import { SearchPanel } from "./SearchPanel";
-import { PrivateChat } from "./PrivateChat";
+import type { User, WsSendPayload } from "@/api/types";
 
-export function ChatView() {
-  const { roomId: roomIdParam } = useParams<{ roomId: string }>();
-  const roomId = Number(roomIdParam);
-  const navigate = useNavigate();
+interface ChatViewProps {
+  send: (payload: WsSendPayload) => void;
+  roomName: string;
+  currentUser: User;
+  onDisconnect: () => void;
+}
 
-  const token = useAuthStore((s) => s.token);
-  const user = useAuthStore((s) => s.user);
-  const roomName = useRoomStore((s) => s.currentRoomName);
-  const roomPassword = useRoomStore((s) => s.currentRoomPassword);
-  const leaveRoom = useRoomStore((s) => s.leaveRoom);
-  const reset = useChatStore((s) => s.reset);
-  const searchOpen = useUiStore((s) => s.searchOpen);
-  const toggleSearch = useUiStore((s) => s.toggleSearch);
-  const privateChatUserId = useChatStore((s) => s.privateChatUserId);
-  const addToast = useUiStore((s) => s.addToast);
-
-  const handleKicked = useCallback(
-    (reason: string) => {
-      addToast(`Kicked: ${reason}`, "error");
-      reset();
-      leaveRoom();
-      navigate("/lobby");
-    },
-    [addToast, reset, leaveRoom, navigate],
-  );
-
-  const { send } = useWebSocket({
-    roomId,
-    token: token ?? "",
-    roomPassword,
-    onKicked: handleKicked,
-  });
-
-  const handleLeave = () => {
-    reset();
-    leaveRoom();
-    navigate("/lobby");
-  };
+export function ChatView({ send, roomName, currentUser, onDisconnect }: ChatViewProps) {
+  const users = useChatStore((s) => s.users);
+  const unreadDmCount = useChatStore((s) => s.unreadDmCount);
+  const { searchOpen, toggleSearch, setProfileOpen, dmInboxOpen, setDmInboxOpen } = useUiStore();
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="chat-layout">
       {/* Header */}
-      <header className="flex items-center justify-between border-b border-terminal-border px-4 py-2 bg-terminal-surface shrink-0">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleLeave}
-            className="text-terminal-text-dim hover:text-terminal-red text-sm transition-colors"
-          >
-            {"<"} EXIT
+      <div className="chat-header">
+        <div className="header-left">
+          <div className="room-name">{roomName}</div>
+          <div className="room-status">
+            <span className="pulse-dot" />
+            <span>{users.length} ONLINE</span>
+          </div>
+        </div>
+        <div className="header-right">
+          <button className="icon-btn" title="Search Messages" onClick={toggleSearch}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
           </button>
-          <div className="text-terminal-border">│</div>
-          <span className="text-terminal-green font-bold">#{roomName || `room-${roomId}`}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={toggleSearch}
-            className={`px-2 py-1 text-xs border transition-colors ${
-              searchOpen
-                ? "border-terminal-green text-terminal-green"
-                : "border-terminal-border text-terminal-text-dim hover:border-terminal-green hover:text-terminal-green"
-            }`}
-          >
-            [SEARCH]
+          <button className="icon-btn" title="My Profile" onClick={() => setProfileOpen(true)}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+          </button>
+          {unreadDmCount > 0 && (
+            <button
+              className="icon-btn dm-badge-btn"
+              title="Unread DMs"
+              onClick={() => setDmInboxOpen(!dmInboxOpen)}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+              <span className="dm-unread-count">{unreadDmCount}</span>
+            </button>
+          )}
+          <div className="user-info">
+            <span className="user-label">LOGGED AS:</span>
+            <span className="user-name">{currentUser.username}</span>
+          </div>
+          <button className="icon-btn" title="Back to Lobby" onClick={onDisconnect}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="19" y1="12" x2="5" y2="12" />
+              <polyline points="12 19 5 12 12 5" />
+            </svg>
           </button>
         </div>
-      </header>
-
-      {/* Main content */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Messages area */}
-        <div className="flex flex-1 flex-col min-w-0">
-          {searchOpen && <SearchPanel send={send} />}
-          <MessageList send={send} userId={user?.id ?? 0} />
-          <MessageInput send={send} userId={user?.id ?? 0} username={user?.username ?? ""} />
-        </div>
-
-        {/* Sidebar */}
-        <UserSidebar />
       </div>
 
-      {/* Private chat overlay */}
-      {privateChatUserId !== null && <PrivateChat send={send} />}
+      {/* Search Bar */}
+      {searchOpen && <SearchPanel send={send} />}
+
+      {/* Chat Content */}
+      <div className="chat-content">
+        <div className="messages-panel">
+          <MessageList send={send} currentUser={currentUser} />
+        </div>
+        <UserSidebar send={send} currentUser={currentUser} />
+      </div>
+
+      {/* Input */}
+      <MessageInput send={send} currentUser={currentUser} />
     </div>
   );
 }

@@ -1,68 +1,128 @@
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/stores/authStore";
+import { useRoomStore } from "@/stores/roomStore";
 import { useUiStore } from "@/stores/uiStore";
-import { RoomList } from "@/components/lobby/RoomList";
-import { CreateRoomDialog } from "@/components/lobby/CreateRoomDialog";
+import { CreateRoomModal } from "@/components/lobby/CreateRoomDialog";
 import { ProfileModal } from "@/components/profile/ProfileModal";
+import { RoomPasswordModal } from "@/components/lobby/RoomPasswordModal";
+import type { RoomInfo } from "@/api/types";
 
 export function LobbyPage() {
+  const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
-  const setCreateRoomOpen = useUiStore((s) => s.setCreateRoomOpen);
-  const setProfileOpen = useUiStore((s) => s.setProfileOpen);
+  const { rooms, loading, fetchRooms, joinRoom } = useRoomStore();
+  const { profileOpen, setProfileOpen, createRoomOpen, setCreateRoomOpen } = useUiStore();
+
+  const [passwordRoom, setPasswordRoom] = useState<RoomInfo | null>(null);
+
+  useEffect(() => {
+    fetchRooms();
+  }, [fetchRooms]);
+
+  const handleRoomClick = (room: RoomInfo) => {
+    if (room.isPrivate) {
+      setPasswordRoom(room);
+    } else {
+      joinRoom(room.id, room.name);
+      navigate(`/chat/${room.id}`);
+    }
+  };
+
+  const handlePasswordJoin = (password: string) => {
+    if (passwordRoom) {
+      joinRoom(passwordRoom.id, passwordRoom.name, password);
+      navigate(`/chat/${passwordRoom.id}`);
+      setPasswordRoom(null);
+    }
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/auth");
+  };
 
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* Header */}
-      <header className="border-b border-terminal-border bg-terminal-surface px-6 py-3">
-        <div className="flex items-center justify-between max-w-4xl mx-auto">
-          <h1 className="font-display text-2xl text-terminal-green tracking-wider">
-            TERMINAL.CHAT
-          </h1>
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => setProfileOpen(true)}
-              className="text-terminal-text text-sm hover:text-terminal-green transition-colors"
-            >
-              {user?.username ?? "USER"}
-            </button>
-            <button
-              onClick={logout}
-              className="text-terminal-text-dim text-sm hover:text-terminal-red transition-colors"
-            >
-              [LOGOUT]
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main content */}
-      <main className="flex-1 px-6 py-6">
-        <div className="max-w-4xl mx-auto">
-          {/* Room controls */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="text-terminal-green text-sm">
-              ┌── AVAILABLE ROOMS ──┐
+    <div id="lobby-screen" className="screen">
+      <div className="lobby-container">
+        <div className="lobby-header">
+          <div className="lobby-title-section">
+            <div className="lobby-title">SELECT ROOM</div>
+            <div className="lobby-user-info">
+              <span className="user-label">LOGGED AS:</span>
+              <span className="user-name">{user?.username ?? "USER"}</span>
             </div>
+          </div>
+          <div className="lobby-actions">
             <button
-              onClick={() => setCreateRoomOpen(true)}
-              className="border border-terminal-green text-terminal-green px-3 py-1 text-xs hover:bg-terminal-green hover:text-terminal-bg transition-colors"
+              className="icon-btn lobby-action-btn"
+              title="My Profile"
+              onClick={() => setProfileOpen(true)}
             >
-              [ + NEW ROOM ]
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+              MY PROFILE
+            </button>
+            <button
+              className="icon-btn lobby-action-btn"
+              title="Create Room"
+              onClick={() => setCreateRoomOpen(true)}
+            >
+              + NEW ROOM
+            </button>
+            <button
+              className="icon-btn lobby-action-btn"
+              title="Logout"
+              onClick={handleLogout}
+            >
+              LOGOUT
             </button>
           </div>
-
-          <RoomList />
         </div>
-      </main>
 
-      {/* Footer */}
-      <footer className="border-t border-terminal-border px-6 py-2 text-center text-terminal-text-dim text-xs">
-        TERMINAL.CHAT v0.0.1 — Secure Communication Protocol
-      </footer>
+        <div className="lobby-rooms-grid">
+          {loading ? (
+            <div className="lobby-loading">LOADING ROOMS...</div>
+          ) : rooms.length === 0 ? (
+            <div className="lobby-loading">NO ROOMS AVAILABLE. CREATE ONE!</div>
+          ) : (
+            rooms.map((room) => (
+              <div
+                key={room.id}
+                className="room-card"
+                onClick={() => handleRoomClick(room)}
+              >
+                <div className="room-card-header">
+                  <div className="room-card-name">
+                    {room.name}
+                    {room.isPrivate && <span className="room-lock-icon">🔒</span>}
+                  </div>
+                </div>
+                {room.description && (
+                  <div className="room-card-desc">{room.description}</div>
+                )}
+                <div className="room-card-meta">
+                  <span className="pulse-dot" />
+                  {room.onlineUsers} ONLINE
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
 
-      {/* Dialogs */}
-      <CreateRoomDialog />
-      <ProfileModal />
+      {createRoomOpen && <CreateRoomModal />}
+      {profileOpen && <ProfileModal />}
+      {passwordRoom && (
+        <RoomPasswordModal
+          roomName={passwordRoom.name}
+          onJoin={handlePasswordJoin}
+          onClose={() => setPasswordRoom(null)}
+        />
+      )}
     </div>
   );
 }

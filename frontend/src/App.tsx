@@ -15,7 +15,8 @@ export function App() {
   }, [checkAuth]);
 
   return (
-    <div className="scanlines">
+    <>
+      <div className="noise-overlay" />
       <Routes>
         <Route
           path="/auth"
@@ -32,6 +33,6 @@ export function App() {
         <Route path="*" element={<Navigate to={token ? "/lobby" : "/auth"} replace />} />
       </Routes>
       <ToastContainer />
-    </div>
+    </>
   );
 }

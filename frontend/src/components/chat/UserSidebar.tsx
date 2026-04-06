@@ -1,66 +1,77 @@
 import { useChatStore } from "@/stores/chatStore";
-import { useAuthStore } from "@/stores/authStore";
 import { useUiStore } from "@/stores/uiStore";
-import { cn } from "@/lib/utils";
+import { getInitials } from "@/lib/utils";
+import type { User, WsSendPayload } from "@/api/types";
 
-export function UserSidebar() {
+interface UserSidebarProps {
+  send: (payload: WsSendPayload) => void;
+  currentUser: User;
+}
+
+export function UserSidebar({ send, currentUser }: UserSidebarProps) {
   const users = useChatStore((s) => s.users);
-  const currentUserId = useAuthStore((s) => s.user?.id);
   const openPrivateChat = useChatStore((s) => s.openPrivateChat);
-  const unreadDmCount = useChatStore((s) => s.unreadDmCount);
   const showUserCard = useUiStore((s) => s.showUserCard);
 
-  return (
-    <aside className="w-56 border-l border-terminal-border bg-terminal-surface flex flex-col shrink-0 hidden md:flex">
-      {/* Header */}
-      <div className="px-3 py-2 border-b border-terminal-border">
-        <div className="text-terminal-green text-xs font-bold">
-          ONLINE [{users.length}]
-        </div>
-        {unreadDmCount > 0 && (
-          <div className="text-terminal-amber text-xs mt-1">
-            {unreadDmCount} unread DM{unreadDmCount > 1 ? "s" : ""}
-          </div>
-        )}
-      </div>
+  const handleDm = (user: User) => {
+    openPrivateChat(user.id, user.username);
+    send({ type: "private_history", targetUserId: user.id });
+  };
 
-      {/* User list */}
-      <div className="flex-1 overflow-y-auto">
+  return (
+    <div className="users-sidebar">
+      <div className="sidebar-header">
+        <div className="sidebar-title">USERS ONLINE</div>
+        <div className="sidebar-count">{users.length}</div>
+      </div>
+      <div className="users-list">
         {users.map((user) => (
           <div
             key={user.id}
-            className="flex items-center justify-between px-3 py-1.5 hover:bg-terminal-surface-2 group"
+            className="user-item"
+            onClick={() => showUserCard(user.id)}
           >
-            <button
-              onClick={() => showUserCard(user.id)}
-              className={cn(
-                "text-sm truncate",
-                user.id === currentUserId
-                  ? "text-terminal-green"
-                  : "text-terminal-text hover:text-terminal-cyan",
+            <div className="user-item-avatar">
+              {user.avatarUrl ? (
+                <img
+                  src={user.avatarUrl}
+                  alt={user.username}
+                  style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "2px" }}
+                />
+              ) : (
+                getInitials(user.username)
               )}
-            >
-              <span className="text-terminal-text-dim mr-1">
-                {user.role === "admin" ? "★" : user.role === "moderator" ? "◆" : "·"}
-              </span>
-              {user.username}
-              {user.id === currentUserId && (
-                <span className="text-terminal-text-dim ml-1">(you)</span>
+            </div>
+            <div className="user-item-info">
+              <div className="user-item-name">
+                {user.username}
+                {user.role && user.role !== "member" && (
+                  <span className={`role-badge role-${user.role}`}>
+                    {user.role.toUpperCase()}
+                  </span>
+                )}
+              </div>
+              {user.status && (
+                <div className="user-item-status">{user.status}</div>
               )}
-            </button>
-
-            {user.id !== currentUserId && (
+            </div>
+            {user.id !== currentUser.id && (
               <button
-                onClick={() => openPrivateChat(user.id, user.username)}
-                className="opacity-0 group-hover:opacity-100 text-terminal-text-dim hover:text-terminal-amber text-xs transition-opacity"
+                className="dm-btn"
                 title="Send DM"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDm(user);
+                }}
               >
-                ✉
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
               </button>
             )}
           </div>
         ))}
       </div>
-    </aside>
+    </div>
   );
 }

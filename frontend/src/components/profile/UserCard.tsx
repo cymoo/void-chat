@@ -1,86 +1,87 @@
 import { useEffect, useState } from "react";
-import { useUiStore } from "@/stores/uiStore";
 import { useChatStore } from "@/stores/chatStore";
+import { useUiStore } from "@/stores/uiStore";
 import * as api from "@/api/client";
+import { getInitials, formatDate } from "@/lib/utils";
 import type { User } from "@/api/types";
 
 export function UserCard() {
-  const userCardUserId = useUiStore((s) => s.userCardUserId);
+  const userId = useUiStore((s) => s.userCardUserId);
   const hideUserCard = useUiStore((s) => s.hideUserCard);
+  const users = useChatStore((s) => s.users);
   const openPrivateChat = useChatStore((s) => s.openPrivateChat);
-  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<User | null>(null);
 
   useEffect(() => {
-    if (userCardUserId === null) {
-      setUser(null);
-      return;
+    if (userId) {
+      // Try to find in online users first
+      const onlineUser = users.find((u) => u.id === userId);
+      if (onlineUser) {
+        setProfile(onlineUser);
+      }
+      // Also fetch full profile from API
+      api.getUser(userId).then(setProfile).catch(() => {});
     }
-    api.getUser(userCardUserId).then(setUser).catch(() => setUser(null));
-  }, [userCardUserId]);
+  }, [userId, users]);
 
-  if (userCardUserId === null || !user) return null;
+  if (!userId || !profile) return null;
+
+  const isOnline = users.some((u) => u.id === userId);
 
   const handleDm = () => {
-    openPrivateChat(user.id, user.username);
+    openPrivateChat(profile.id, profile.username);
     hideUserCard();
   };
 
   return (
-    <div
-      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
-      onClick={hideUserCard}
-    >
-      <div
-        className="bg-terminal-surface border border-terminal-border p-4 max-w-xs w-full mx-4"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center gap-3 mb-3">
-          {user.avatarUrl ? (
-            <img
-              src={user.avatarUrl}
-              alt={user.username}
-              className="w-10 h-10 border border-terminal-border"
-            />
-          ) : (
-            <div className="w-10 h-10 border border-terminal-border flex items-center justify-center text-terminal-green text-sm font-bold">
-              {user.username.slice(0, 2).toUpperCase()}
-            </div>
-          )}
-          <div>
-            <div className="text-terminal-green font-bold text-sm">
-              {user.username}
-            </div>
-            {user.role && (
-              <div className="text-terminal-amber text-xs">[{user.role}]</div>
+    <div className="modal active">
+      <div className="modal-backdrop" onClick={hideUserCard} />
+      <div className="user-profile-panel">
+        <div className="profile-header">
+          <button className="modal-close panel-close-btn" onClick={hideUserCard}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+        <div className="profile-content">
+          <div className="profile-avatar-large">
+            {profile.avatarUrl ? (
+              <img src={profile.avatarUrl} alt={profile.username} className="avatar-img-large" />
+            ) : (
+              getInitials(profile.username)
             )}
           </div>
-        </div>
-
-        {user.status && (
-          <div className="text-terminal-text text-xs mb-2">
-            <span className="text-terminal-text-dim">STATUS:</span> {user.status}
+          <div className="profile-display-name">{profile.username}</div>
+          {isOnline && <div className="profile-online-badge">● ONLINE</div>}
+          {profile.status && <div className="profile-status">{profile.status}</div>}
+          {profile.bio && <div className="profile-bio">{profile.bio}</div>}
+          <div className="profile-joined">Joined: {formatDate(profile.createdAt)}</div>
+          <div className="profile-actions">
+            <button className="profile-action-btn" onClick={handleDm}>
+              Private Message
+            </button>
+            <button
+              className="profile-action-btn"
+              onClick={() => {
+                hideUserCard();
+                // Insert @mention into input - dispatch custom event
+                const input = document.querySelector(".message-input") as HTMLTextAreaElement;
+                if (input) {
+                  const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+                    window.HTMLTextAreaElement.prototype,
+                    "value",
+                  )?.set;
+                  nativeInputValueSetter?.call(input, input.value + `@${profile.username} `);
+                  input.dispatchEvent(new Event("input", { bubbles: true }));
+                  input.focus();
+                }
+              }}
+            >
+              @Mention
+            </button>
           </div>
-        )}
-
-        {user.bio && (
-          <div className="text-terminal-text text-xs mb-3">
-            <span className="text-terminal-text-dim">BIO:</span> {user.bio}
-          </div>
-        )}
-
-        <div className="flex gap-2">
-          <button
-            onClick={handleDm}
-            className="flex-1 border border-terminal-amber text-terminal-amber px-2 py-1 text-xs hover:bg-terminal-amber hover:text-terminal-bg transition-colors"
-          >
-            [ SEND DM ]
-          </button>
-          <button
-            onClick={hideUserCard}
-            className="flex-1 border border-terminal-border text-terminal-text-dim px-2 py-1 text-xs hover:border-terminal-text hover:text-terminal-text transition-colors"
-          >
-            [ CLOSE ]
-          </button>
         </div>
       </div>
     </div>

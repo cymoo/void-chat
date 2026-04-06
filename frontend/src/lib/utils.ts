@@ -28,3 +28,9 @@ export function formatFileSize(bytes: number): string {
 export function getInitials(name: string): string {
   return name.slice(0, 2).toUpperCase();
 }
+
+export function escapeHtml(text: string): string {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
+}

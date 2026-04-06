@@ -1,128 +1,94 @@
-import { useState, useEffect, useRef, type KeyboardEvent } from "react";
-import type { WsSendPayload } from "@/api/types";
+import { useState, useRef, useEffect, type KeyboardEvent } from "react";
 import { useChatStore } from "@/stores/chatStore";
+import { renderMarkdown } from "@/lib/markdown";
 import { formatTime } from "@/lib/utils";
+import type { User, WsSendPayload } from "@/api/types";
 
 interface PrivateChatProps {
   send: (payload: WsSendPayload) => void;
+  currentUser: User;
 }
 
-export function PrivateChat({ send }: PrivateChatProps) {
+export function PrivateChat({ send, currentUser }: PrivateChatProps) {
   const [text, setText] = useState("");
-  const bottomRef = useRef<HTMLDivElement>(null);
-
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const privateChatUserId = useChatStore((s) => s.privateChatUserId);
   const privateChatUsername = useChatStore((s) => s.privateChatUsername);
   const privateMessages = useChatStore((s) => s.privateMessages);
-  const privateHasMore = useChatStore((s) => s.privateHasMore);
   const closePrivateChat = useChatStore((s) => s.closePrivateChat);
 
-  // Request history when opening
   useEffect(() => {
-    if (privateChatUserId !== null) {
-      send({ type: "private_history", targetUserId: privateChatUserId });
-    }
-  }, [privateChatUserId, send]);
-
-  // Auto-scroll
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [privateMessages]);
 
   const handleSend = () => {
-    if (!text.trim() || !privateChatUserId) return;
+    const trimmed = text.trim();
+    if (!trimmed || !privateChatUserId) return;
     send({
       type: "private_message",
       targetUserId: privateChatUserId,
-      content: text.trim(),
+      content: trimmed,
     });
     setText("");
   };
 
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
       handleSend();
     }
-    if (e.key === "Escape") {
-      closePrivateChat();
-    }
-  };
-
-  const loadMore = () => {
-    if (!privateHasMore || privateMessages.length === 0 || !privateChatUserId) return;
-    send({
-      type: "private_history",
-      targetUserId: privateChatUserId,
-      beforeId: privateMessages[0]!.id,
-    });
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-40">
-      <div className="bg-terminal-surface border border-terminal-border w-full max-w-lg h-[500px] flex flex-col mx-4">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-2 border-b border-terminal-border">
-          <span className="text-terminal-amber text-sm font-bold">
-            DM → @{privateChatUsername}
-          </span>
-          <button
-            onClick={closePrivateChat}
-            className="text-terminal-text-dim hover:text-terminal-red text-sm"
-          >
-            [ CLOSE ]
+    <div className="modal active">
+      <div className="modal-backdrop" onClick={closePrivateChat} />
+      <div className="private-chat-panel">
+        <div className="private-chat-header">
+          <span>DM: {privateChatUsername}</span>
+          <button className="modal-close panel-close-btn" onClick={closePrivateChat}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
           </button>
         </div>
-
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-4 py-2">
-          {privateHasMore && (
-            <button
-              onClick={loadMore}
-              className="w-full text-center text-terminal-text-dim text-xs py-1 hover:text-terminal-green"
-            >
-              ↑ load older messages
-            </button>
-          )}
-
-          {privateMessages.length === 0 ? (
-            <div className="text-terminal-text-dim text-center text-sm py-8">
-              No messages yet. Say hello!
-            </div>
-          ) : (
-            privateMessages.map((msg) => (
-              <div key={msg.id} className="py-1">
-                <span className="text-terminal-border text-xs mr-2">
-                  {formatTime(msg.timestamp)}
-                </span>
-                <span
-                  className={`text-sm font-bold mr-2 ${
-                    msg.senderId === privateChatUserId
-                      ? "text-terminal-cyan"
-                      : "text-terminal-green"
-                  }`}
-                >
-                  {msg.senderUsername}
-                </span>
-                <span className="text-terminal-text text-sm">{msg.content}</span>
+        <div className="private-chat-messages">
+          {privateMessages.map((msg) => {
+            const isSelf = msg.senderId === currentUser.id;
+            return (
+              <div
+                key={msg.id}
+                className={`private-msg ${isSelf ? "private-msg-self" : "private-msg-other"}`}
+              >
+                <div className="private-msg-author">{msg.senderUsername}</div>
+                <div
+                  className="private-msg-content"
+                  dangerouslySetInnerHTML={{
+                    __html: renderMarkdown(msg.content ?? ""),
+                  }}
+                />
+                <div className="private-msg-time">{formatTime(msg.timestamp)}</div>
               </div>
-            ))
-          )}
-          <div ref={bottomRef} />
+            );
+          })}
+          <div ref={messagesEndRef} />
         </div>
-
-        {/* Input */}
-        <div className="border-t border-terminal-border px-4 py-2 flex items-center gap-2">
-          <span className="text-terminal-amber shrink-0">DM $</span>
+        <div className="private-chat-input">
           <input
+            className="message-input"
             type="text"
+            placeholder="Type a private message..."
+            autoComplete="off"
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="flex-1 bg-transparent text-terminal-text font-mono text-sm focus:outline-none"
-            placeholder="type a private message..."
             autoFocus
           />
+          <button className="icon-btn send-btn" onClick={handleSend}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="22" y1="2" x2="11" y2="13" />
+              <polygon points="22 2 15 22 11 13 2 9 22 2" />
+            </svg>
+          </button>
         </div>
       </div>
     </div>

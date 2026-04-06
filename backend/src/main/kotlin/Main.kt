@@ -21,6 +21,7 @@ val logger: Logger = LoggerFactory.getLogger("App")
 
 fun main() {
     val app = Colleen()
+    app.openApi()
 
     app.config {
         // Configure server
