@@ -7,10 +7,12 @@ import {
   useMemo,
   type KeyboardEvent,
   type ChangeEvent,
+  type ClipboardEvent,
 } from "react";
 import { useChatStore } from "@/stores/chatStore";
 import { useUiStore } from "@/stores/uiStore";
 import * as api from "@/api/client";
+import { COMMON_EMOJIS } from "@/lib/emojis";
 import { renderMarkdown } from "@/lib/markdown";
 import { formatTime, formatFileSize } from "@/lib/utils";
 import type { PrivateMessage, User, WsSendPayload } from "@/api/types";
@@ -38,7 +40,10 @@ const PrivateMessageItem = memo(
       <div
         className={`private-msg ${isSelf ? "private-msg-self" : "private-msg-other"}`}
       >
-        <div className="private-msg-author">{message.senderUsername}</div>
+        <div className="private-msg-meta">
+          <div className="private-msg-author">{isSelf ? "You" : message.senderUsername}</div>
+          <div className="private-msg-time">{formatTime(message.timestamp)}</div>
+        </div>
         {message.messageType === "text" && (
           <div
             className="private-msg-content markdown-body"
@@ -78,7 +83,6 @@ const PrivateMessageItem = memo(
             </div>
           </>
         )}
-        <div className="private-msg-time">{formatTime(message.timestamp)}</div>
       </div>
     );
   },
@@ -90,8 +94,10 @@ const PrivateMessageItem = memo(
 
 export function PrivateChat({ send, currentUser }: PrivateChatProps) {
   const [text, setText] = useState("");
+  const [emojiOpen, setEmojiOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
   const privateChatUserId = useChatStore((s) => s.privateChatUserId);
   const privateChatUsername = useChatStore((s) => s.privateChatUsername);
   const privateMessages = useChatStore((s) => s.privateMessages);
@@ -131,6 +137,19 @@ export function PrivateChat({ send, currentUser }: PrivateChatProps) {
     autoResize();
   }, [text, autoResize]);
 
+  useEffect(() => {
+    if (!emojiOpen) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (!emojiPickerRef.current?.contains(target)) {
+        setEmojiOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [emojiOpen]);
+
   const handleSend = () => {
     const trimmed = text.trim();
     if (!trimmed || !privateChatUserId) return;
@@ -149,23 +168,56 @@ export function PrivateChat({ send, currentUser }: PrivateChatProps) {
     }
   };
 
+  const insertAtCursor = useCallback(
+    (content: string) => {
+      const el = textareaRef.current;
+      if (!el) {
+        setText((prev) => prev + content);
+        return;
+      }
+      const start = el.selectionStart;
+      const end = el.selectionEnd;
+      const nextValue = `${text.slice(0, start)}${content}${text.slice(end)}`;
+      setText(nextValue);
+      requestAnimationFrame(() => {
+        const caret = start + content.length;
+        el.focus();
+        el.setSelectionRange(caret, caret);
+      });
+    },
+    [text],
+  );
+
+  const handleSelectEmoji = (emoji: string) => {
+    insertAtCursor(emoji);
+    setEmojiOpen(false);
+  };
+
+  const sendPrivateImage = useCallback(
+    async (file: File) => {
+      if (!privateChatUserId) return;
+      try {
+        const result = await api.uploadImage(file);
+        if (result.url) {
+          send({
+            type: "private_message",
+            targetUserId: privateChatUserId,
+            imageUrl: result.url,
+            thumbnailUrl: result.thumbnail ?? undefined,
+          });
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "图片上传失败";
+        addToast(msg, "error");
+      }
+    },
+    [addToast, privateChatUserId, send],
+  );
+
   const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !privateChatUserId) return;
-    try {
-      const result = await api.uploadImage(file);
-      if (result.url) {
-        send({
-          type: "private_message",
-          targetUserId: privateChatUserId,
-          imageUrl: result.url,
-          thumbnailUrl: result.thumbnail ?? undefined,
-        });
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "图片上传失败";
-      addToast(msg, "error");
-    }
+    if (!file) return;
+    await sendPrivateImage(file);
     e.target.value = "";
   };
 
@@ -189,6 +241,17 @@ export function PrivateChat({ send, currentUser }: PrivateChatProps) {
       addToast(msg, "error");
     }
     e.target.value = "";
+  };
+
+  const handlePaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
+    const imageItem = Array.from(e.clipboardData.items).find((item) =>
+      item.type.startsWith("image/"),
+    );
+    if (!imageItem) return;
+    const file = imageItem.getAsFile();
+    if (!file) return;
+    e.preventDefault();
+    void sendPrivateImage(file);
   };
 
   return (
@@ -224,9 +287,37 @@ export function PrivateChat({ send, currentUser }: PrivateChatProps) {
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
             autoFocus
             aria-label="Type a direct message"
           />
+          <div className="emoji-picker-wrapper" ref={emojiPickerRef}>
+            <button
+              type="button"
+              className={`icon-btn emoji-toggle-btn${emojiOpen ? " active" : ""}`}
+              title="Insert Emoji"
+              aria-label="Insert emoji"
+              onClick={() => setEmojiOpen((open) => !open)}
+            >
+              🙂
+            </button>
+            {emojiOpen && (
+              <div className="emoji-picker" role="menu" aria-label="Emoji picker">
+                <div className="emoji-grid">
+                  {COMMON_EMOJIS.map((emoji) => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      className="emoji-btn"
+                      onClick={() => handleSelectEmoji(emoji)}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
           <label className="icon-btn" title="Upload Image">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
@@ -265,7 +356,7 @@ export function PrivateChat({ send, currentUser }: PrivateChatProps) {
           </button>
         </div>
         <div className="private-chat-hint">
-          <kbd>Enter</kbd> send • <kbd>Shift+Enter</kbd> new line
+          <kbd>Enter</kbd> send • <kbd>Shift+Enter</kbd> new line • Paste image / emoji supported
         </div>
       </div>
     </div>

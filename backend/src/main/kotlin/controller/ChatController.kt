@@ -253,6 +253,7 @@ class ChatController(
         conn.onClose { reason ->
             if (joinedRoom) {
                 chatService.leaveRoom(roomId, currentUser, conn)
+                joinedRoom = false
             }
         }
 

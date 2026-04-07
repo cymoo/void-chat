@@ -2,6 +2,7 @@ import { memo, useCallback, useMemo } from "react";
 import { useChatStore } from "@/stores/chatStore";
 import { useUiStore } from "@/stores/uiStore";
 import { renderMarkdown, highlightMentions } from "@/lib/markdown";
+import { requestMessageJump } from "@/lib/messageJump";
 import { formatTime, formatFileSize, getInitials } from "@/lib/utils";
 import type { ChatMessage, User, WsSendPayload } from "@/api/types";
 
@@ -26,7 +27,7 @@ function MessageItemInner({
 
   if (message.messageType === "system") {
     return (
-      <div className="message system">
+      <div className="message system" data-message-id={message.id}>
         <div className="message-content">
           <div className="message-text">{message.content}</div>
         </div>
@@ -51,12 +52,7 @@ function MessageItemInner({
 
   const handleReplyClick = useCallback(() => {
     if (message.replyTo) {
-      const target = document.querySelector(`[data-message-id="${message.replyTo.id}"]`);
-      if (target) {
-        target.scrollIntoView({ behavior: "smooth", block: "center" });
-        target.classList.add("message-highlight");
-        setTimeout(() => target.classList.remove("message-highlight"), 2000);
-      }
+      requestMessageJump(message.replyTo.id);
     }
   }, [message.replyTo]);
 

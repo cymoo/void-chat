@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from "react";
 import { useChatStore } from "@/stores/chatStore";
+import { onMessageJump } from "@/lib/messageJump";
 import { MessageItem } from "./MessageItem";
 import type { User, WsSendPayload } from "@/api/types";
 
@@ -17,6 +18,8 @@ export function MessageList({ send, currentUser }: MessageListProps) {
   const isAtBottomRef = useRef(true);
   const loadingRef = useRef(false);
   const scrollingRef = useRef(false);
+  const pendingJumpIdRef = useRef<number | null>(null);
+  const jumpLoadRequestedRef = useRef(false);
 
   const syncToBottom = useCallback(() => {
     const el = containerRef.current;
@@ -32,10 +35,92 @@ export function MessageList({ send, currentUser }: MessageListProps) {
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    if (isAtBottomRef.current) {
+    if (pendingJumpIdRef.current === null && isAtBottomRef.current) {
       syncToBottom();
     }
   }, [messages, syncToBottom]);
+
+  const clearHighlightTimerRef = useRef<number | null>(null);
+
+  const centerMessageInView = useCallback((target: HTMLElement) => {
+    const container = containerRef.current;
+    if (!container) return;
+    const containerRect = container.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const offset = targetRect.top - containerRect.top;
+    const centeredTop = container.scrollTop + offset - (container.clientHeight - target.clientHeight) / 2;
+    container.scrollTo({ top: centeredTop, behavior: "smooth" });
+  }, []);
+
+  const highlightMessage = useCallback((target: HTMLElement) => {
+    target.classList.remove("message-highlight");
+    // Force reflow so repeated jumps retrigger highlight animation.
+    void target.getBoundingClientRect();
+    target.classList.add("message-highlight");
+    if (clearHighlightTimerRef.current !== null) {
+      window.clearTimeout(clearHighlightTimerRef.current);
+    }
+    clearHighlightTimerRef.current = window.setTimeout(() => {
+      target.classList.remove("message-highlight");
+      clearHighlightTimerRef.current = null;
+    }, 1600);
+  }, []);
+
+  const tryJumpToMessage = useCallback((messageId: number) => {
+    const container = containerRef.current;
+    if (!container) return true;
+
+    const target = container.querySelector<HTMLElement>(`[data-message-id="${messageId}"]`);
+    if (target) {
+      centerMessageInView(target);
+      highlightMessage(target);
+      pendingJumpIdRef.current = null;
+      return true;
+    }
+
+    const shouldLoadMore =
+      hasMore &&
+      oldestMessageId !== null &&
+      messageId < oldestMessageId &&
+      !loadingRef.current;
+    if (shouldLoadMore) {
+      loadingRef.current = true;
+      jumpLoadRequestedRef.current = true;
+      send({ type: "load_history", beforeId: oldestMessageId });
+      return false;
+    }
+
+    pendingJumpIdRef.current = null;
+    return true;
+  }, [centerMessageInView, hasMore, highlightMessage, oldestMessageId, send]);
+
+  useEffect(() => {
+    return onMessageJump((messageId) => {
+      pendingJumpIdRef.current = messageId;
+      isAtBottomRef.current = false;
+      tryJumpToMessage(messageId);
+    });
+  }, [tryJumpToMessage]);
+
+  useEffect(() => {
+    if (jumpLoadRequestedRef.current) {
+      loadingRef.current = false;
+      jumpLoadRequestedRef.current = false;
+    }
+    const pendingId = pendingJumpIdRef.current;
+    if (pendingId !== null) {
+      tryJumpToMessage(pendingId);
+    }
+  }, [messages, tryJumpToMessage]);
+
+  useEffect(
+    () => () => {
+      if (clearHighlightTimerRef.current !== null) {
+        window.clearTimeout(clearHighlightTimerRef.current);
+      }
+    },
+    [],
+  );
 
   // Track scroll position
   const handleScroll = useCallback(() => {

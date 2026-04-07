@@ -8,6 +8,7 @@ import org.jooq.DSLContext
 import repository.MessageRepository
 import repository.PrivateMessageRepository
 import repository.RoomMemberRepository
+import repository.RoomRepository
 import repository.UserRepository
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArraySet
@@ -21,6 +22,7 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
 
     private val messageRepo = MessageRepository(dsl)
     private val roomMemberRepo = RoomMemberRepository(dsl)
+    private val roomRepo = RoomRepository(dsl)
     private val userRepo = UserRepository(dsl)
     private val privateMessageRepo = PrivateMessageRepository(dsl)
 
@@ -53,8 +55,15 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
 
         // Add to members and broadcast join only on first active connection
         if (activeCount == 1) {
-            roomMemberRepo.addMember(roomId, user.id)
+            val isRoomOwner = roomRepo.findById(roomId)?.creatorId == user.id
+            val desiredRole = if (isRoomOwner) "owner" else "member"
+            roomMemberRepo.addMember(roomId, user.id, desiredRole)
+            if (isRoomOwner && roomMemberRepo.getMemberRole(roomId, user.id) != "owner") {
+                roomMemberRepo.updateMemberRole(roomId, user.id, "owner")
+            }
             userRepo.updateLastSeen(user.id)
+            val joinedUser = getRoomUsers(roomId).find { it.id == user.id }
+                ?: user.copy(role = desiredRole)
 
             val systemMessageId = messageRepo.saveSystemMessage(
                 roomId,
@@ -68,7 +77,7 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
             )
 
             broadcastToRoom(roomId, WsEvent.Message(joinMessage))
-            broadcastToRoom(roomId, WsEvent.UserJoined(user))
+            broadcastToRoom(roomId, WsEvent.UserJoined(joinedUser))
         }
     }
 

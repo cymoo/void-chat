@@ -2,6 +2,7 @@ import { useState, useRef, type KeyboardEvent } from "react";
 import { useChatStore } from "@/stores/chatStore";
 import { useUiStore } from "@/stores/uiStore";
 import { formatTime, escapeHtml } from "@/lib/utils";
+import { requestMessageJump } from "@/lib/messageJump";
 import type { WsSendPayload } from "@/api/types";
 
 interface SearchPanelProps {
@@ -38,12 +39,7 @@ export function SearchPanel({ send }: SearchPanelProps) {
   };
 
   const handleResultClick = (messageId: number) => {
-    const el = document.querySelector(`[data-message-id="${messageId}"]`);
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
-      el.classList.add("message-highlight");
-      setTimeout(() => el.classList.remove("message-highlight"), 2000);
-    }
+    requestMessageJump(messageId);
   };
 
   const highlightQuery = (text: string, q: string): string => {

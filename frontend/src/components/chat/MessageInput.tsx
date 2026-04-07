@@ -1,7 +1,16 @@
-import { useState, useRef, useEffect, useCallback, type KeyboardEvent, type ChangeEvent } from "react";
+import {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  type KeyboardEvent,
+  type ChangeEvent,
+  type ClipboardEvent,
+} from "react";
 import { useChatStore, getMessageContent } from "@/stores/chatStore";
 import { useUiStore } from "@/stores/uiStore";
 import * as api from "@/api/client";
+import { COMMON_EMOJIS } from "@/lib/emojis";
 import type { User, WsSendPayload } from "@/api/types";
 
 interface MessageInputProps {
@@ -22,6 +31,8 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
   const users = useChatStore((s) => s.users);
   const addToast = useUiStore((s) => s.addToast);
   const canSend = text.trim().length > 0;
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
 
   // Mention dropdown
   const [, setMentionQuery] = useState<string | null>(null);
@@ -51,6 +62,19 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
   useEffect(() => {
     autoResize();
   }, [text, autoResize]);
+
+  useEffect(() => {
+    if (!emojiOpen) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (!emojiPickerRef.current?.contains(target)) {
+        setEmojiOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [emojiOpen]);
 
   const sendTyping = useCallback(
     (isTyping: boolean) => {
@@ -127,6 +151,57 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
     el.focus();
   };
 
+  const insertAtCursor = useCallback(
+    (content: string) => {
+      const el = textareaRef.current;
+      if (!el) {
+        setText((prev) => prev + content);
+        return;
+      }
+      const start = el.selectionStart;
+      const end = el.selectionEnd;
+      const nextValue = `${text.slice(0, start)}${content}${text.slice(end)}`;
+      setText(nextValue);
+      requestAnimationFrame(() => {
+        const caret = start + content.length;
+        el.focus();
+        el.setSelectionRange(caret, caret);
+      });
+    },
+    [text],
+  );
+
+  const handleSelectEmoji = (emoji: string) => {
+    insertAtCursor(emoji);
+    setEmojiOpen(false);
+  };
+
+  const sendImageMessage = useCallback(
+    async (file: File) => {
+      try {
+        const result = await api.uploadImage(file);
+        if (result.url) {
+          const payload: WsSendPayload = {
+            type: "image",
+            imageUrl: result.url,
+            thumbnailUrl: result.thumbnail ?? undefined,
+          };
+          if (replyingTo) {
+            payload.replyToId = replyingTo.id;
+          }
+          send(payload);
+          if (replyingTo) {
+            setReplyingTo(null);
+          }
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "图片上传失败";
+        addToast(msg, "error");
+      }
+    },
+    [addToast, replyingTo, send, setReplyingTo],
+  );
+
   const handleSend = () => {
     const trimmed = text.trim();
     if (!trimmed) return;
@@ -184,19 +259,7 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
   const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    try {
-      const result = await api.uploadImage(file);
-      if (result.url) {
-        send({
-          type: "image",
-          imageUrl: result.url,
-          thumbnailUrl: result.thumbnail ?? undefined,
-        });
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "图片上传失败";
-      addToast(msg, "error");
-    }
+    await sendImageMessage(file);
     e.target.value = "";
   };
 
@@ -225,6 +288,17 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
     setEditingMessage(null);
     setReplyingTo(null);
     setText("");
+  };
+
+  const handlePaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
+    const imageItem = Array.from(e.clipboardData.items).find((item) =>
+      item.type.startsWith("image/"),
+    );
+    if (!imageItem) return;
+    const file = imageItem.getAsFile();
+    if (!file) return;
+    e.preventDefault();
+    void sendImageMessage(file);
   };
 
   return (
@@ -270,9 +344,37 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
             value={text}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
             onBlur={() => sendTyping(false)}
           />
           <div className="input-actions">
+            <div className="emoji-picker-wrapper" ref={emojiPickerRef}>
+              <button
+                type="button"
+                className={`icon-btn emoji-toggle-btn${emojiOpen ? " active" : ""}`}
+                title="Insert Emoji"
+                aria-label="Insert emoji"
+                onClick={() => setEmojiOpen((open) => !open)}
+              >
+                🙂
+              </button>
+              {emojiOpen && (
+                <div className="emoji-picker" role="menu" aria-label="Emoji picker">
+                  <div className="emoji-grid">
+                    {COMMON_EMOJIS.map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        className="emoji-btn"
+                        onClick={() => handleSelectEmoji(emoji)}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
             <label className="icon-btn" title="Upload Image">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
@@ -312,7 +414,7 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
           </div>
         </div>
         <div className="input-hint">
-          Press <kbd>Enter</kbd> to send • <kbd>Shift+Enter</kbd> for new line • Supports <strong>Markdown</strong> and <code>code</code> • Use @username to mention
+          Press <kbd>Enter</kbd> to send • <kbd>Shift+Enter</kbd> for new line • Paste image / emoji supported • Use @username to mention
         </div>
       </div>
     </>
