@@ -6,9 +6,12 @@ import chatroom.jooq.generated.Tables.ROOM_MEMBERS
 import chatroom.jooq.generated.tables.records.RoomsRecord
 import model.Room
 import org.jooq.DSLContext
+import org.jooq.impl.DSL.count
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
+
+data class RoomWithOnlineCount(val room: Room, val onlineUsers: Int)
 
 class RoomRepository(private val dsl: DSLContext) {
 
@@ -16,6 +19,46 @@ class RoomRepository(private val dsl: DSLContext) {
         return dsl.selectFrom(ROOMS)
             .fetch()
             .map { it.toModel() }
+    }
+
+    /** Loads rooms with member counts in one query to avoid N+1 lookups in service layer. */
+    fun findAllWithOnlineUserCount(): List<RoomWithOnlineCount> {
+        val onlineUsers = count(ROOM_MEMBERS.USER_ID).`as`("online_users")
+        return dsl.select(
+            ROOMS.ID,
+            ROOMS.NAME,
+            ROOMS.DESCRIPTION,
+            ROOMS.IS_PRIVATE,
+            ROOMS.CREATOR_ID,
+            ROOMS.CREATED_AT,
+            ROOMS.MAX_USERS,
+            onlineUsers
+        )
+            .from(ROOMS)
+            .leftJoin(ROOM_MEMBERS).on(ROOM_MEMBERS.ROOM_ID.eq(ROOMS.ID))
+            .groupBy(
+                ROOMS.ID,
+                ROOMS.NAME,
+                ROOMS.DESCRIPTION,
+                ROOMS.IS_PRIVATE,
+                ROOMS.CREATOR_ID,
+                ROOMS.CREATED_AT,
+                ROOMS.MAX_USERS
+            )
+            .fetch { record ->
+                RoomWithOnlineCount(
+                    room = Room(
+                        id = record.get(ROOMS.ID)!!,
+                        name = record.get(ROOMS.NAME)!!,
+                        description = record.get(ROOMS.DESCRIPTION),
+                        isPrivate = (record.get(ROOMS.IS_PRIVATE) ?: 0) != 0,
+                        creatorId = record.get(ROOMS.CREATOR_ID),
+                        createdAt = parseTimestamp(record.get(ROOMS.CREATED_AT)),
+                        maxUsers = record.get(ROOMS.MAX_USERS) ?: 100
+                    ),
+                    onlineUsers = record.get(onlineUsers) ?: 0
+                )
+            }
     }
 
     fun findById(id: Int): Room? {

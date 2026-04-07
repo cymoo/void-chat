@@ -18,6 +18,8 @@ object DatabaseConfig {
             driverClassName = "org.sqlite.JDBC"
             maximumPoolSize = 10
             isAutoCommit = true
+            // SQLite disables FK checks per connection by default; enable them for integrity and cascades.
+            connectionInitSql = "PRAGMA foreign_keys = ON"
         }
         return HikariDataSource(config)
     }

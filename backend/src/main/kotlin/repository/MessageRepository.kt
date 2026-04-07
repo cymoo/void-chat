@@ -11,6 +11,9 @@ import java.time.LocalDateTime
 import java.time.ZoneOffset
 
 class MessageRepository(private val dsl: DSLContext) {
+    private val visibleRoomMessageCondition = MESSAGES.MESSAGE_TYPE.ne("system")
+        .and(MESSAGES.IS_DELETED.eq(0).or(MESSAGES.IS_DELETED.isNull))
+
     private val messageSelectFields = arrayOf(
         MESSAGES.ID,
         MESSAGES.ROOM_ID,
@@ -78,7 +81,7 @@ class MessageRepository(private val dsl: DSLContext) {
             .set(MESSAGES.MESSAGE_TYPE, "file")
             .set(MESSAGES.FILE_NAME, fileName)
             .set(MESSAGES.FILE_URL, fileUrl)
-            .set(MESSAGES.FILE_SIZE, fileSize.toInt())
+            .set(MESSAGES.FILE_SIZE, toSqliteInt(fileSize, "fileSize"))
             .set(MESSAGES.MIME_TYPE, mimeType)
 
         if (replyToId != null) {
@@ -134,9 +137,9 @@ class MessageRepository(private val dsl: DSLContext) {
             .from(MESSAGES)
             .leftJoin(USERS).on(MESSAGES.USER_ID.eq(USERS.ID))
             .where(MESSAGES.ROOM_ID.eq(roomId))
-            .and(MESSAGES.MESSAGE_TYPE.ne("system"))
-            .and(MESSAGES.IS_DELETED.eq(0).or(MESSAGES.IS_DELETED.isNull))
-            .orderBy(MESSAGES.CREATED_AT.desc())
+            .and(visibleRoomMessageCondition)
+            // Use ID-based ordering to stay consistent with ID cursor pagination.
+            .orderBy(MESSAGES.ID.desc())
             .limit(limit)
             .fetch()
 
@@ -148,10 +151,9 @@ class MessageRepository(private val dsl: DSLContext) {
             .from(MESSAGES)
             .leftJoin(USERS).on(MESSAGES.USER_ID.eq(USERS.ID))
             .where(MESSAGES.ROOM_ID.eq(roomId))
-            .and(MESSAGES.MESSAGE_TYPE.ne("system"))
-            .and(MESSAGES.IS_DELETED.eq(0).or(MESSAGES.IS_DELETED.isNull))
+            .and(visibleRoomMessageCondition)
             .and(MESSAGES.ID.lt(beforeId))
-            .orderBy(MESSAGES.CREATED_AT.desc())
+            .orderBy(MESSAGES.ID.desc())
             .limit(limit)
             .fetch()
 
@@ -164,15 +166,16 @@ class MessageRepository(private val dsl: DSLContext) {
             .replace("\\", "\\\\")
             .replace("%", "\\%")
             .replace("_", "\\_")
+        val likePattern = "%$escapedQuery%"
 
         val records = dsl.select(*messageSelectFields)
             .from(MESSAGES)
             .leftJoin(USERS).on(MESSAGES.USER_ID.eq(USERS.ID))
             .where(MESSAGES.ROOM_ID.eq(roomId))
-            .and(MESSAGES.MESSAGE_TYPE.ne("system"))
-            .and(MESSAGES.IS_DELETED.eq(0).or(MESSAGES.IS_DELETED.isNull))
-            .and(MESSAGES.CONTENT.likeIgnoreCase("%$escapedQuery%"))
-            .orderBy(MESSAGES.CREATED_AT.desc())
+            .and(visibleRoomMessageCondition)
+            // Provide an explicit escape char so user input '%'/'_' is treated literally.
+            .and(MESSAGES.CONTENT.likeIgnoreCase(likePattern, '\\'))
+            .orderBy(MESSAGES.ID.desc())
             .limit(limit)
             .fetch()
 
@@ -287,5 +290,12 @@ class MessageRepository(private val dsl: DSLContext) {
     private fun parseTimestamp(timestamp: LocalDateTime?): Long {
         return timestamp?.toInstant(ZoneOffset.UTC)?.toEpochMilli()
             ?: Instant.now().toEpochMilli()
+    }
+
+    private fun toSqliteInt(value: Long, fieldName: String): Int {
+        require(value in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong()) {
+            "$fieldName out of supported range for this schema: $value"
+        }
+        return value.toInt()
     }
 }

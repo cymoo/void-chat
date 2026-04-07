@@ -4,6 +4,7 @@ import chatroom.jooq.generated.Tables.PRIVATE_MESSAGES
 import chatroom.jooq.generated.Tables.USERS
 import model.PrivateMessage
 import org.jooq.DSLContext
+import org.jooq.impl.DSL.count
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
@@ -31,7 +32,7 @@ class PrivateMessageRepository(private val dsl: DSLContext) {
             .set(PRIVATE_MESSAGES.CONTENT, content)
             .set(PRIVATE_MESSAGES.FILE_URL, fileUrl)
             .set(PRIVATE_MESSAGES.FILE_NAME, fileName)
-            .set(PRIVATE_MESSAGES.FILE_SIZE, fileSize?.toInt())
+            .set(PRIVATE_MESSAGES.FILE_SIZE, fileSize?.let { toSqliteInt(it, "fileSize") })
             .set(PRIVATE_MESSAGES.MIME_TYPE, mimeType)
             .set(PRIVATE_MESSAGES.THUMBNAIL_URL, thumbnailUrl)
             .returningResult(PRIVATE_MESSAGES.ID)
@@ -60,7 +61,8 @@ class PrivateMessageRepository(private val dsl: DSLContext) {
             query = query.and(PRIVATE_MESSAGES.ID.lt(beforeId))
         }
 
-        val records = query.orderBy(PRIVATE_MESSAGES.CREATED_AT.desc())
+        // Cursor is based on message ID, so ordering by ID keeps pagination stable.
+        val records = query.orderBy(PRIVATE_MESSAGES.ID.desc())
             .limit(limit)
             .fetch()
 
@@ -103,22 +105,18 @@ class PrivateMessageRepository(private val dsl: DSLContext) {
     }
 
     fun getUnreadSenders(userId: Int): List<Map<String, Any>> {
-        // Use a compact SQL aggregation here for readability and stable aliases consumed by frontend.
-        return dsl.resultQuery(
-            """
-            SELECT
-              pm.sender_id AS senderId,
-              u.username AS senderUsername,
-              COUNT(*) AS unreadCount
-            FROM private_messages pm
-            JOIN users u ON u.id = pm.sender_id
-            WHERE pm.receiver_id = ?
-              AND COALESCE(pm.is_read, 0) = 0
-            GROUP BY pm.sender_id, u.username
-            ORDER BY unreadCount DESC, pm.sender_id ASC
-            """.trimIndent(),
-            userId
+        val unreadCount = count().`as`("unreadCount")
+        return dsl.select(
+            PRIVATE_MESSAGES.SENDER_ID.`as`("senderId"),
+            USERS.USERNAME.`as`("senderUsername"),
+            unreadCount
         )
+            .from(PRIVATE_MESSAGES)
+            .join(USERS).on(USERS.ID.eq(PRIVATE_MESSAGES.SENDER_ID))
+            .where(PRIVATE_MESSAGES.RECEIVER_ID.eq(userId))
+            .and(PRIVATE_MESSAGES.IS_READ.eq(0).or(PRIVATE_MESSAGES.IS_READ.isNull))
+            .groupBy(PRIVATE_MESSAGES.SENDER_ID, USERS.USERNAME)
+            .orderBy(unreadCount.desc(), PRIVATE_MESSAGES.SENDER_ID.asc())
             .fetch()
             .map { r ->
                 mapOf(
@@ -132,5 +130,12 @@ class PrivateMessageRepository(private val dsl: DSLContext) {
     private fun parseTimestamp(timestamp: LocalDateTime?): Long {
         return timestamp?.toInstant(ZoneOffset.UTC)?.toEpochMilli()
             ?: Instant.now().toEpochMilli()
+    }
+
+    private fun toSqliteInt(value: Long, fieldName: String): Int {
+        require(value in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong()) {
+            "$fieldName out of supported range for this schema: $value"
+        }
+        return value.toInt()
     }
 }
