@@ -70,11 +70,28 @@ export function SearchPanel({ send }: SearchPanelProps) {
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
           autoFocus
+          aria-label="Search chat messages"
         />
-        <button className="search-close-btn" onClick={handleClose}>
+        {query.trim().length > 0 && (
+          <button
+            type="button"
+            className="search-clear-btn"
+            onClick={() => setQuery("")}
+            aria-label="Clear search input"
+          >
+            CLEAR
+          </button>
+        )}
+        <button type="button" className="search-close-btn" onClick={handleClose} aria-label="Close search panel">
           ×
         </button>
       </div>
+      {searchQuery && (
+        <div className="search-meta">
+          <span>QUERY: {searchQuery}</span>
+          <span>{searchResults.length} RESULT{searchResults.length === 1 ? "" : "S"}</span>
+        </div>
+      )}
       {searchResults.length > 0 && (
         <div className="search-results" style={{ display: "block" }}>
           {searchResults.map((msg) => (

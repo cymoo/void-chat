@@ -5,11 +5,30 @@ import chatroom.jooq.generated.Tables.USERS
 import model.ChatMessage
 import model.ReplyInfo
 import org.jooq.DSLContext
+import org.jooq.Record
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 
 class MessageRepository(private val dsl: DSLContext) {
+    private val messageSelectFields = arrayOf(
+        MESSAGES.ID,
+        MESSAGES.ROOM_ID,
+        MESSAGES.USER_ID,
+        MESSAGES.MESSAGE_TYPE,
+        MESSAGES.CONTENT,
+        MESSAGES.FILE_URL,
+        MESSAGES.FILE_NAME,
+        MESSAGES.FILE_SIZE,
+        MESSAGES.MIME_TYPE,
+        MESSAGES.THUMBNAIL_URL,
+        MESSAGES.CREATED_AT,
+        MESSAGES.EDITED_AT,
+        MESSAGES.IS_DELETED,
+        MESSAGES.REPLY_TO_ID,
+        USERS.USERNAME,
+        USERS.AVATAR_URL
+    )
 
     fun saveTextMessage(roomId: Int, userId: Int, content: String, replyToId: Int? = null): Int {
         var step = dsl.insertInto(MESSAGES)
@@ -111,24 +130,7 @@ class MessageRepository(private val dsl: DSLContext) {
     }
 
     fun getRecentMessages(roomId: Int, limit: Int = 30): List<ChatMessage> {
-        val records = dsl.select(
-            MESSAGES.ID,
-            MESSAGES.ROOM_ID,
-            MESSAGES.USER_ID,
-            MESSAGES.MESSAGE_TYPE,
-            MESSAGES.CONTENT,
-            MESSAGES.FILE_URL,
-            MESSAGES.FILE_NAME,
-            MESSAGES.FILE_SIZE,
-            MESSAGES.MIME_TYPE,
-            MESSAGES.THUMBNAIL_URL,
-            MESSAGES.CREATED_AT,
-            MESSAGES.EDITED_AT,
-            MESSAGES.IS_DELETED,
-            MESSAGES.REPLY_TO_ID,
-            USERS.USERNAME,
-            USERS.AVATAR_URL
-        )
+        val records = dsl.select(*messageSelectFields)
             .from(MESSAGES)
             .leftJoin(USERS).on(MESSAGES.USER_ID.eq(USERS.ID))
             .where(MESSAGES.ROOM_ID.eq(roomId))
@@ -138,32 +140,11 @@ class MessageRepository(private val dsl: DSLContext) {
             .limit(limit)
             .fetch()
 
-        return records.reversed().map { record ->
-            val replyToId = record.get(MESSAGES.REPLY_TO_ID)
-            val replyInfo = if (replyToId != null) getReplyInfo(replyToId) else null
-            mapRecordToMessage(record, 0, replyInfo)
-        }
+        return mapRecordsToMessages(records.reversed())
     }
 
     fun getMessagesBefore(roomId: Int, beforeId: Int, limit: Int = 30): List<ChatMessage> {
-        val records = dsl.select(
-            MESSAGES.ID,
-            MESSAGES.ROOM_ID,
-            MESSAGES.USER_ID,
-            MESSAGES.MESSAGE_TYPE,
-            MESSAGES.CONTENT,
-            MESSAGES.FILE_URL,
-            MESSAGES.FILE_NAME,
-            MESSAGES.FILE_SIZE,
-            MESSAGES.MIME_TYPE,
-            MESSAGES.THUMBNAIL_URL,
-            MESSAGES.CREATED_AT,
-            MESSAGES.EDITED_AT,
-            MESSAGES.IS_DELETED,
-            MESSAGES.REPLY_TO_ID,
-            USERS.USERNAME,
-            USERS.AVATAR_URL
-        )
+        val records = dsl.select(*messageSelectFields)
             .from(MESSAGES)
             .leftJoin(USERS).on(MESSAGES.USER_ID.eq(USERS.ID))
             .where(MESSAGES.ROOM_ID.eq(roomId))
@@ -174,11 +155,7 @@ class MessageRepository(private val dsl: DSLContext) {
             .limit(limit)
             .fetch()
 
-        return records.reversed().map { record ->
-            val replyToId = record.get(MESSAGES.REPLY_TO_ID)
-            val replyInfo = if (replyToId != null) getReplyInfo(replyToId) else null
-            mapRecordToMessage(record, 0, replyInfo)
-        }
+        return mapRecordsToMessages(records.reversed())
     }
 
     fun searchMessages(roomId: Int, query: String, limit: Int = 50): List<ChatMessage> {
@@ -188,24 +165,7 @@ class MessageRepository(private val dsl: DSLContext) {
             .replace("%", "\\%")
             .replace("_", "\\_")
 
-        val records = dsl.select(
-            MESSAGES.ID,
-            MESSAGES.ROOM_ID,
-            MESSAGES.USER_ID,
-            MESSAGES.MESSAGE_TYPE,
-            MESSAGES.CONTENT,
-            MESSAGES.FILE_URL,
-            MESSAGES.FILE_NAME,
-            MESSAGES.FILE_SIZE,
-            MESSAGES.MIME_TYPE,
-            MESSAGES.THUMBNAIL_URL,
-            MESSAGES.CREATED_AT,
-            MESSAGES.EDITED_AT,
-            MESSAGES.IS_DELETED,
-            MESSAGES.REPLY_TO_ID,
-            USERS.USERNAME,
-            USERS.AVATAR_URL
-        )
+        val records = dsl.select(*messageSelectFields)
             .from(MESSAGES)
             .leftJoin(USERS).on(MESSAGES.USER_ID.eq(USERS.ID))
             .where(MESSAGES.ROOM_ID.eq(roomId))
@@ -216,47 +176,61 @@ class MessageRepository(private val dsl: DSLContext) {
             .limit(limit)
             .fetch()
 
-        return records.reversed().map { record ->
-            mapRecordToMessage(record, 0, null)
-        }
+        return mapRecordsToMessages(records.reversed())
     }
 
     fun getReplyInfo(messageId: Int): ReplyInfo? {
-        val record = dsl.select(
+        return getReplyInfoMap(listOf(messageId))[messageId]
+    }
+
+    private fun mapRecordsToMessages(records: List<Record>): List<ChatMessage> {
+        if (records.isEmpty()) return emptyList()
+
+        val replyIds = records.mapNotNull { it.get(MESSAGES.REPLY_TO_ID) }.distinct()
+        val replyInfoById = getReplyInfoMap(replyIds)
+
+        return records.map { record ->
+            val replyInfo = record.get(MESSAGES.REPLY_TO_ID)?.let { replyInfoById[it] }
+            mapRecordToMessage(record, replyInfo)
+        }
+    }
+
+    private fun getReplyInfoMap(replyIds: Collection<Int>): Map<Int, ReplyInfo> {
+        if (replyIds.isEmpty()) return emptyMap()
+
+        val records = dsl.select(
             MESSAGES.ID,
             MESSAGES.MESSAGE_TYPE,
             MESSAGES.CONTENT,
             MESSAGES.FILE_NAME,
-            MESSAGES.IS_DELETED,
             USERS.USERNAME
         )
             .from(MESSAGES)
             .leftJoin(USERS).on(MESSAGES.USER_ID.eq(USERS.ID))
-            .where(MESSAGES.ID.eq(messageId))
-            .fetchOne() ?: return null
+            .where(MESSAGES.ID.`in`(replyIds))
+            .and(MESSAGES.IS_DELETED.eq(0).or(MESSAGES.IS_DELETED.isNull))
+            .fetch()
 
-        val isDeleted = (record.get(MESSAGES.IS_DELETED) ?: 0) == 1
-        if (isDeleted) return null
-
-        val msgType = record.get(MESSAGES.MESSAGE_TYPE) ?: "text"
-        val content = when (msgType) {
-            "text" -> record.get(MESSAGES.CONTENT) ?: ""
-            "image" -> "[Image]"
-            "file" -> record.get(MESSAGES.FILE_NAME) ?: "[File]"
-            else -> ""
+        return records.associate { record ->
+            val messageId = record.get(MESSAGES.ID)!!
+            val msgType = record.get(MESSAGES.MESSAGE_TYPE) ?: "text"
+            val content = when (msgType) {
+                "text" -> record.get(MESSAGES.CONTENT) ?: ""
+                "image" -> "[Image]"
+                "file" -> record.get(MESSAGES.FILE_NAME) ?: "[File]"
+                else -> ""
+            }
+            messageId to ReplyInfo(
+                id = messageId,
+                username = record.get(USERS.USERNAME) ?: "unknown",
+                content = if (content.length > 100) content.take(100) + "..." else content,
+                messageType = msgType
+            )
         }
-
-        return ReplyInfo(
-            id = record.get(MESSAGES.ID)!!,
-            username = record.get(USERS.USERNAME) ?: "unknown",
-            content = if (content.length > 100) content.take(100) + "..." else content,
-            messageType = msgType
-        )
     }
 
     private fun mapRecordToMessage(
-        record: org.jooq.Record,
-        isDeleted: Int,
+        record: Record,
         replyInfo: ReplyInfo?
     ): ChatMessage {
         val messageType = record.get(MESSAGES.MESSAGE_TYPE)!!

@@ -6,9 +6,11 @@ import type { User, WsSendPayload } from "@/api/types";
 interface UserSidebarProps {
   send: (payload: WsSendPayload) => void;
   currentUser: User;
+  isOpen: boolean;
+  onClose: () => void;
 }
 
-export function UserSidebar({ send, currentUser }: UserSidebarProps) {
+export function UserSidebar({ send, currentUser, isOpen, onClose }: UserSidebarProps) {
   const users = useChatStore((s) => s.users);
   const openPrivateChat = useChatStore((s) => s.openPrivateChat);
   const showUserCard = useUiStore((s) => s.showUserCard);
@@ -19,16 +21,32 @@ export function UserSidebar({ send, currentUser }: UserSidebarProps) {
   };
 
   return (
-    <div className="users-sidebar">
+    <div className={`users-sidebar${isOpen ? " open" : " collapsed"}`}>
       <div className="sidebar-header">
         <div className="sidebar-title">USERS ONLINE</div>
         <div className="sidebar-count">{users.length}</div>
+        <button
+          type="button"
+          className="icon-btn users-sidebar-close"
+          aria-label="Close users list"
+          onClick={onClose}
+        >
+          ×
+        </button>
       </div>
       <div className="users-list">
         {users.map((user) => (
           <div
             key={user.id}
             className="user-item"
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                showUserCard(user.id);
+              }
+            }}
             onClick={() => showUserCard(user.id)}
           >
             <div className="user-item-avatar">
@@ -57,8 +75,10 @@ export function UserSidebar({ send, currentUser }: UserSidebarProps) {
             </div>
             {user.id !== currentUser.id && (
               <button
+                type="button"
                 className="dm-btn"
                 title="Send DM"
+                aria-label={`Send direct message to ${user.username}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   handleDm(user);

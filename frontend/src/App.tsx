@@ -4,6 +4,7 @@ import { AuthPage } from "@/pages/AuthPage";
 import { LobbyPage } from "@/pages/LobbyPage";
 import { ChatPage } from "@/pages/ChatPage";
 import { ToastContainer } from "@/components/ui/Toast";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { MatrixRain } from "@/components/effects/MatrixRain";
 import { useEffect } from "react";
 
@@ -35,6 +36,7 @@ export function App() {
         <Route path="*" element={<Navigate to={token ? "/lobby" : "/auth"} replace />} />
       </Routes>
       <ToastContainer />
+      <ConfirmDialog />
     </>
   );
 }

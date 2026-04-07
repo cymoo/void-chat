@@ -6,6 +6,22 @@ interface Toast {
   type: "success" | "error" | "info";
 }
 
+interface ConfirmDialog {
+  title: string;
+  message: string;
+  confirmText: string;
+  cancelText: string;
+  tone: "default" | "danger";
+}
+
+interface ConfirmOptions {
+  title: string;
+  message: string;
+  confirmText?: string;
+  cancelText?: string;
+  tone?: ConfirmDialog["tone"];
+}
+
 interface UiState {
   searchOpen: boolean;
   profileOpen: boolean;
@@ -14,6 +30,7 @@ interface UiState {
   imageModalUrl: string | null;
   dmInboxOpen: boolean;
   toasts: Toast[];
+  confirmDialog: ConfirmDialog | null;
 
   toggleSearch: () => void;
   setSearchOpen: (open: boolean) => void;
@@ -25,9 +42,12 @@ interface UiState {
   setDmInboxOpen: (open: boolean) => void;
   addToast: (message: string, type?: Toast["type"]) => void;
   removeToast: (id: string) => void;
+  confirm: (options: ConfirmOptions) => Promise<boolean>;
+  resolveConfirm: (confirmed: boolean) => void;
 }
 
 let toastCounter = 0;
+let pendingConfirmResolver: ((confirmed: boolean) => void) | null = null;
 
 export const useUiStore = create<UiState>((set) => ({
   searchOpen: false,
@@ -37,6 +57,7 @@ export const useUiStore = create<UiState>((set) => ({
   imageModalUrl: null,
   dmInboxOpen: false,
   toasts: [],
+  confirmDialog: null,
 
   toggleSearch: () => set((s) => ({ searchOpen: !s.searchOpen })),
   setSearchOpen: (open) => set({ searchOpen: open }),
@@ -57,4 +78,26 @@ export const useUiStore = create<UiState>((set) => ({
 
   removeToast: (id) =>
     set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
+
+  confirm: (options) =>
+    new Promise((resolve) => {
+      pendingConfirmResolver?.(false);
+      pendingConfirmResolver = resolve;
+      set({
+        confirmDialog: {
+          title: options.title,
+          message: options.message,
+          confirmText: options.confirmText ?? "CONFIRM",
+          cancelText: options.cancelText ?? "CANCEL",
+          tone: options.tone ?? "default",
+        },
+      });
+    }),
+
+  resolveConfirm: (confirmed) => {
+    const resolver = pendingConfirmResolver;
+    pendingConfirmResolver = null;
+    set({ confirmDialog: null });
+    resolver?.(confirmed);
+  },
 }));

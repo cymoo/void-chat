@@ -23,6 +23,7 @@ export function useWebSocket({
   const reconnectTimerRef = useRef<number | null>(null);
   const intentionalCloseRef = useRef(false);
   const joinedRef = useRef(false);
+  const lastSendBlockedAtRef = useRef(0);
   const handleWsEvent = useChatStore((s) => s.handleWsEvent);
   const addToast = useUiStore((s) => s.addToast);
 
@@ -132,8 +133,14 @@ export function useWebSocket({
     const ws = wsRef.current;
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(payload));
+      return;
     }
-  }, []);
+    const now = Date.now();
+    if (now - lastSendBlockedAtRef.current > 2000) {
+      addToast("Not connected yet. Retrying connection...", "error");
+      lastSendBlockedAtRef.current = now;
+    }
+  }, [addToast]);
 
   return { send };
 }

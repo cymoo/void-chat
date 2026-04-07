@@ -20,6 +20,7 @@ function MessageItemInner({
 }: MessageItemProps) {
   const setEditingMessage = useChatStore((s) => s.setEditingMessage);
   const setReplyingTo = useChatStore((s) => s.setReplyingTo);
+  const confirm = useUiStore((s) => s.confirm);
   const showUserCard = useUiStore((s) => s.showUserCard);
   const setImageModal = useUiStore((s) => s.setImageModal);
 
@@ -35,11 +36,18 @@ function MessageItemInner({
 
   const isOwn = message.userId === currentUser.id;
 
-  const handleDelete = useCallback(() => {
-    if (confirm("Delete this message?")) {
+  const handleDelete = useCallback(async () => {
+    const confirmed = await confirm({
+      title: "DELETE MESSAGE",
+      message: "Delete this message?",
+      confirmText: "DELETE",
+      cancelText: "CANCEL",
+      tone: "danger",
+    });
+    if (confirmed) {
       send({ type: "delete", messageId: message.id });
     }
-  }, [message.id, send]);
+  }, [confirm, message.id, send]);
 
   const handleReplyClick = useCallback(() => {
     if (message.replyTo) {

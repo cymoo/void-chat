@@ -20,26 +20,27 @@ export function ChatPage() {
   const { currentRoomName, currentRoomPassword, leaveRoom, rooms, fetchRooms, joinRoom } =
     useRoomStore();
   const reset = useChatStore((s) => s.reset);
+  const addToast = useUiStore((s) => s.addToast);
   const { profileOpen, userCardUserId } = useUiStore();
   const privateChatUserId = useChatStore((s) => s.privateChatUserId);
   const roomIdNum = Number(roomId);
 
   const onKicked = useCallback(
     (reason: string) => {
-      alert(`You were kicked: ${reason}`);
+      addToast(`You were kicked: ${reason}`, "error");
       leaveRoom();
       navigate("/lobby");
     },
-    [leaveRoom, navigate],
+    [addToast, leaveRoom, navigate],
   );
 
   const onConnectionError = useCallback(
     (message: string) => {
-      alert(message);
+      addToast(message, "error");
       leaveRoom();
       navigate("/lobby");
     },
-    [leaveRoom, navigate],
+    [addToast, leaveRoom, navigate],
   );
 
   const { send } = useWebSocket({

@@ -121,6 +121,7 @@ export interface WsSendPayload {
   beforeId?: number;
   query?: string;
   role?: string;
+  isTyping?: boolean;
   avatarUrl?: string;
   bio?: string;
   status?: string;
@@ -216,6 +217,13 @@ export interface WsUnreadCountsEvent {
   unreadDms: number;
 }
 
+export interface WsTypingEvent {
+  type: "typing";
+  userId: number;
+  username: string;
+  isTyping: boolean;
+}
+
 export type WsEvent =
   | WsHistoryEvent
   | WsUsersEvent
@@ -232,7 +240,8 @@ export type WsEvent =
   | WsKickedEvent
   | WsRoleChangedEvent
   | WsSearchResultsEvent
-  | WsUnreadCountsEvent;
+  | WsUnreadCountsEvent
+  | WsTypingEvent;
 
 // API request/response types
 export interface AuthResponse {

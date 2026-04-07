@@ -127,6 +127,7 @@ class ChatController(
                 val bio = payload.path("bio").takeIf { !it.isMissingNode && !it.isNull }?.asText()
                 val status = payload.path("status").takeIf { !it.isMissingNode && !it.isNull }?.asText()
                 val fileSize = payload.path("fileSize").takeIf { !it.isMissingNode && !it.isNull }?.asLong()
+                val isTyping = payload.path("isTyping").takeIf { !it.isMissingNode && !it.isNull }?.asBoolean()
 
                 when (type) {
                     "text" -> {
@@ -174,6 +175,11 @@ class ChatController(
                                     WsEvent.SearchResults(results, q)
                                 ))
                             }
+                        }
+                    }
+                    "typing" -> {
+                        isTyping?.let { typing ->
+                            chatService.sendTypingStatus(roomId, currentUser, typing)
                         }
                     }
                     "private_message" -> {

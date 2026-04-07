@@ -166,6 +166,7 @@ data class WsMessagePayload(
     val query: String? = null,
     val role: String? = null,
     val duration: Int? = null,
+    val isTyping: Boolean? = null,
     val bio: String? = null,
     val status: String? = null,
     val avatarUrl: String? = null
@@ -191,6 +192,7 @@ sealed class WsEvent {
     data class RoleChanged(val userId: Int, val role: String) : WsEvent()
     data class SearchResults(val messages: List<ChatMessage>, val query: String) : WsEvent()
     data class UnreadCounts(val unreadDms: Int) : WsEvent()
+    data class Typing(val userId: Int, val username: String, val isTyping: Boolean) : WsEvent()
 }
 
 /**

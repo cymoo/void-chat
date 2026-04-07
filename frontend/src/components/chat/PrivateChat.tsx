@@ -98,6 +98,7 @@ export function PrivateChat({ send, currentUser }: PrivateChatProps) {
   const closePrivateChat = useChatStore((s) => s.closePrivateChat);
   const setImageModal = useUiStore((s) => s.setImageModal);
   const addToast = useUiStore((s) => s.addToast);
+  const canSend = text.trim().length > 0;
   const handleOpenImage = useCallback(
     (url: string | null) => setImageModal(url),
     [setImageModal],
@@ -217,13 +218,14 @@ export function PrivateChat({ send, currentUser }: PrivateChatProps) {
           <textarea
             ref={textareaRef}
             className="message-input"
-            placeholder="Type private message... (Markdown supported)"
+            placeholder="Message..."
             autoComplete="off"
             rows={1}
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyDown}
             autoFocus
+            aria-label="Type a direct message"
           />
           <label className="icon-btn" title="Upload Image">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -249,7 +251,13 @@ export function PrivateChat({ send, currentUser }: PrivateChatProps) {
               onChange={handleFileUpload}
             />
           </label>
-          <button className="icon-btn send-btn" onClick={handleSend}>
+          <button
+            type="button"
+            className="icon-btn send-btn"
+            onClick={handleSend}
+            disabled={!canSend}
+            aria-label="Send direct message"
+          >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="22" y1="2" x2="11" y2="13" />
               <polygon points="22 2 15 22 11 13 2 9 22 2" />
@@ -257,7 +265,7 @@ export function PrivateChat({ send, currentUser }: PrivateChatProps) {
           </button>
         </div>
         <div className="private-chat-hint">
-          Press <kbd>Enter</kbd> to send • <kbd>Shift+Enter</kbd> for new line • Supports <strong>Markdown</strong>
+          <kbd>Enter</kbd> send • <kbd>Shift+Enter</kbd> new line
         </div>
       </div>
     </div>

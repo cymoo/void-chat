@@ -31,6 +31,7 @@ function clearReplyReference(
 interface ChatState {
   messages: ChatMessage[];
   users: User[];
+  typingUsers: { userId: number; username: string }[];
   hasMore: boolean;
   oldestMessageId: number | null;
 
@@ -67,6 +68,7 @@ interface ChatState {
 export const useChatStore = create<ChatState>((set, get) => ({
   messages: [],
   users: [],
+  typingUsers: [],
   hasMore: false,
   oldestMessageId: null,
   privateChatUserId: null,
@@ -114,16 +116,30 @@ export const useChatStore = create<ChatState>((set, get) => ({
         break;
 
       case "users":
-        set({ users: event.users });
+        set((state) => ({
+          users: event.users,
+          typingUsers: state.typingUsers.filter((typingUser) =>
+            event.users.some((u) => u.id === typingUser.userId),
+          ),
+        }));
         break;
 
       case "message":
+        const messageUserId =
+          event.message.messageType === "system" ? null : event.message.userId;
         set((state) => {
           if (state.messages.some((m) => m.id === event.message.id)) {
             return state;
           }
           return { messages: [...state.messages, event.message] };
         });
+        if (messageUserId !== null) {
+          set((state) => ({
+            typingUsers: state.typingUsers.filter(
+              (typingUser) => typingUser.userId !== messageUserId,
+            ),
+          }));
+        }
         break;
 
       case "user_joined":
@@ -138,6 +154,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       case "user_left":
         set((state) => ({
           users: state.users.filter((u) => u.id !== event.userId),
+          typingUsers: state.typingUsers.filter(
+            (typingUser) => typingUser.userId !== event.userId,
+          ),
         }));
         break;
 
@@ -239,6 +258,28 @@ export const useChatStore = create<ChatState>((set, get) => ({
         set({ unreadDmCount: event.unreadDms });
         break;
 
+      case "typing":
+        set((state) => {
+          if (!event.isTyping) {
+            return {
+              typingUsers: state.typingUsers.filter(
+                (typingUser) => typingUser.userId !== event.userId,
+              ),
+            };
+          }
+          const existing = state.typingUsers.some(
+            (typingUser) => typingUser.userId === event.userId,
+          );
+          if (existing) return state;
+          return {
+            typingUsers: [
+              ...state.typingUsers,
+              { userId: event.userId, username: event.username },
+            ],
+          };
+        });
+        break;
+
       case "mention":
         // Handled by toast notification in component
         break;
@@ -306,6 +347,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({
       messages: [],
       users: [],
+      typingUsers: [],
       hasMore: false,
       oldestMessageId: null,
       privateChatUserId: null,

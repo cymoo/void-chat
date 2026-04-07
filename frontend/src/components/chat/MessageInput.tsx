@@ -12,6 +12,8 @@ interface MessageInputProps {
 export function MessageInput({ send, currentUser }: MessageInputProps) {
   const [text, setText] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const typingTimerRef = useRef<number | null>(null);
+  const typingStateRef = useRef(false);
   const editingMessageId = useChatStore((s) => s.editingMessageId);
   const replyingTo = useChatStore((s) => s.replyingTo);
   const setEditingMessage = useChatStore((s) => s.setEditingMessage);
@@ -19,6 +21,7 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
   const messages = useChatStore((s) => s.messages);
   const users = useChatStore((s) => s.users);
   const addToast = useUiStore((s) => s.addToast);
+  const canSend = text.trim().length > 0;
 
   // Mention dropdown
   const [, setMentionQuery] = useState<string | null>(null);
@@ -49,9 +52,48 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
     autoResize();
   }, [text, autoResize]);
 
+  const sendTyping = useCallback(
+    (isTyping: boolean) => {
+      if (typingStateRef.current === isTyping) return;
+      typingStateRef.current = isTyping;
+      send({ type: "typing", isTyping });
+    },
+    [send],
+  );
+
+  const scheduleStopTyping = useCallback(() => {
+    if (typingTimerRef.current !== null) {
+      window.clearTimeout(typingTimerRef.current);
+    }
+    typingTimerRef.current = window.setTimeout(() => {
+      sendTyping(false);
+      typingTimerRef.current = null;
+    }, 1500);
+  }, [sendTyping]);
+
+  useEffect(
+    () => () => {
+      if (typingTimerRef.current !== null) {
+        window.clearTimeout(typingTimerRef.current);
+      }
+      sendTyping(false);
+    },
+    [sendTyping],
+  );
+
   const handleChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
     setText(val);
+    if (val.trim().length > 0) {
+      sendTyping(true);
+      scheduleStopTyping();
+    } else {
+      if (typingTimerRef.current !== null) {
+        window.clearTimeout(typingTimerRef.current);
+        typingTimerRef.current = null;
+      }
+      sendTyping(false);
+    }
 
     // Check for @mention
     const cursorPos = e.target.selectionStart;
@@ -100,6 +142,11 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
       send(payload);
       setReplyingTo(null);
     }
+    if (typingTimerRef.current !== null) {
+      window.clearTimeout(typingTimerRef.current);
+      typingTimerRef.current = null;
+    }
+    sendTyping(false);
     setText("");
   };
 
@@ -223,6 +270,7 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
             value={text}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
+            onBlur={() => sendTyping(false)}
           />
           <div className="input-actions">
             <label className="icon-btn" title="Upload Image">
@@ -249,7 +297,13 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
                 onChange={handleFileUpload}
               />
             </label>
-            <button className="icon-btn send-btn" onClick={handleSend}>
+            <button
+              type="button"
+              className="icon-btn send-btn"
+              onClick={handleSend}
+              disabled={!canSend}
+              aria-label="Send message"
+            >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <line x1="22" y1="2" x2="11" y2="13" />
                 <polygon points="22 2 15 22 11 13 2 9 22 2" />

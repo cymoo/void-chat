@@ -18,6 +18,7 @@ interface DmSender {
 export function DmInboxModal({ send }: DmInboxModalProps) {
   const dmInboxOpen = useUiStore((s) => s.dmInboxOpen);
   const setDmInboxOpen = useUiStore((s) => s.setDmInboxOpen);
+  const addToast = useUiStore((s) => s.addToast);
   const openPrivateChat = useChatStore((s) => s.openPrivateChat);
   const [senders, setSenders] = useState<DmSender[]>([]);
 
@@ -32,9 +33,11 @@ export function DmInboxModal({ send }: DmInboxModalProps) {
             ),
           ),
         )
-        .catch(() => {});
+        .catch(() => {
+          addToast("Failed to load unread messages", "error");
+        });
     }
-  }, [dmInboxOpen]);
+  }, [addToast, dmInboxOpen]);
 
   if (!dmInboxOpen) return null;
 

@@ -7,6 +7,7 @@ import service.RoomService
 import service.SessionService
 import service.UserService
 import service.ChatService
+import util.BearerToken
 
 /**
  * REST API controller for rooms, files, and user profiles
@@ -26,8 +27,8 @@ class ApiController(
     }
 
     @Post("/rooms")
-    fun createRoom(ctx: Context, body: Json<CreateRoomRequest>): Room {
-        val userId = ctx.requireAuth()
+    fun createRoom(body: Json<CreateRoomRequest>, token: BearerToken): Room {
+        val userId = requireAuth(token)
         val request = body.value
         if (request.name.isBlank()) throw BadRequest("Room name is required")
         if (request.isPrivate && request.password.isNullOrBlank()) throw BadRequest("Private rooms require a password")
@@ -35,8 +36,8 @@ class ApiController(
     }
 
     @Delete("/rooms/{roomId}")
-    fun deleteRoom(ctx: Context, roomId: Path<Int>) {
-        val userId = ctx.requireAuth()
+    fun deleteRoom(ctx: Context, roomId: Path<Int>, token: BearerToken) {
+        val userId = requireAuth(token)
         if (!roomService.deleteRoom(roomId.value, userId)) {
             throw BadRequest("Cannot delete room: not found or not the owner")
         }
@@ -44,8 +45,8 @@ class ApiController(
     }
 
     @Post("/upload/image")
-    fun uploadImage(ctx: Context, image: UploadedFile): UploadResponse {
-        ctx.requireAuth()
+    fun uploadImage(image: UploadedFile, token: BearerToken): UploadResponse {
+        requireAuth(token)
         return try {
             val file = image.value ?: throw BadRequest("No image uploaded")
             val fileInfo = fileService.saveImage(file)
@@ -56,8 +57,8 @@ class ApiController(
     }
 
     @Post("/upload/file")
-    fun uploadFile(ctx: Context, file: UploadedFile): UploadResponse {
-        ctx.requireAuth()
+    fun uploadFile(file: UploadedFile, token: BearerToken): UploadResponse {
+        requireAuth(token)
         return try {
             val f = file.value ?: throw BadRequest("No file uploaded")
             val fileInfo = fileService.saveFile(f)
@@ -78,23 +79,20 @@ class ApiController(
     }
 
     @Get("/dms/unread-senders")
-    fun getUnreadDmSenders(ctx: Context): List<Map<String, Any>> {
-        val userId = ctx.requireAuth()
+    fun getUnreadDmSenders(token: BearerToken): List<Map<String, Any>> {
+        val userId = requireAuth(token)
         return chatService.getUnreadDmSenders(userId)
     }
 
     @Patch("/users/me")
-    fun updateMyProfile(ctx: Context, body: Json<UpdateProfileRequest>): User {
-        val userId = ctx.requireAuth()
+    fun updateMyProfile(body: Json<UpdateProfileRequest>, token: BearerToken): User {
+        val userId = requireAuth(token)
         val req = body.value
         return userService.updateProfile(userId, req.avatarUrl, req.bio, req.status)
             ?: throw NotFound("User not found")
     }
 
-    private fun Context.requireAuth(): Int {
-        val auth = header("Authorization") ?: throw Unauthorized("Authentication required")
-        val token = if (auth.startsWith("Bearer ")) auth.removePrefix("Bearer ").trim() else throw Unauthorized("Invalid authorization header")
-        return sessionService.validateSession(token) ?: throw Unauthorized("Invalid or expired session")
+    private fun requireAuth(token: BearerToken): Int {
+        return sessionService.validateSession(token.require()) ?: throw Unauthorized("Invalid or expired session")
     }
 }
-

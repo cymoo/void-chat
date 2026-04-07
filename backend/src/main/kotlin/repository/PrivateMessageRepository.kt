@@ -103,26 +103,28 @@ class PrivateMessageRepository(private val dsl: DSLContext) {
     }
 
     fun getUnreadSenders(userId: Int): List<Map<String, Any>> {
-        val unreadCount = dsl.selectCount().from(PRIVATE_MESSAGES)
-            .where(PRIVATE_MESSAGES.SENDER_ID.eq(SENDER.ID))
-            .and(PRIVATE_MESSAGES.RECEIVER_ID.eq(userId))
-            .and(PRIVATE_MESSAGES.IS_READ.eq(0))
-            .asField<Int>("unread_count")
-
-        return dsl.select(SENDER.ID, SENDER.USERNAME, SENDER.AVATAR_URL, unreadCount)
-            .from(PRIVATE_MESSAGES)
-            .join(SENDER).on(PRIVATE_MESSAGES.SENDER_ID.eq(SENDER.ID))
-            .where(PRIVATE_MESSAGES.RECEIVER_ID.eq(userId))
-            .and(PRIVATE_MESSAGES.IS_READ.eq(0))
-            .groupBy(SENDER.ID, SENDER.USERNAME, SENDER.AVATAR_URL)
-            .orderBy(unreadCount.desc())
+        // Use a compact SQL aggregation here for readability and stable aliases consumed by frontend.
+        return dsl.resultQuery(
+            """
+            SELECT
+              pm.sender_id AS senderId,
+              u.username AS senderUsername,
+              COUNT(*) AS unreadCount
+            FROM private_messages pm
+            JOIN users u ON u.id = pm.sender_id
+            WHERE pm.receiver_id = ?
+              AND COALESCE(pm.is_read, 0) = 0
+            GROUP BY pm.sender_id, u.username
+            ORDER BY unreadCount DESC, pm.sender_id ASC
+            """.trimIndent(),
+            userId
+        )
             .fetch()
             .map { r ->
                 mapOf(
-                    "userId" to r.get(SENDER.ID)!!,
-                    "username" to (r.get(SENDER.USERNAME) ?: ""),
-                    "avatarUrl" to (r.get(SENDER.AVATAR_URL) ?: ""),
-                    "unreadCount" to (r.get(unreadCount) ?: 0)
+                    "senderId" to (r.get("senderId", Int::class.java) ?: 0),
+                    "senderUsername" to (r.get("senderUsername", String::class.java) ?: ""),
+                    "unreadCount" to (r.get("unreadCount", Int::class.java) ?: 0)
                 )
             }
     }

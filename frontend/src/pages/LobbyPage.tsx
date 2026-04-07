@@ -15,6 +15,7 @@ export function LobbyPage() {
   const { rooms, loading, fetchRooms, joinRoom, deleteRoom } = useRoomStore();
   const { profileOpen, setProfileOpen, createRoomOpen, setCreateRoomOpen } = useUiStore();
   const addToast = useUiStore((s) => s.addToast);
+  const confirm = useUiStore((s) => s.confirm);
 
   const [passwordRoom, setPasswordRoom] = useState<RoomInfo | null>(null);
 
@@ -41,7 +42,14 @@ export function LobbyPage() {
 
   const handleDeleteRoom = async (e: React.MouseEvent, room: RoomInfo) => {
     e.stopPropagation();
-    if (!confirm(`Delete room "${room.name}"? This cannot be undone.`)) return;
+    const confirmed = await confirm({
+      title: "DELETE ROOM",
+      message: `Delete room "${room.name}"? This cannot be undone.`,
+      confirmText: "DELETE",
+      cancelText: "CANCEL",
+      tone: "danger",
+    });
+    if (!confirmed) return;
     try {
       await deleteRoom(room.id);
       addToast(`Room "${room.name}" deleted`, "success");
@@ -105,6 +113,14 @@ export function LobbyPage() {
               <div
                 key={room.id}
                 className="room-card"
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    handleRoomClick(room);
+                  }
+                }}
                 onClick={() => handleRoomClick(room)}
               >
                 <div className="room-card-header">

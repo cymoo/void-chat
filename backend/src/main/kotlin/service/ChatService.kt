@@ -296,6 +296,10 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
 
     fun getUnreadDmSenders(userId: Int): List<Map<String, Any>> = privateMessageRepo.getUnreadSenders(userId)
 
+    fun sendTypingStatus(roomId: Int, user: User, isTyping: Boolean) {
+        broadcastToRoom(roomId, WsEvent.Typing(user.id, user.username, isTyping))
+    }
+
     // Room permissions
     fun setUserRole(roomId: Int, actorUser: User, targetUserId: Int, role: String) {
         val actorRole = roomMemberRepo.getMemberRole(roomId, actorUser.id) ?: return
@@ -449,6 +453,12 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
             is WsEvent.UnreadCounts -> mapOf(
                 "type" to "unread_counts",
                 "unreadDms" to event.unreadDms
+            )
+            is WsEvent.Typing -> mapOf(
+                "type" to "typing",
+                "userId" to event.userId,
+                "username" to event.username,
+                "isTyping" to event.isTyping
             )
         }
         return objectMapper.writeValueAsString(payload)

@@ -7,6 +7,7 @@ import model.RegisterRequest
 import model.User
 import service.SessionService
 import service.UserService
+import util.BearerToken
 
 /**
  * Authentication controller: register, login, logout, current user
@@ -42,21 +43,14 @@ class AuthController(
     }
 
     @Post("/logout")
-    fun logout(ctx: Context) {
-        val token = ctx.bearerToken() ?: return
-        sessionService.invalidateSession(token)
+    fun logout(ctx: Context, token: BearerToken) {
+        token.getOrNull()?.let { sessionService.invalidateSession(it) }
         ctx.status(204)
     }
 
     @Get("/me")
-    fun me(ctx: Context): User {
-        val token = ctx.bearerToken() ?: throw Unauthorized("Authentication required")
-        val userId = sessionService.validateSession(token) ?: throw Unauthorized("Invalid or expired session")
+    fun me(token: BearerToken): User {
+        val userId = sessionService.validateSession(token.require()) ?: throw Unauthorized("Invalid or expired session")
         return userService.getUserById(userId) ?: throw NotFound("User not found")
-    }
-
-    private fun Context.bearerToken(): String? {
-        val auth = header("Authorization") ?: return null
-        return if (auth.startsWith("Bearer ")) auth.removePrefix("Bearer ").trim() else null
     }
 }
