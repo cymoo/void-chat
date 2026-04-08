@@ -14,16 +14,14 @@ class RoomService(dsl: DSLContext) {
     private val roomRepo = RoomRepository(dsl)
 
     fun getAllRooms(): List<RoomInfo> {
-        // Avoid N+1 count queries by loading room metadata and online counts in one query.
-        return roomRepo.findAllWithOnlineUserCount().map { roomWithCount ->
-            val room = roomWithCount.room
+        return roomRepo.findAll().map { room ->
             RoomInfo(
                 id = room.id,
                 name = room.name,
                 description = room.description,
                 isPrivate = room.isPrivate,
                 creatorId = room.creatorId,
-                onlineUsers = roomWithCount.onlineUsers,
+                onlineUsers = 0,
                 maxUsers = room.maxUsers
             )
         }

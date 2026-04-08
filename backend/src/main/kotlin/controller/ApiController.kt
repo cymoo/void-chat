@@ -23,7 +23,9 @@ class ApiController(
 
     @Get("/rooms")
     fun getRooms(): List<RoomInfo> {
-        return roomService.getAllRooms()
+        val rooms = roomService.getAllRooms()
+        val onlineCounts = chatService.getOnlineUserCounts()
+        return rooms.map { it.copy(onlineUsers = onlineCounts[it.id] ?: 0) }
     }
 
     @Post("/rooms")

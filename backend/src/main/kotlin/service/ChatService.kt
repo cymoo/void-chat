@@ -78,6 +78,8 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
 
             broadcastToRoom(roomId, WsEvent.Message(joinMessage))
             broadcastToRoom(roomId, WsEvent.UserJoined(joinedUser))
+            // Broadcast updated user list so all clients stay in sync
+            broadcastToRoom(roomId, WsEvent.Users(getRoomUsers(roomId)))
         }
     }
 
@@ -110,6 +112,8 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
 
             broadcastToRoom(roomId, WsEvent.Message(leaveMessage))
             broadcastToRoom(roomId, WsEvent.UserLeft(user.id, user.username))
+            // Broadcast updated user list so all clients stay in sync
+            broadcastToRoom(roomId, WsEvent.Users(getRoomUsers(roomId)))
         }
 
         // Clean up empty room tracking
@@ -229,6 +233,11 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
 
     fun getRoomUsers(roomId: Int): List<User> {
         return roomMemberRepo.getRoomMembers(roomId)
+    }
+
+    /** Returns the number of online users per room based on active WebSocket connections. */
+    fun getOnlineUserCounts(): Map<Int, Int> {
+        return roomUserConnectionCounts.mapValues { (_, userCounts) -> userCounts.size }
     }
 
     // Private messaging
