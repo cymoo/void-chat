@@ -42,7 +42,12 @@ class ChatServiceTest {
         return conn
     }
 
-    /** Collects all JSON payloads sent to the given mock connection. */
+    /** Allow time for async broadcasts to be delivered. */
+    private fun awaitBroadcasts() {
+        // Submit a no-op task and wait for it, ensuring prior broadcasts have been processed.
+        java.util.concurrent.CompletableFuture.runAsync({}, chatService.broadcastExecutorForTest())
+            .get(2, java.util.concurrent.TimeUnit.SECONDS)
+    }
     private fun capturedMessages(conn: WsConnection): List<Map<*, *>> {
         val slot = mutableListOf<String>()
         verify { conn.send(capture(slot)) }
@@ -76,10 +81,10 @@ class ChatServiceTest {
 
         chatService.joinRoom(room1Id, connA, userA)
         // Allow async broadcasts to complete
-        Thread.sleep(200)
+        awaitBroadcasts()
 
         chatService.joinRoom(room1Id, connB, userB)
-        Thread.sleep(200)
+        awaitBroadcasts()
 
         // User A should have received a Users event containing both users
         val msgsA = capturedMessages(connA)
@@ -102,11 +107,11 @@ class ChatServiceTest {
 
         chatService.joinRoom(room2Id, connA, userA)
         chatService.joinRoom(room2Id, connB, userB)
-        Thread.sleep(200)
+        awaitBroadcasts()
         clearAllMocks()
 
         chatService.leaveRoom(room2Id, userB, connB)
-        Thread.sleep(200)
+        awaitBroadcasts()
 
         // User A should receive a Users event with only charlie
         val msgsA = capturedMessages(connA)

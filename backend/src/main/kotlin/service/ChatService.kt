@@ -240,6 +240,9 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
         return roomUserConnectionCounts.mapValues { (_, userCounts) -> userCounts.size }
     }
 
+    /** Exposed for testing: returns the broadcast executor so tests can await pending tasks. */
+    internal fun broadcastExecutorForTest(): ExecutorService = broadcastExecutor
+
     // Private messaging
     fun sendPrivateMessage(
         sender: User,

@@ -74,17 +74,13 @@ test.describe("Lobby", () => {
     await pageB.locator("button[title='Back to Lobby']").click();
     await expect(pageB).toHaveURL(/#\/lobby/);
 
-    // Wait for WebSocket disconnect to be processed
-    await pageA.waitForTimeout(500);
-
-    // Refresh the lobby to get fresh data
-    await pageA.goto("/#/lobby");
-    await expect(pageA.locator("text=SELECT ROOM")).toBeVisible();
-
-    // The room should show 0 online
-    const roomCard = pageA.locator(".room-card", { hasText: roomName });
-    await expect(roomCard).toBeVisible();
-    await expect(roomCard.locator(".room-card-meta")).toContainText("0 ONLINE");
+    // Retry until the server processes WebSocket disconnects and returns 0 online
+    await expect(async () => {
+      await pageA.goto("/#/lobby");
+      const roomCard = pageA.locator(".room-card", { hasText: roomName });
+      await expect(roomCard).toBeVisible();
+      await expect(roomCard.locator(".room-card-meta")).toContainText("0 ONLINE");
+    }).toPass({ timeout: 5000 });
 
     await contextA.close();
     await contextB.close();
