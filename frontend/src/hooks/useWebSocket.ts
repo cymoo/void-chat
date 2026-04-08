@@ -19,116 +19,153 @@ export function useWebSocket({
   onConnectionError,
 }: UseWebSocketOptions) {
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectAttemptsRef = useRef(0);
   const reconnectTimerRef = useRef<number | null>(null);
-  const intentionalCloseRef = useRef(false);
-  const joinedRef = useRef(false);
   const lastSendBlockedAtRef = useRef(0);
+
   const handleWsEvent = useChatStore((s) => s.handleWsEvent);
   const addToast = useUiStore((s) => s.addToast);
 
-  const connect = useCallback(() => {
-    if (!token || !Number.isFinite(roomId) || roomId <= 0) {
-      return;
-    }
+  // Stable refs so the effect closure always invokes the latest callbacks
+  // without needing them in the dependency array (which would cause reconnects
+  // on every render).
+  const handleWsEventRef = useRef(handleWsEvent);
+  handleWsEventRef.current = handleWsEvent;
+  const addToastRef = useRef(addToast);
+  addToastRef.current = addToast;
+  const onKickedRef = useRef(onKicked);
+  onKickedRef.current = onKicked;
+  const onConnectionErrorRef = useRef(onConnectionError);
+  onConnectionErrorRef.current = onConnectionError;
 
-    intentionalCloseRef.current = false;
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const host = window.location.host;
-    let url = `${protocol}//${host}/chat/${roomId}?token=${encodeURIComponent(token)}`;
-    if (roomPassword) {
-      url += `&roomPassword=${encodeURIComponent(roomPassword)}`;
-    }
+  useEffect(() => {
+    if (!token || !Number.isFinite(roomId) || roomId <= 0) return;
 
-    const ws = new WebSocket(url);
-    wsRef.current = ws;
+    // `closed` is scoped to this effect invocation. Setting it to true in the
+    // cleanup function ensures that ALL callbacks registered by this effect's
+    // WebSocket (onopen, onmessage, onclose) become no-ops — including any
+    // pending reconnect timers. This is the key fix for the cascade-reconnect
+    // bug caused by React Strict Mode's double-mount:
+    //
+    //   1. Effect runs → WS#1 created (still CONNECTING)
+    //   2. Strict Mode cleanup → closed=true, ws.close() called on WS#1
+    //   3. Effect re-runs → new closed=false closure, WS#2 created
+    //   4. WS#1 eventually closes → its onclose sees closed=true → returns,
+    //      no reconnect scheduled. WS#2 is the only live connection. ✓
+    //
+    // Previously a shared `intentionalCloseRef` was used, but step 3 would
+    // reset it to false, causing WS#1's onclose to fire a spurious WS#3.
+    let closed = false;
+    let attempts = 0;
+    let joined = false;
 
-    ws.onopen = () => {
+    function connect() {
+      if (closed) return;
+
       if (reconnectTimerRef.current !== null) {
         window.clearTimeout(reconnectTimerRef.current);
         reconnectTimerRef.current = null;
       }
-      reconnectAttemptsRef.current = 0;
-    };
 
-    ws.onmessage = (e) => {
-      try {
-        const event = JSON.parse(e.data) as WsEvent;
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const host = window.location.host;
+      let url = `${protocol}//${host}/chat/${roomId}?token=${encodeURIComponent(token)}`;
+      if (roomPassword) {
+        url += `&roomPassword=${encodeURIComponent(roomPassword)}`;
+      }
 
-        if (event.type === "kicked") {
-          intentionalCloseRef.current = true;
+      const ws = new WebSocket(url);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        if (closed) {
+          // Cleanup ran while this WS was still connecting — close it now.
+          // Calling close() here (rather than in the cleanup) ensures the
+          // server never sees an open connection that will immediately vanish.
           ws.close();
-          onKicked?.(event.reason);
           return;
         }
+        attempts = 0;
+      };
 
-        if (event.type === "error") {
-          // If we haven't joined yet, this is a connection rejection (e.g. wrong password)
-          if (!joinedRef.current) {
-            intentionalCloseRef.current = true;
+      ws.onmessage = (e) => {
+        if (closed) return;
+        try {
+          const event = JSON.parse(e.data) as WsEvent;
+
+          if (event.type === "kicked") {
+            closed = true;
             ws.close();
-            onConnectionError?.(event.message);
-          } else {
-            addToast(event.message, "error");
+            onKickedRef.current?.(event.reason);
+            return;
           }
-          return;
+
+          if (event.type === "error") {
+            if (!joined) {
+              closed = true;
+              ws.close();
+              onConnectionErrorRef.current?.(event.message);
+            } else {
+              addToastRef.current(event.message, "error");
+            }
+            return;
+          }
+
+          if (event.type === "users" || event.type === "history") {
+            joined = true;
+          }
+
+          if (event.type === "mention") {
+            addToastRef.current(`@${event.mentionedBy} mentioned you`, "info");
+          }
+
+          handleWsEventRef.current(event);
+        } catch {
+          // ignore malformed messages
         }
+      };
 
-        // Mark as successfully joined once we receive users or history
-        if (event.type === "users" || event.type === "history") {
-          joinedRef.current = true;
+      ws.onclose = () => {
+        // If closed=true this WS belongs to a superseded effect run — do not
+        // reconnect, as a newer connection is already active (or the component
+        // was intentionally unmounted).
+        if (closed) return;
+
+        if (attempts < 5) {
+          const delay = Math.min(1000 * Math.pow(2, attempts), 16000);
+          attempts++;
+          reconnectTimerRef.current = window.setTimeout(connect, delay);
+        } else {
+          addToastRef.current("Connection lost. Please refresh.", "error");
         }
+      };
 
-        if (event.type === "mention") {
-          addToast(`@${event.mentionedBy} mentioned you`, "info");
-        }
+      ws.onerror = () => {
+        // onclose will fire after this
+      };
+    }
 
-        handleWsEvent(event);
-      } catch {
-        // ignore malformed messages
-      }
-    };
-
-    ws.onclose = () => {
-      if (intentionalCloseRef.current) return;
-
-      const attempts = reconnectAttemptsRef.current;
-      if (attempts < 5) {
-        const delay = Math.min(1000 * Math.pow(2, attempts), 16000);
-        reconnectAttemptsRef.current = attempts + 1;
-        reconnectTimerRef.current = window.setTimeout(connect, delay);
-      } else {
-        addToast("Connection lost. Please refresh.", "error");
-      }
-    };
-
-    ws.onerror = () => {
-      // onclose will fire after this
-    };
-  }, [roomId, token, roomPassword, handleWsEvent, addToast, onKicked, onConnectionError]);
-
-  useEffect(() => {
-    joinedRef.current = false;
     connect();
 
     return () => {
-      intentionalCloseRef.current = true;
+      closed = true;
       if (reconnectTimerRef.current !== null) {
         window.clearTimeout(reconnectTimerRef.current);
         reconnectTimerRef.current = null;
       }
       const ws = wsRef.current;
       if (!ws) return;
-      if (ws.readyState === WebSocket.CONNECTING) {
-        ws.onopen = () => ws.close();
-        return;
-      }
+      // Send "leave" only if the connection is fully open so the server can
+      // cleanly remove the user before the socket closes.
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: "leave" }));
-        ws.close();
       }
+      // close() works for both CONNECTING and OPEN states. For a CONNECTING
+      // socket the browser aborts the handshake; onclose fires (with closed=true)
+      // and the onclose handler is a no-op, preventing any reconnect.
+      ws.close();
+      wsRef.current = null;
     };
-  }, [connect]);
+  }, [roomId, token, roomPassword]); // Only reconnect when room/auth changes
 
   const send = useCallback((payload: WsSendPayload) => {
     const ws = wsRef.current;
@@ -138,10 +175,10 @@ export function useWebSocket({
     }
     const now = Date.now();
     if (now - lastSendBlockedAtRef.current > 2000) {
-      addToast("Not connected yet. Retrying connection...", "error");
+      addToastRef.current("Not connected yet. Retrying connection...", "error");
       lastSendBlockedAtRef.current = now;
     }
-  }, [addToast]);
+  }, []); // addToastRef is a ref — no deps needed
 
   return { send };
 }

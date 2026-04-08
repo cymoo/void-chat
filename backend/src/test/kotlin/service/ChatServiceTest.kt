@@ -206,4 +206,135 @@ class ChatServiceTest {
         assertEquals(0, counts.getOrDefault(room2Id, 0), "Room 2 should have 0 online")
         assertEquals(0, counts.getOrDefault(room3Id, 0), "Room 3 should have 0 online")
     }
+
+    // ---------------------------------------------------------------
+    // Regression: React Strict-Mode double-mount (rapid reconnect)
+    // ---------------------------------------------------------------
+
+    // ---------------------------------------------------------------
+    // Regression: React Strict-Mode double-mount (rapid reconnect)
+    // ---------------------------------------------------------------
+
+    /**
+     * The React Strict-Mode pattern produces TWO overlapping connections:
+     *   conn1 opens → conn2 opens → conn1 closes (in that order)
+     * Only one "joined" should broadcast, and no "left" should appear.
+     *
+     * This is distinct from a fully sequential reconnect (join→leave→join),
+     * which correctly emits two "joined" and one "left".
+     */
+    @Test
+    fun `overlapping reconnect join-join-leave produces single join broadcast`() {
+        val userA = createUser("reconnect-user")
+        val observer = createUser("observer")
+        val connA1 = mockConnection()
+        val connA2 = mockConnection()
+        val connObs = mockConnection()
+
+        // Observer is already in the room.
+        chatService.joinRoom(room1Id, connObs, observer)
+        awaitBroadcasts()
+        clearMocks(connObs, answers = false)
+
+        // Simulate overlap: conn2 opens before conn1 closes.
+        chatService.joinRoom(room1Id, connA1, userA)  // count 0→1, broadcast "joined"
+        chatService.joinRoom(room1Id, connA2, userA)  // count 1→2, no broadcast
+        chatService.leaveRoom(room1Id, userA, connA1) // count 2→1, no broadcast
+        awaitBroadcasts()
+
+        val msgs = capturedMessages(connObs)
+        val systemMessages = msgs
+            .filter { it["type"] == "message" }
+            .mapNotNull {
+                @Suppress("UNCHECKED_CAST")
+                (it["message"] as? Map<String, Any>)
+                    ?.takeIf { m -> m["messageType"] == "system" }
+                    ?.get("content") as? String
+            }
+
+        val joinCount = systemMessages.count { it.contains("joined") }
+        val leaveCount = systemMessages.count { it.contains("left") }
+
+        assertEquals(1, joinCount, "Expected exactly 1 'joined' system message, got: $systemMessages")
+        assertEquals(0, leaveCount, "Expected no 'left' system message, got: $systemMessages")
+
+        // User must be visible in the room at the end (conn2 is still active).
+        val roomUsers = chatService.getRoomUsers(room1Id)
+        assertTrue(roomUsers.any { it.id == userA.id }, "User should be in room after overlapping reconnect")
+    }
+
+    /**
+     * Sequential reconnect (fully disconnects then reconnects) correctly
+     * emits "joined", "left", "joined" — the backend is not expected to suppress
+     * these; the frontend fix prevents this sequence from occurring in practice.
+     */
+    @Test
+    fun `sequential reconnect join-leave-join produces two join broadcasts`() {
+        val userA = createUser("seq-reconnect-user")
+        val observer = createUser("seq-observer")
+        val connA1 = mockConnection()
+        val connA2 = mockConnection()
+        val connObs = mockConnection()
+
+        chatService.joinRoom(room1Id, connObs, observer)
+        awaitBroadcasts()
+        clearMocks(connObs, answers = false)
+
+        chatService.joinRoom(room1Id, connA1, userA)   // count 0→1, "joined"
+        chatService.leaveRoom(room1Id, userA, connA1)  // count 1→0, "left"
+        chatService.joinRoom(room1Id, connA2, userA)   // count 0→1, "joined"
+        awaitBroadcasts()
+
+        val msgs = capturedMessages(connObs)
+        val systemMessages = msgs
+            .filter { it["type"] == "message" }
+            .mapNotNull {
+                @Suppress("UNCHECKED_CAST")
+                (it["message"] as? Map<String, Any>)
+                    ?.takeIf { m -> m["messageType"] == "system" }
+                    ?.get("content") as? String
+            }
+
+        assertEquals(2, systemMessages.count { it.contains("joined") }, "Sequential: 2 joined")
+        assertEquals(1, systemMessages.count { it.contains("left") }, "Sequential: 1 left")
+        assertTrue(
+            chatService.getRoomUsers(room1Id).any { it.id == userA.id },
+            "User should be in room after final join"
+        )
+    }
+
+    /**
+     * After many concurrent join→leave pairs for the same user finish, the user
+     * must not be in the DB and the online count must be 0.
+     */
+    @Test
+    fun `concurrent join and leave are serialised correctly`() {
+        val user = createUser("concurrent")
+        val executor = java.util.concurrent.Executors.newFixedThreadPool(4)
+        val latch = java.util.concurrent.CountDownLatch(20)
+
+        repeat(20) {
+            val conn = mockConnection()
+            executor.submit {
+                // In real usage, leaveRoom is always called AFTER joinRoom for
+                // the same connection. Each thread respects that ordering; the
+                // concurrency is between different threads (connections).
+                chatService.joinRoom(room3Id, conn, user)
+                chatService.leaveRoom(room3Id, user, conn)
+                latch.countDown()
+            }
+        }
+
+        latch.await(10, java.util.concurrent.TimeUnit.SECONDS)
+        executor.shutdown()
+        awaitBroadcasts()
+
+        // All connections have left: user must not appear in DB or online counts.
+        val onlineCount = chatService.getOnlineUserCounts().getOrDefault(room3Id, 0)
+        val dbMembers = chatService.getRoomUsers(room3Id)
+        val userInDb = dbMembers.any { it.id == user.id }
+
+        assertEquals(0, onlineCount, "Online count should be 0 after all leaves")
+        assertFalse(userInDb, "User should not be in DB after all leaves")
+    }
 }

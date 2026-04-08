@@ -35,6 +35,14 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
     // User ID -> Connection
     private val userConnections = ConcurrentHashMap<Int, WsConnection>()
 
+    // Per-(roomId, userId) lock objects to serialise concurrent join/leave for
+    // the same user in the same room.  Without this a rapid reconnect (e.g.
+    // React Strict-Mode double-mount) can interleave a leaveRoom inside a
+    // joinRoom, producing spurious "left" / "joined" broadcasts.
+    private val userRoomLocks = ConcurrentHashMap<Pair<Int, Int>, Any>()
+    private fun userRoomLock(roomId: Int, userId: Int): Any =
+        userRoomLocks.computeIfAbsent(Pair(roomId, userId)) { Any() }
+
     // Broadcast executor for async message sending
     private val broadcastExecutor: ExecutorService = Executors.newCachedThreadPool { runnable ->
         Thread(runnable).apply {
@@ -44,17 +52,28 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
     }
 
     fun joinRoom(roomId: Int, connection: WsConnection, user: User) {
-        // Add to connection tracking
+        // Register connection immediately so broadcasts reach this socket.
         val connections = roomConnections.computeIfAbsent(roomId) { CopyOnWriteArraySet() }
         connections.add(connection)
         userConnections[user.id] = connection
 
-        // Track per-room active connection count for this user
-        val userCounts = roomUserConnectionCounts.computeIfAbsent(roomId) { ConcurrentHashMap() }
-        val activeCount = userCounts.merge(user.id, 1) { prev, _ -> prev + 1 } ?: 1
+        // Serialise join/leave for the same user+room so the count check and the
+        // DB write + broadcast happen atomically relative to each other.
+        // This prevents a racing leaveRoom from interleaving inside joinRoom and
+        // producing spurious "left"/"joined" system messages.
+        data class JoinWork(
+            val joinedUser: User,
+            val joinMessage: ChatMessage.System,
+            val allUsers: List<User>,
+        )
 
-        // Add to members and broadcast join only on first active connection
-        if (activeCount == 1) {
+        val work: JoinWork? = synchronized(userRoomLock(roomId, user.id)) {
+            val userCounts = roomUserConnectionCounts.computeIfAbsent(roomId) { ConcurrentHashMap() }
+            val activeCount = userCounts.merge(user.id, 1) { prev, _ -> prev + 1 } ?: 1
+
+            // Only the first active connection triggers the join broadcast.
+            if (activeCount != 1) return@synchronized null
+
             val isRoomOwner = roomRepo.findById(roomId)?.creatorId == user.id
             val desiredRole = if (isRoomOwner) "owner" else "member"
             roomMemberRepo.addMember(roomId, user.id, desiredRole)
@@ -62,29 +81,34 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
                 roomMemberRepo.updateMemberRole(roomId, user.id, "owner")
             }
             userRepo.updateLastSeen(user.id)
-            val joinedUser = getRoomUsers(roomId).find { it.id == user.id }
-                ?: user.copy(role = desiredRole)
+
+            val allUsers = getRoomUsers(roomId)
+            val joinedUser = allUsers.find { it.id == user.id } ?: user.copy(role = desiredRole)
 
             val systemMessageId = messageRepo.saveSystemMessage(
                 roomId,
                 "${user.username} joined the room"
             )
-
             val joinMessage = ChatMessage.System(
                 id = systemMessageId,
                 content = "${user.username} joined the room",
                 timestamp = System.currentTimeMillis()
             )
 
-            broadcastToRoom(roomId, WsEvent.Message(joinMessage))
-            broadcastToRoom(roomId, WsEvent.UserJoined(joinedUser))
-            // Broadcast updated user list so all clients stay in sync
-            broadcastToRoom(roomId, WsEvent.Users(getRoomUsers(roomId)))
+            JoinWork(joinedUser, joinMessage, allUsers)
+        }
+
+        // Broadcasts happen outside the lock — they're async and must not hold
+        // the per-user lock while waiting for the thread pool.
+        if (work != null) {
+            broadcastToRoom(roomId, WsEvent.Message(work.joinMessage))
+            broadcastToRoom(roomId, WsEvent.UserJoined(work.joinedUser))
+            broadcastToRoom(roomId, WsEvent.Users(work.allUsers))
         }
     }
 
     fun leaveRoom(roomId: Int, user: User, connection: WsConnection) {
-        // Guard: if the connection was already removed, this is a duplicate call
+        // Guard: if the connection was already removed, this is a duplicate call.
         val wasPresent = roomConnections[roomId]?.remove(connection) ?: false
         if (!wasPresent) return
 
@@ -92,36 +116,43 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
             userConnections.remove(user.id)
         }
 
-        val userCounts = roomUserConnectionCounts[roomId]
-        val remainingConnections = userCounts?.compute(user.id) { _, count ->
-            if (count == null || count <= 1) null else count - 1
-        }
+        data class LeaveWork(val leaveMessage: ChatMessage.System)
 
-        // Remove member and broadcast leave only when no active connections remain
-        if (remainingConnections == null) {
+        val work: LeaveWork? = synchronized(userRoomLock(roomId, user.id)) {
+            val userCounts = roomUserConnectionCounts[roomId]
+            val remainingConnections = userCounts?.compute(user.id) { _, count ->
+                if (count == null || count <= 1) null else count - 1
+            }
+
+            // Only broadcast the leave when no active connections remain.
+            if (remainingConnections != null) return@synchronized null
+
             roomMemberRepo.removeMember(roomId, user.id)
 
             val systemMessageId = messageRepo.saveSystemMessage(
                 roomId,
                 "${user.username} left the room"
             )
-
             val leaveMessage = ChatMessage.System(
                 id = systemMessageId,
                 content = "${user.username} left the room",
                 timestamp = System.currentTimeMillis()
             )
 
-            broadcastToRoom(roomId, WsEvent.Message(leaveMessage))
+            LeaveWork(leaveMessage)
+        }
+
+        if (work != null) {
+            broadcastToRoom(roomId, WsEvent.Message(work.leaveMessage))
             broadcastToRoom(roomId, WsEvent.UserLeft(user.id, user.username))
-            // Broadcast updated user list so all clients stay in sync
             broadcastToRoom(roomId, WsEvent.Users(getRoomUsers(roomId)))
         }
 
-        // Clean up empty room tracking
+        // Clean up empty room tracking.
         if (roomConnections[roomId]?.isEmpty() == true) {
             roomConnections.remove(roomId)
         }
+        val userCounts = roomUserConnectionCounts[roomId]
         if (userCounts?.isEmpty() == true) {
             roomUserConnectionCounts.remove(roomId)
         }

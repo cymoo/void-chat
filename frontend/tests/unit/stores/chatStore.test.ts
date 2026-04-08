@@ -309,4 +309,80 @@ describe("chatStore", () => {
     expect(state.users).toEqual([]);
     expect(state.unreadDmCount).toBe(0);
   });
+
+  // -------------------------------------------------------------------
+  // Regression: join/leave presence consistency
+  // -------------------------------------------------------------------
+
+  it("users event is authoritative and replaces the full list", () => {
+    const userA: User = { id: 1, username: "alice", createdAt: 0, lastSeen: 0 };
+    const userB: User = { id: 2, username: "bob", createdAt: 0, lastSeen: 0 };
+    const store = useChatStore.getState();
+
+    // Both join
+    store.handleWsEvent({ type: "user_joined", user: userA });
+    store.handleWsEvent({ type: "user_joined", user: userB });
+    expect(useChatStore.getState().users).toHaveLength(2);
+
+    // Server sends an authoritative list with only A (B left)
+    store.handleWsEvent({ type: "users", users: [userA] });
+
+    expect(useChatStore.getState().users).toHaveLength(1);
+    expect(useChatStore.getState().users[0]!.username).toBe("alice");
+  });
+
+  it("user_left removes the correct user and leaves others intact", () => {
+    useChatStore.setState({
+      users: [
+        { id: 1, username: "alice", createdAt: 0, lastSeen: 0 },
+        { id: 2, username: "bob", createdAt: 0, lastSeen: 0 },
+        { id: 3, username: "carol", createdAt: 0, lastSeen: 0 },
+      ],
+    });
+
+    useChatStore.getState().handleWsEvent({
+      type: "user_left",
+      userId: 2,
+      username: "bob",
+    });
+
+    const users = useChatStore.getState().users;
+    expect(users).toHaveLength(2);
+    expect(users.map((u) => u.username)).toEqual(["alice", "carol"]);
+  });
+
+  it("rapid join-leave-join cycle for same user shows user exactly once", () => {
+    const user: User = { id: 5, username: "rapid", createdAt: 0, lastSeen: 0 };
+    const other: User = { id: 6, username: "other", createdAt: 0, lastSeen: 0 };
+    const store = useChatStore.getState();
+
+    store.handleWsEvent({ type: "user_joined", user: other });
+
+    // Simulate Strict-Mode: user joins, immediately leaves, then joins again
+    store.handleWsEvent({ type: "user_joined", user });
+    store.handleWsEvent({ type: "user_left", userId: user.id, username: user.username });
+    store.handleWsEvent({ type: "user_joined", user });
+
+    const users = useChatStore.getState().users;
+    const rapidUsers = users.filter((u) => u.id === user.id);
+    expect(rapidUsers).toHaveLength(1); // exactly once, no duplicates
+    expect(users.some((u) => u.id === other.id)).toBe(true); // other still present
+  });
+
+  it("users event after leave contains remaining members only", () => {
+    const userA: User = { id: 1, username: "alice", createdAt: 0, lastSeen: 0 };
+    const userB: User = { id: 2, username: "bob", createdAt: 0, lastSeen: 0 };
+    const store = useChatStore.getState();
+
+    store.handleWsEvent({ type: "users", users: [userA, userB] });
+    expect(useChatStore.getState().users).toHaveLength(2);
+
+    // B leaves; server sends authoritative list with only A
+    store.handleWsEvent({ type: "user_left", userId: userB.id, username: userB.username });
+    store.handleWsEvent({ type: "users", users: [userA] });
+
+    const state = useChatStore.getState();
+    expect(state.users).toHaveLength(1);
+    expect(state.users[0]!.id).toBe(userA.id);
+  });
 });

@@ -36,13 +36,14 @@ CREATE TABLE messages (
     thumbnail_url TEXT,
     edited_at TIMESTAMP,
     is_deleted INTEGER DEFAULT 0,
-    reply_to_id INTEGER REFERENCES messages(id),
+    reply_to_id INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (reply_to_id) REFERENCES messages(id),
     FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- Room members table (tracks who is currently in which room)
+-- Room members table
 CREATE TABLE room_members (
     room_id INTEGER NOT NULL,
     user_id INTEGER NOT NULL,
