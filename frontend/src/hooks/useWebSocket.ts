@@ -124,6 +124,7 @@ export function useWebSocket({
         return;
       }
       if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "leave" }));
         ws.close();
       }
     };

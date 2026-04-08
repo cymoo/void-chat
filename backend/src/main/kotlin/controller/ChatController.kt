@@ -234,6 +234,13 @@ class ChatController(
                             chatService.kickUser(roomId, currentUser, userId)
                         }
                     }
+                    "leave" -> {
+                        if (joinedRoom) {
+                            chatService.leaveRoom(roomId, currentUser, conn)
+                            joinedRoom = false
+                        }
+                        conn.close()
+                    }
                     "update_profile" -> {
                         // Update currentUser so subsequent messages carry the new avatar/status
                         currentUser = chatService.updateUserProfile(
