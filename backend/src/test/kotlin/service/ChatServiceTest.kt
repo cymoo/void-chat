@@ -18,10 +18,7 @@ class ChatServiceTest {
     private val dsl = run {
         val ds = DatabaseConfig.createDataSource("jdbc:sqlite::memory:")
         DatabaseConfig.runMigrations(ds)
-        val ctx = DatabaseConfig.createDSLContext(ds)
-        // Disable FK checks so system messages (user_id=0) don't fail
-        ctx.execute("PRAGMA foreign_keys = OFF")
-        ctx
+        DatabaseConfig.createDSLContext(ds)
     }
     private val chatService = ChatService(dsl, objectMapper)
     private val userRepo = UserRepository(dsl)
