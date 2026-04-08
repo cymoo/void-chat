@@ -76,11 +76,17 @@ test.describe("Lobby", () => {
 
     // Retry until the server processes WebSocket disconnects and returns 0 online
     await expect(async () => {
-      await pageA.goto("/#/lobby");
-      const roomCard = pageA.locator(".room-card", { hasText: roomName });
-      await expect(roomCard).toBeVisible();
-      await expect(roomCard.locator(".room-card-meta")).toContainText("0 ONLINE");
+      const resp = await pageA.request.get("/api/rooms");
+      const rooms = (await resp.json()) as { name: string; onlineUsers: number }[];
+      const room = rooms.find((r) => r.name === roomName);
+      expect(room?.onlineUsers).toBe(0);
     }).toPass({ timeout: 5000 });
+
+    // Verify the lobby UI reflects the count after a page reload
+    await pageA.reload();
+    const roomCard = pageA.locator(".room-card", { hasText: roomName });
+    await expect(roomCard).toBeVisible();
+    await expect(roomCard.locator(".room-card-meta")).toContainText("0 ONLINE");
 
     await contextA.close();
     await contextB.close();

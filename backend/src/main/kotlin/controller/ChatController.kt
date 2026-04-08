@@ -8,6 +8,7 @@ import io.github.cymoo.colleen.ws.WsConnection
 import io.github.cymoo.colleen.ws.WsUse
 import model.User
 import model.WsEvent
+import java.util.concurrent.atomic.AtomicBoolean
 import service.ChatService
 import service.RoomService
 import service.SessionService
@@ -65,7 +66,7 @@ class ChatController(
                 conn.close()
                 return
             }
-        var joinedRoom = false
+        var joinedRoom = AtomicBoolean(false)
 
         // Verify room exists
         val room = roomService.getRoomById(roomId)
@@ -87,7 +88,7 @@ class ChatController(
 
         // Join room
         chatService.joinRoom(roomId, conn, currentUser)
-        joinedRoom = true
+        joinedRoom.set(true)
 
         // Send message history with hasMore flag
         val history = chatService.getMessageHistory(roomId)
@@ -234,6 +235,11 @@ class ChatController(
                             chatService.kickUser(roomId, currentUser, userId)
                         }
                     }
+                    "leave" -> {
+                        if (joinedRoom.compareAndSet(true, false)) {
+                            chatService.leaveRoom(roomId, currentUser, conn)
+                        }
+                    }
                     "update_profile" -> {
                         // Update currentUser so subsequent messages carry the new avatar/status
                         currentUser = chatService.updateUserProfile(
@@ -251,9 +257,8 @@ class ChatController(
 
         // Handle disconnect
         conn.onClose { reason ->
-            if (joinedRoom) {
+            if (joinedRoom.compareAndSet(true, false)) {
                 chatService.leaveRoom(roomId, currentUser, conn)
-                joinedRoom = false
             }
         }
 

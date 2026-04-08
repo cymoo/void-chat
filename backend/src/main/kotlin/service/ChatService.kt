@@ -84,8 +84,10 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
     }
 
     fun leaveRoom(roomId: Int, user: User, connection: WsConnection) {
-        // Remove from tracking
-        roomConnections[roomId]?.remove(connection)
+        // Guard: if the connection was already removed, this is a duplicate call
+        val wasPresent = roomConnections[roomId]?.remove(connection) ?: false
+        if (!wasPresent) return
+
         if (userConnections[user.id] == connection) {
             userConnections.remove(user.id)
         }
