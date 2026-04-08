@@ -40,26 +40,17 @@ export function useWebSocket({
   useEffect(() => {
     if (!token || !Number.isFinite(roomId) || roomId <= 0) return;
 
-    // `closed` is scoped to this effect invocation. Setting it to true in the
-    // cleanup function ensures that ALL callbacks registered by this effect's
-    // WebSocket (onopen, onmessage, onclose) become no-ops — including any
-    // pending reconnect timers. This is the key fix for the cascade-reconnect
-    // bug caused by React Strict Mode's double-mount:
-    //
-    //   1. Effect runs → WS#1 created (still CONNECTING)
-    //   2. Strict Mode cleanup → closed=true, ws.close() called on WS#1
-    //   3. Effect re-runs → new closed=false closure, WS#2 created
-    //   4. WS#1 eventually closes → its onclose sees closed=true → returns,
-    //      no reconnect scheduled. WS#2 is the only live connection. ✓
-    //
-    // Previously a shared `intentionalCloseRef` was used, but step 3 would
-    // reset it to false, causing WS#1's onclose to fire a spurious WS#3.
+    // `closed` is scoped to this effect invocation so that ALL callbacks
+    // registered by this effect's WebSocket become no-ops once cleanup runs.
     let closed = false;
     let attempts = 0;
     let joined = false;
+    // Handle for the initial deferred connect (see below).
+    let connectTimer: number | null = null;
 
     function connect() {
       if (closed) return;
+      connectTimer = null;
 
       if (reconnectTimerRef.current !== null) {
         window.clearTimeout(reconnectTimerRef.current);
@@ -78,9 +69,6 @@ export function useWebSocket({
 
       ws.onopen = () => {
         if (closed) {
-          // Cleanup ran while this WS was still connecting — close it now.
-          // Calling close() here (rather than in the cleanup) ensures the
-          // server never sees an open connection that will immediately vanish.
           ws.close();
           return;
         }
@@ -125,9 +113,6 @@ export function useWebSocket({
       };
 
       ws.onclose = () => {
-        // If closed=true this WS belongs to a superseded effect run — do not
-        // reconnect, as a newer connection is already active (or the component
-        // was intentionally unmounted).
         if (closed) return;
 
         if (attempts < 5) {
@@ -144,26 +129,30 @@ export function useWebSocket({
       };
     }
 
-    connect();
+    // Defer the initial connection to the next macrotask. React Strict Mode's
+    // double-mount (mount → cleanup → re-mount) happens synchronously, so the
+    // cleanup of the first mount will clearTimeout before the WebSocket is ever
+    // created — preventing the phantom connection that caused spurious
+    // "joined" / "left" broadcasts on the server.
+    connectTimer = window.setTimeout(connect, 0);
 
     return () => {
       closed = true;
+      if (connectTimer !== null) {
+        window.clearTimeout(connectTimer);
+        connectTimer = null;
+      }
       if (reconnectTimerRef.current !== null) {
         window.clearTimeout(reconnectTimerRef.current);
         reconnectTimerRef.current = null;
       }
       const ws = wsRef.current;
+      wsRef.current = null;
       if (!ws) return;
-      // Send "leave" only if the connection is fully open so the server can
-      // cleanly remove the user before the socket closes.
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: "leave" }));
+        ws.close();
       }
-      // close() works for both CONNECTING and OPEN states. For a CONNECTING
-      // socket the browser aborts the handshake; onclose fires (with closed=true)
-      // and the onclose handler is a no-op, preventing any reconnect.
-      ws.close();
-      wsRef.current = null;
     };
   }, [roomId, token, roomPassword]); // Only reconnect when room/auth changes
 
