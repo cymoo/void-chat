@@ -23,7 +23,9 @@ class ApiController(
 
     @Get("/rooms")
     fun getRooms(): List<RoomInfo> {
-        return roomService.getAllRooms()
+        val rooms = roomService.getAllRooms()
+        val onlineCounts = chatService.getOnlineUserCounts()
+        return rooms.map { it.copy(onlineUsers = onlineCounts[it.id] ?: 0) }
     }
 
     @Post("/rooms")
@@ -79,7 +81,7 @@ class ApiController(
     }
 
     @Get("/dms/unread-senders")
-    fun getUnreadDmSenders(token: BearerToken): List<Map<String, Any>> {
+    fun getUnreadDmSenders(token: BearerToken): List<UnreadSender> {
         val userId = requireAuth(token)
         return chatService.getUnreadDmSenders(userId)
     }

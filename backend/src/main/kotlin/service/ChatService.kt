@@ -78,6 +78,8 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
 
             broadcastToRoom(roomId, WsEvent.Message(joinMessage))
             broadcastToRoom(roomId, WsEvent.UserJoined(joinedUser))
+            // Broadcast updated user list so all clients stay in sync
+            broadcastToRoom(roomId, WsEvent.Users(getRoomUsers(roomId)))
         }
     }
 
@@ -110,6 +112,8 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
 
             broadcastToRoom(roomId, WsEvent.Message(leaveMessage))
             broadcastToRoom(roomId, WsEvent.UserLeft(user.id, user.username))
+            // Broadcast updated user list so all clients stay in sync
+            broadcastToRoom(roomId, WsEvent.Users(getRoomUsers(roomId)))
         }
 
         // Clean up empty room tracking
@@ -231,6 +235,14 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
         return roomMemberRepo.getRoomMembers(roomId)
     }
 
+    /** Returns the number of online users per room based on active WebSocket connections. */
+    fun getOnlineUserCounts(): Map<Int, Int> {
+        return roomUserConnectionCounts.mapValues { (_, userCounts) -> userCounts.size }
+    }
+
+    /** Exposed for testing: returns the broadcast executor so tests can await pending tasks. */
+    internal fun broadcastExecutorForTest(): ExecutorService = broadcastExecutor
+
     // Private messaging
     fun sendPrivateMessage(
         sender: User,
@@ -303,7 +315,7 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
 
     fun getUnreadDmCount(userId: Int): Int = privateMessageRepo.getUnreadCount(userId)
 
-    fun getUnreadDmSenders(userId: Int): List<Map<String, Any>> = privateMessageRepo.getUnreadSenders(userId)
+    fun getUnreadDmSenders(userId: Int): List<UnreadSender> = privateMessageRepo.getUnreadSenders(userId)
 
     fun sendTypingStatus(roomId: Int, user: User, isTyping: Boolean) {
         broadcastToRoom(roomId, WsEvent.Typing(user.id, user.username, isTyping))

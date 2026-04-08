@@ -51,6 +51,34 @@ async function setupTwoUsers(browser: Browser) {
 }
 
 test.describe("Chat", () => {
+  test("user list should update when a new user joins", async ({ browser }) => {
+    const { contextA, contextB, pageA, pageB, userA, userB } = await setupTwoUsers(browser);
+
+    // Both users should see each other in the user list
+    await expect(pageA.locator(".user-item", { hasText: userB }).first()).toBeVisible();
+    await expect(pageB.locator(".user-item", { hasText: userA }).first()).toBeVisible();
+
+    // Verify the online count header reflects both users
+    await expect(pageA.locator(".room-status")).toContainText("2 ONLINE");
+    await expect(pageB.locator(".room-status")).toContainText("2 ONLINE");
+
+    await contextA.close();
+    await contextB.close();
+  });
+
+  test("user list should update when a user leaves", async ({ browser }) => {
+    const { contextA, contextB, pageA, pageB, userA, userB } = await setupTwoUsers(browser);
+
+    // Close user B's context (disconnect)
+    await contextB.close();
+
+    // User A should see only themselves in the user list
+    await expect(pageA.locator(".user-item", { hasText: userB })).toHaveCount(0);
+    await expect(pageA.locator(".room-status")).toContainText("1 ONLINE");
+
+    await contextA.close();
+  });
+
   test("should not emit websocket pre-connect close warning when entering room", async ({ page }) => {
     const logs: string[] = [];
     page.on("console", (msg) => {
