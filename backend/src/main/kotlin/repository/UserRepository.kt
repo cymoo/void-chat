@@ -62,7 +62,6 @@ class UserRepository(private val dsl: DSLContext) {
     fun createUser(username: String, passwordHash: String? = null): User {
         val record = dsl.insertInto(USERS)
             .set(USERS.USERNAME, username)
-            .set(USERS.DISPLAY_NAME, username)
             .set(USERS.PASSWORD_HASH, passwordHash)
             .returningResult(USERS.ID, USERS.USERNAME, USERS.AVATAR_URL, USERS.CREATED_AT, USERS.LAST_SEEN)
             .fetchOne()!!

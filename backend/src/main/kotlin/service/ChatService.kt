@@ -315,7 +315,7 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
 
     fun getUnreadDmCount(userId: Int): Int = privateMessageRepo.getUnreadCount(userId)
 
-    fun getUnreadDmSenders(userId: Int): List<Map<String, Any>> = privateMessageRepo.getUnreadSenders(userId)
+    fun getUnreadDmSenders(userId: Int): List<UnreadSender> = privateMessageRepo.getUnreadSenders(userId)
 
     fun sendTypingStatus(roomId: Int, user: User, isTyping: Boolean) {
         broadcastToRoom(roomId, WsEvent.Typing(user.id, user.username, isTyping))

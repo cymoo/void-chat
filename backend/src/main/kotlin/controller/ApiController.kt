@@ -81,7 +81,7 @@ class ApiController(
     }
 
     @Get("/dms/unread-senders")
-    fun getUnreadDmSenders(token: BearerToken): List<Map<String, Any>> {
+    fun getUnreadDmSenders(token: BearerToken): List<UnreadSender> {
         val userId = requireAuth(token)
         return chatService.getUnreadDmSenders(userId)
     }

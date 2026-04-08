@@ -96,7 +96,6 @@ class MessageRepository(private val dsl: DSLContext) {
     fun saveSystemMessage(roomId: Int, content: String): Int {
         return dsl.insertInto(MESSAGES)
             .set(MESSAGES.ROOM_ID, roomId)
-            .set(MESSAGES.USER_ID, 0)
             .set(MESSAGES.MESSAGE_TYPE, "system")
             .set(MESSAGES.CONTENT, content)
             .returningResult(MESSAGES.ID)
@@ -239,7 +238,7 @@ class MessageRepository(private val dsl: DSLContext) {
         val messageType = record.get(MESSAGES.MESSAGE_TYPE)!!
         val messageId = record.get(MESSAGES.ID)!!
         val timestamp = parseTimestamp(record.get(MESSAGES.CREATED_AT))
-        val userId = record.get(MESSAGES.USER_ID)!!
+        val userId = record.get(MESSAGES.USER_ID) ?: 0
         val username = record.get(USERS.USERNAME) ?: "system"
         val avatarUrl = record.get(USERS.AVATAR_URL)
         val editedAt = record.get(MESSAGES.EDITED_AT)?.let { parseTimestamp(it) }

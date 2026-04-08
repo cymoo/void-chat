@@ -148,6 +148,15 @@ data class FileInfo(
 )
 
 /**
+ * Unread DM sender info
+ */
+data class UnreadSender(
+    val senderId: Int,
+    val senderUsername: String,
+    val unreadCount: Int
+)
+
+/**
  * WebSocket message payloads
  */
 data class WsMessagePayload(

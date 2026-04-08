@@ -108,7 +108,8 @@ class ChatServiceTest {
         chatService.joinRoom(room2Id, connA, userA)
         chatService.joinRoom(room2Id, connB, userB)
         awaitBroadcasts()
-        clearAllMocks()
+        // Clear recorded calls but keep mock behavior
+        clearMocks(connA, connB, answers = false)
 
         chatService.leaveRoom(room2Id, userB, connB)
         awaitBroadcasts()

@@ -3,6 +3,7 @@ package repository
 import chatroom.jooq.generated.Tables.PRIVATE_MESSAGES
 import chatroom.jooq.generated.Tables.USERS
 import model.PrivateMessage
+import model.UnreadSender
 import org.jooq.DSLContext
 import org.jooq.impl.DSL.count
 import java.time.Instant
@@ -104,11 +105,11 @@ class PrivateMessageRepository(private val dsl: DSLContext) {
             .fetchOne(0, Int::class.java) ?: 0
     }
 
-    fun getUnreadSenders(userId: Int): List<Map<String, Any>> {
-        val unreadCount = count().`as`("unreadCount")
+    fun getUnreadSenders(userId: Int): List<UnreadSender> {
+        val unreadCount = count().`as`("unread_count")
         return dsl.select(
-            PRIVATE_MESSAGES.SENDER_ID.`as`("senderId"),
-            USERS.USERNAME.`as`("senderUsername"),
+            PRIVATE_MESSAGES.SENDER_ID,
+            USERS.USERNAME,
             unreadCount
         )
             .from(PRIVATE_MESSAGES)
@@ -117,12 +118,11 @@ class PrivateMessageRepository(private val dsl: DSLContext) {
             .and(PRIVATE_MESSAGES.IS_READ.eq(0).or(PRIVATE_MESSAGES.IS_READ.isNull))
             .groupBy(PRIVATE_MESSAGES.SENDER_ID, USERS.USERNAME)
             .orderBy(unreadCount.desc(), PRIVATE_MESSAGES.SENDER_ID.asc())
-            .fetch()
-            .map { r ->
-                mapOf(
-                    "senderId" to (r.get("senderId", Int::class.java) ?: 0),
-                    "senderUsername" to (r.get("senderUsername", String::class.java) ?: ""),
-                    "unreadCount" to (r.get("unreadCount", Int::class.java) ?: 0)
+            .fetch { r ->
+                UnreadSender(
+                    senderId = r.get(PRIVATE_MESSAGES.SENDER_ID)!!,
+                    senderUsername = r.get(USERS.USERNAME) ?: "",
+                    unreadCount = r.get(unreadCount) ?: 0
                 )
             }
     }
