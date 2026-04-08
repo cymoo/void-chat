@@ -137,6 +137,69 @@ test.describe("Chat", () => {
     await contextB.close();
   });
 
+  test("user list should update when a user navigates back to lobby", async ({ browser }) => {
+    const { contextA, contextB, pageA, pageB, userA, userB } = await setupTwoUsers(browser);
+
+    // B clicks "Back to Lobby" button
+    await pageB.locator('button[aria-label="Back to lobby"]').click();
+    await expect(pageB).toHaveURL(/#\/lobby/);
+
+    // A should see the leave system message and B removed from user list
+    await expect(pageA.locator(".message-text", { hasText: `${userB} left the room` }).first()).toBeVisible();
+    await expect(pageA.locator(".user-item", { hasText: userB })).toHaveCount(0);
+    await expect(pageA.locator(".room-status")).toContainText("1 ONLINE");
+
+    await contextA.close();
+    await contextB.close();
+  });
+
+  test("user list should update when a user switches to another room", async ({ browser }) => {
+    const id = randomUUID().slice(0, 8);
+    const roomName1 = `room1_${id}`;
+    const roomName2 = `room2_${id}`;
+    const userA = `chat_a_${id}`;
+    const userB = `chat_b_${id}`;
+
+    // User A creates room1 and enters
+    const contextA = await browser.newContext();
+    const pageA = await contextA.newPage();
+    await registerUser(pageA, userA);
+    await createRoomAndEnter(pageA, roomName1);
+
+    // User B registers and enters room1
+    const contextB = await browser.newContext();
+    const pageB = await contextB.newPage();
+    await registerUser(pageB, userB);
+    // B creates room2 (so it exists for later)
+    await createRoomAndEnter(pageB, roomName2);
+    // B goes back to lobby
+    await pageB.locator('button[aria-label="Back to lobby"]').click();
+    await expect(pageB).toHaveURL(/#\/lobby/);
+    // B enters room1
+    const room1Path = pageA.url().split("#")[1] ?? "";
+    await pageB.goto(`/#${room1Path}`);
+    await expect(pageB).toHaveURL(/#\/chat\/\d+/);
+
+    // Both should see each other
+    await expect(pageA.locator(".user-item", { hasText: userB }).first()).toBeVisible();
+    await expect(pageB.locator(".user-item", { hasText: userA }).first()).toBeVisible();
+    await expect(pageA.locator(".room-status")).toContainText("2 ONLINE");
+
+    // B navigates back to lobby, then enters room2
+    await pageB.locator('button[aria-label="Back to lobby"]').click();
+    await expect(pageB).toHaveURL(/#\/lobby/);
+    await pageB.locator(".room-card", { hasText: roomName2 }).click();
+    await expect(pageB).toHaveURL(/#\/chat\/\d+/);
+
+    // A should see B left and user list updated in room1
+    await expect(pageA.locator(".message-text", { hasText: `${userB} left the room` }).first()).toBeVisible();
+    await expect(pageA.locator(".user-item", { hasText: userB })).toHaveCount(0);
+    await expect(pageA.locator(".room-status")).toContainText("1 ONLINE");
+
+    await contextA.close();
+    await contextB.close();
+  });
+
   test("private chat should support multiline markdown and uploads", async ({ browser }) => {
     const { contextA, contextB, pageA, pageB, userA, userB } = await setupTwoUsers(browser);
 
