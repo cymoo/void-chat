@@ -214,6 +214,13 @@ data class CreateRoomRequest(
     val password: String? = null
 )
 
+data class UpdateRoomRequest(
+    val name: String,
+    val description: String?,
+    val isPrivate: Boolean = false,
+    val password: String? = null
+)
+
 data class RegisterRequest(
     val username: String,
     val password: String

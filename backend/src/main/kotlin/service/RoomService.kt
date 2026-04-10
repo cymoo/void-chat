@@ -42,6 +42,39 @@ class RoomService(dsl: DSLContext) {
         return roomRepo.create(name, description, isPrivate, passwordHash, creatorId)
     }
 
+    fun updateRoom(
+        roomId: Int,
+        userId: Int,
+        name: String,
+        description: String?,
+        isPrivate: Boolean,
+        password: String?
+    ): Room? {
+        val normalizedName = name.trim()
+        require(normalizedName.isNotBlank()) { "Room name is required" }
+
+        val room = roomRepo.findById(roomId) ?: return null
+        if (room.creatorId != userId) return null
+
+        val normalizedDescription = description?.trim()?.ifEmpty { null }
+        val currentPasswordHash = roomRepo.getPasswordHash(roomId)
+        val passwordHash = when {
+            !isPrivate -> null
+            !password.isNullOrBlank() -> PasswordUtils.hashPassword(password)
+            room.isPrivate && !currentPasswordHash.isNullOrBlank() -> currentPasswordHash
+            else -> throw IllegalArgumentException("Private rooms require a password")
+        }
+
+        roomRepo.update(
+            roomId = roomId,
+            name = normalizedName,
+            description = normalizedDescription,
+            isPrivate = isPrivate,
+            passwordHash = passwordHash
+        )
+        return roomRepo.findById(roomId)
+    }
+
     /** Verifies the password for a private room. Returns true if correct or room is public. */
     fun verifyRoomPassword(roomId: Int, password: String?): Boolean {
         val room = roomRepo.findById(roomId) ?: return false

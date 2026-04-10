@@ -4,6 +4,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { useUiStore } from "@/stores/uiStore";
 import { CreateRoomModal } from "@/components/lobby/CreateRoomDialog";
+import { EditRoomModal } from "@/components/lobby/EditRoomDialog";
 import { ProfileModal } from "@/components/profile/ProfileModal";
 import { RoomPasswordModal } from "@/components/lobby/RoomPasswordModal";
 import type { RoomInfo } from "@/api/types";
@@ -18,6 +19,7 @@ export function LobbyPage() {
   const confirm = useUiStore((s) => s.confirm);
 
   const [passwordRoom, setPasswordRoom] = useState<RoomInfo | null>(null);
+  const [editingRoom, setEditingRoom] = useState<RoomInfo | null>(null);
 
   useEffect(() => {
     fetchRooms();
@@ -56,6 +58,11 @@ export function LobbyPage() {
     } catch {
       addToast("Failed to delete room", "error");
     }
+  };
+
+  const handleEditRoom = (e: React.MouseEvent, room: RoomInfo) => {
+    e.stopPropagation();
+    setEditingRoom(room);
   };
 
   const handleLogout = async () => {
@@ -137,19 +144,33 @@ export function LobbyPage() {
                     {room.isPrivate && <span className="room-lock-icon">🔒</span>}
                   </div>
                   {room.creatorId === user?.id && (
-                    <button
-                      className="icon-btn room-delete-btn"
-                      title="Delete room"
-                      onClick={(e) => handleDeleteRoom(e, room)}
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <polyline points="3 6 5 6 21 6" />
-                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                        <path d="M10 11v6" />
-                        <path d="M14 11v6" />
-                        <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                      </svg>
-                    </button>
+                    <div className="room-card-actions">
+                      <button
+                        className="icon-btn room-edit-btn"
+                        title="Edit room"
+                        onKeyDown={(e) => e.stopPropagation()}
+                        onClick={(e) => handleEditRoom(e, room)}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M12 20h9" />
+                          <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                        </svg>
+                      </button>
+                      <button
+                        className="icon-btn room-delete-btn"
+                        title="Delete room"
+                        onKeyDown={(e) => e.stopPropagation()}
+                        onClick={(e) => handleDeleteRoom(e, room)}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="3 6 5 6 21 6" />
+                          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                          <path d="M10 11v6" />
+                          <path d="M14 11v6" />
+                          <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                        </svg>
+                      </button>
+                    </div>
                   )}
                 </div>
                 {room.description && (
@@ -166,6 +187,12 @@ export function LobbyPage() {
       </div>
 
       {createRoomOpen && <CreateRoomModal />}
+      {editingRoom && (
+        <EditRoomModal
+          room={editingRoom}
+          onClose={() => setEditingRoom(null)}
+        />
+      )}
       {profileOpen && <ProfileModal />}
       {passwordRoom && (
         <RoomPasswordModal

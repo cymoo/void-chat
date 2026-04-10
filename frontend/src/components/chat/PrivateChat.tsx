@@ -105,6 +105,13 @@ export function PrivateChat({ send, currentUser }: PrivateChatProps) {
   const setImageModal = useUiStore((s) => s.setImageModal);
   const addToast = useUiStore((s) => s.addToast);
   const canSend = text.trim().length > 0;
+
+  const handleClose = useCallback(() => {
+    if (privateChatUserId) {
+      send({ type: "mark_read", targetUserId: privateChatUserId });
+    }
+    closePrivateChat();
+  }, [privateChatUserId, send, closePrivateChat]);
   const handleOpenImage = useCallback(
     (url: string | null) => setImageModal(url),
     [setImageModal],
@@ -253,11 +260,11 @@ export function PrivateChat({ send, currentUser }: PrivateChatProps) {
 
   return (
     <div className="modal active">
-      <div className="modal-backdrop" onClick={closePrivateChat} />
+      <div className="modal-backdrop" onClick={handleClose} />
       <div className="private-chat-panel">
         <div className="private-chat-header">
           <span>DM: {privateChatUsername}</span>
-          <button className="modal-close panel-close-btn" onClick={closePrivateChat}>
+          <button className="modal-close panel-close-btn" onClick={handleClose}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />

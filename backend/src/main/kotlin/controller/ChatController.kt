@@ -225,6 +225,11 @@ class ChatController(
                             ))
                         }
                     }
+                    "mark_read" -> {
+                        targetUserId?.let { userId ->
+                            chatService.markPrivateMessagesRead(currentUser.id, userId)
+                        }
+                    }
                     "set_role" -> {
                         if (targetUserId != null && role != null) {
                             chatService.setUserRole(roomId, currentUser, targetUserId, role)

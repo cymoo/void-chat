@@ -22,7 +22,7 @@ async function createRoomAndEnter(page: Page, roomName: string) {
 async function openDm(page: Page, username: string) {
   const userItem = page.locator(".user-item", { hasText: username }).first();
   await expect(userItem).toBeVisible();
-  await userItem.locator(".dm-btn").click();
+  await userItem.locator('button[title="Send DM"]').click();
   await expect(page.locator(".private-chat-panel")).toBeVisible();
 }
 
@@ -206,7 +206,7 @@ test.describe("Chat", () => {
     await openDm(pageA, userB);
     await openDm(pageB, userA);
 
-    const dmInputA = pageA.locator('textarea[placeholder^="Type private message"]');
+    const dmInputA = pageA.getByRole("textbox", { name: "Type a direct message" });
     await dmInputA.fill("**bold** line 1\nline 2");
     await dmInputA.press("Enter");
 
@@ -232,6 +232,51 @@ test.describe("Chat", () => {
     expect((await fileUploadPromise).ok()).toBeTruthy();
     await pageA.waitForTimeout(300);
     await expect(pageA.locator(".toast.error")).toHaveCount(0);
+
+    await contextA.close();
+    await contextB.close();
+  });
+
+  test("unread DM badge should reset to zero after viewing and closing private chat", async ({
+    browser,
+  }) => {
+    const { contextA, contextB, pageA, pageB, userA, userB } = await setupTwoUsers(browser);
+
+    // B opens DM with A and sends several messages
+    await openDm(pageB, userA);
+    const dmInputB = pageB.getByRole("textbox", { name: "Type a direct message" });
+    await dmInputB.fill("hello from B - 1");
+    await dmInputB.press("Enter");
+    await dmInputB.fill("hello from B - 2");
+    await dmInputB.press("Enter");
+    await dmInputB.fill("hello from B - 3");
+    await dmInputB.press("Enter");
+
+    // A should see the unread DM badge
+    const dmBadgeA = pageA.locator(".dm-badge-btn");
+    await expect(dmBadgeA).toBeVisible();
+    const unreadCount = dmBadgeA.locator(".dm-unread-count");
+    await expect(unreadCount).toHaveText("3");
+
+    // A opens DM with B — messages should appear in the chat
+    await openDm(pageA, userB);
+    const dmPanelA = pageA.locator(".private-chat-messages");
+    await expect(dmPanelA.locator(".private-msg-content", { hasText: "hello from B - 3" })).toBeVisible();
+
+    // A closes the private chat
+    await pageA.locator(".private-chat-panel .panel-close-btn").click();
+    await expect(pageA.locator(".private-chat-panel")).toBeHidden();
+
+    // The unread DM badge should be gone (count is 0, so the button is hidden)
+    await expect(dmBadgeA).toBeHidden();
+
+    // B sends one more message while A is NOT in the chat
+    await dmInputB.fill("hello from B - 4");
+    await dmInputB.press("Enter");
+
+    // A should now see the badge with count 1 (only the new unseen message)
+    await expect(dmBadgeA).toBeVisible();
+    await expect(unreadCount).toHaveText("1");
 
     await contextA.close();
     await contextB.close();

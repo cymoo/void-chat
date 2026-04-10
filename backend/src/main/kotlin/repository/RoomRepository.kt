@@ -55,6 +55,16 @@ class RoomRepository(private val dsl: DSLContext) {
             ?.get(ROOMS.PASSWORD_HASH)
     }
 
+    fun update(roomId: Int, name: String, description: String?, isPrivate: Boolean, passwordHash: String?): Boolean {
+        return dsl.update(ROOMS)
+            .set(ROOMS.NAME, name)
+            .set(ROOMS.DESCRIPTION, description)
+            .set(ROOMS.IS_PRIVATE, if (isPrivate) 1 else 0)
+            .set(ROOMS.PASSWORD_HASH, passwordHash)
+            .where(ROOMS.ID.eq(roomId))
+            .execute() > 0
+    }
+
     fun delete(roomId: Int) {
         dsl.transaction { config ->
             val tx = config.dsl()

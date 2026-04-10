@@ -91,7 +91,7 @@ export function ChatPage() {
         onDisconnect={handleDisconnect}
       />
       {profileOpen && <ProfileModal />}
-      {userCardUserId !== null && <UserCard />}
+      {userCardUserId !== null && <UserCard send={send} />}
       {privateChatUserId !== null && <PrivateChat send={send} currentUser={user!} />}
       <ImageModal />
       <DmInboxModal send={send} />

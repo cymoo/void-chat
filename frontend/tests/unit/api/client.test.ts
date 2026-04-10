@@ -82,6 +82,46 @@ describe("API client", () => {
     });
   });
 
+  it("should send JSON body for room update PATCH requests", async () => {
+    localStorage.setItem("authToken", "my-token");
+    mockFetch.mockResolvedValue(
+      mockResponse({
+        ok: true,
+        status: 200,
+        json: {
+          id: 1,
+          name: "edited-room",
+          description: "edited-desc",
+          isPrivate: false,
+          creatorId: 1,
+          createdAt: 0,
+          maxUsers: 100,
+        },
+      }),
+    );
+
+    await client.updateRoom(1, {
+      name: "edited-room",
+      description: "edited-desc",
+      isPrivate: false,
+      password: null,
+    });
+
+    expect(mockFetch).toHaveBeenCalledWith("/api/rooms/1", {
+      method: "PATCH",
+      headers: {
+        Authorization: "Bearer my-token",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: "edited-room",
+        description: "edited-desc",
+        isPrivate: false,
+        password: null,
+      }),
+    });
+  });
+
   it("should throw ApiError on non-ok response", async () => {
     mockFetch.mockResolvedValue(
       mockResponse({

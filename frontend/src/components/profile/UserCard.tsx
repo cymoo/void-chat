@@ -3,9 +3,13 @@ import { useChatStore } from "@/stores/chatStore";
 import { useUiStore } from "@/stores/uiStore";
 import * as api from "@/api/client";
 import { getInitials, formatDate } from "@/lib/utils";
-import type { User } from "@/api/types";
+import type { User, WsSendPayload } from "@/api/types";
 
-export function UserCard() {
+interface UserCardProps {
+  send: (payload: WsSendPayload) => void;
+}
+
+export function UserCard({ send }: UserCardProps) {
   const userId = useUiStore((s) => s.userCardUserId);
   const hideUserCard = useUiStore((s) => s.hideUserCard);
   const users = useChatStore((s) => s.users);
@@ -30,6 +34,7 @@ export function UserCard() {
 
   const handleDm = () => {
     openPrivateChat(profile.id, profile.username);
+    send({ type: "private_history", targetUserId: profile.id });
     hideUserCard();
   };
 

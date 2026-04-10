@@ -322,10 +322,11 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
         val receiverConn = userConnections[receiverId]
         if (receiverConn != null) {
             runCatching { receiverConn.send(serializeEvent(WsEvent.PrivateMessageEvent(pm))) }
-            // Receiver is online — push updated unread count immediately
-            runCatching {
-                receiverConn.send(serializeEvent(WsEvent.UnreadCounts(privateMessageRepo.getUnreadCount(receiverId))))
-            }
+            // Don't push UnreadCounts here — the frontend increments its own
+            // counter when a private_message arrives outside an active chat.
+            // Pushing the DB count would overwrite the frontend's correct value
+            // when the receiver is currently viewing this conversation (messages
+            // are saved as is_read=0 until the chat is closed via mark_read).
         }
         // If offline — unread count will be picked up on next connect
 
@@ -349,6 +350,11 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
     fun getUnreadDmCount(userId: Int): Int = privateMessageRepo.getUnreadCount(userId)
 
     fun getUnreadDmSenders(userId: Int): List<UnreadSender> = privateMessageRepo.getUnreadSenders(userId)
+
+    fun markPrivateMessagesRead(currentUserId: Int, senderId: Int) {
+        privateMessageRepo.markAsRead(senderId, currentUserId)
+        sendToUser(currentUserId, WsEvent.UnreadCounts(privateMessageRepo.getUnreadCount(currentUserId)))
+    }
 
     fun sendTypingStatus(roomId: Int, user: User, isTyping: Boolean) {
         broadcastToRoom(roomId, WsEvent.Typing(user.id, user.username, isTyping))

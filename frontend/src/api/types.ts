@@ -256,6 +256,13 @@ export interface CreateRoomRequest {
   password?: string | null;
 }
 
+export interface UpdateRoomRequest {
+  name: string;
+  description?: string | null;
+  isPrivate: boolean;
+  password?: string | null;
+}
+
 export interface UpdateProfileRequest {
   avatarUrl?: string | null;
   bio?: string | null;

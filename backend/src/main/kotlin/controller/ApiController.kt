@@ -37,6 +37,25 @@ class ApiController(
         return roomService.createRoom(request.name, request.description, request.isPrivate, request.password, userId)
     }
 
+    @Patch("/rooms/{roomId}")
+    fun updateRoom(roomId: Path<Int>, body: Json<UpdateRoomRequest>, token: BearerToken): Room {
+        val userId = requireAuth(token)
+        val request = body.value
+        if (request.name.isBlank()) throw BadRequest("Room name is required")
+        return try {
+            roomService.updateRoom(
+                roomId = roomId.value,
+                userId = userId,
+                name = request.name,
+                description = request.description,
+                isPrivate = request.isPrivate,
+                password = request.password
+            ) ?: throw BadRequest("Cannot update room: not found or not the owner")
+        } catch (e: IllegalArgumentException) {
+            throw BadRequest(e.message ?: "Failed to update room")
+        }
+    }
+
     @Delete("/rooms/{roomId}")
     fun deleteRoom(ctx: Context, roomId: Path<Int>, token: BearerToken) {
         val userId = requireAuth(token)

@@ -3,6 +3,7 @@ import type {
   CreateRoomRequest,
   RoomInfo,
   Room,
+  UpdateRoomRequest,
   UpdateProfileRequest,
   UploadResponse,
   User,
@@ -140,6 +141,13 @@ export async function getRooms(): Promise<RoomInfo[]> {
 
 export async function createRoom(req: CreateRoomRequest): Promise<Room> {
   return request("POST", "/api/rooms", req);
+}
+
+export async function updateRoom(
+  roomId: number,
+  req: UpdateRoomRequest,
+): Promise<Room> {
+  return request("PATCH", `/api/rooms/${roomId}`, req);
 }
 
 export async function deleteRoom(roomId: number): Promise<void> {

@@ -113,4 +113,83 @@ class RoomServiceTest {
         assertFalse(roomService.deleteRoom(room.id, otherId))
         assertNotNull(roomService.getRoomById(room.id))
     }
+
+    @Test
+    fun `updateRoom updates room metadata for owner`() {
+        val room = roomService.createRoom("editable", "before", creatorId = ownerId)
+
+        val updated = roomService.updateRoom(
+            roomId = room.id,
+            userId = ownerId,
+            name = "edited-room",
+            description = "after",
+            isPrivate = true,
+            password = "new-secret"
+        )
+
+        assertNotNull(updated)
+        assertEquals("edited-room", updated!!.name)
+        assertEquals("after", updated.description)
+        assertTrue(updated.isPrivate)
+        assertTrue(roomService.verifyRoomPassword(room.id, "new-secret"))
+    }
+
+    @Test
+    fun `updateRoom keeps existing password when already private and password omitted`() {
+        val room = roomService.createRoom(
+            "private-edit",
+            "desc",
+            isPrivate = true,
+            password = "old-secret",
+            creatorId = ownerId
+        )
+
+        val updated = roomService.updateRoom(
+            roomId = room.id,
+            userId = ownerId,
+            name = "private-edited",
+            description = "updated-desc",
+            isPrivate = true,
+            password = null
+        )
+
+        assertNotNull(updated)
+        assertEquals("private-edited", updated!!.name)
+        assertTrue(updated.isPrivate)
+        assertTrue(roomService.verifyRoomPassword(room.id, "old-secret"))
+    }
+
+    @Test
+    fun `updateRoom public to private without password throws`() {
+        val room = roomService.createRoom("public-edit", "desc", creatorId = ownerId)
+
+        assertThrows<IllegalArgumentException> {
+            roomService.updateRoom(
+                roomId = room.id,
+                userId = ownerId,
+                name = "public-edit",
+                description = "desc",
+                isPrivate = true,
+                password = null
+            )
+        }
+    }
+
+    @Test
+    fun `updateRoom fails for non-owner`() {
+        val room = roomService.createRoom("owner-only", "desc", creatorId = ownerId)
+
+        val updated = roomService.updateRoom(
+            roomId = room.id,
+            userId = otherId,
+            name = "hacked",
+            description = "hacked-desc",
+            isPrivate = false,
+            password = null
+        )
+
+        assertNull(updated)
+        val found = roomService.getRoomById(room.id)
+        assertEquals("owner-only", found!!.name)
+    }
 }
