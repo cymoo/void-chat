@@ -116,7 +116,7 @@ function MessageItemInner({
   };
 
   return (
-    <div className="message" data-message-id={message.id}>
+    <div className={`message${isOwn ? " message-self" : ""}`} data-message-id={message.id}>
       <div
         className="message-avatar"
         style={{ cursor: "pointer" }}

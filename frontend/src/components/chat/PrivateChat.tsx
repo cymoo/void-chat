@@ -214,31 +214,28 @@ export function PrivateChat({ send, currentUser }: PrivateChatProps) {
     [addToast, privateChatUserId, send],
   );
 
-  const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    await sendPrivateImage(file);
-    e.target.value = "";
-  };
-
-  const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+  const handleAttach = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !privateChatUserId) return;
-    try {
-      const result = await api.uploadFile(file);
-      if (result.url) {
-        send({
-          type: "private_message",
-          targetUserId: privateChatUserId,
-          fileName: result.fileName ?? file.name,
-          fileUrl: result.url,
-          fileSize: result.fileSize ?? file.size,
-          mimeType: file.type,
-        });
+    if (file.type.startsWith("image/")) {
+      await sendPrivateImage(file);
+    } else {
+      try {
+        const result = await api.uploadFile(file);
+        if (result.url) {
+          send({
+            type: "private_message",
+            targetUserId: privateChatUserId,
+            fileName: result.fileName ?? file.name,
+            fileUrl: result.url,
+            fileSize: result.fileSize ?? file.size,
+            mimeType: file.type,
+          });
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "File upload failed";
+        addToast(msg, "error");
       }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "文件上传失败";
-      addToast(msg, "error");
     }
     e.target.value = "";
   };
@@ -318,28 +315,14 @@ export function PrivateChat({ send, currentUser }: PrivateChatProps) {
               </div>
             )}
           </div>
-          <label className="icon-btn" title="Upload Image">
+          <label className="icon-btn attach-btn" title="Attach File">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-              <circle cx="8.5" cy="8.5" r="1.5" />
-              <polyline points="21 15 16 10 5 21" />
-            </svg>
-            <input
-              type="file"
-              accept="image/*"
-              style={{ display: "none" }}
-              onChange={handleImageUpload}
-            />
-          </label>
-          <label className="icon-btn" title="Upload File">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
-              <polyline points="13 2 13 9 20 9" />
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
             </svg>
             <input
               type="file"
               style={{ display: "none" }}
-              onChange={handleFileUpload}
+              onChange={handleAttach}
             />
           </label>
           <button

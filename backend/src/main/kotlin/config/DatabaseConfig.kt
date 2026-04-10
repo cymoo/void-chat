@@ -16,10 +16,10 @@ object DatabaseConfig {
         val config = HikariConfig().apply {
             jdbcUrl = dbUrl
             driverClassName = "org.sqlite.JDBC"
-            maximumPoolSize = 10
+            maximumPoolSize = 3
+            minimumIdle = 1
             isAutoCommit = true
-            // SQLite disables FK checks per connection by default; enable them for integrity and cascades.
-            connectionInitSql = "PRAGMA foreign_keys = ON"
+            connectionInitSql = "PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL"
         }
         return HikariDataSource(config)
     }

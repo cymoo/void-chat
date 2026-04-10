@@ -30,6 +30,7 @@ export function UserSidebar({ send, currentUser, isOpen, onClose }: UserSidebarP
   const isOwner = (user: User) => user.role === "owner" || roomCreatorId === user.id;
 
   const handleDm = (user: User) => {
+    onClose();
     openPrivateChat(user.id, user.username);
     send({ type: "private_history", targetUserId: user.id });
   };

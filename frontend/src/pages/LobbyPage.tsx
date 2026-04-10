@@ -68,9 +68,8 @@ export function LobbyPage() {
       <div className="lobby-container">
         <div className="lobby-header">
           <div className="lobby-title-section">
-            <div className="lobby-title">SELECT ROOM</div>
+            <div className="lobby-title">LOBBY</div>
             <div className="lobby-user-info">
-              <span className="user-label">LOGGED AS:</span>
               <span className="user-name">{user?.username ?? "USER"}</span>
             </div>
           </div>
@@ -84,21 +83,30 @@ export function LobbyPage() {
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                 <circle cx="12" cy="7" r="4" />
               </svg>
-              MY PROFILE
+              <span className="btn-label">PROFILE</span>
             </button>
             <button
               className="icon-btn lobby-action-btn"
               title="Create Room"
               onClick={() => setCreateRoomOpen(true)}
             >
-              + NEW ROOM
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              <span className="btn-label">NEW ROOM</span>
             </button>
             <button
               className="icon-btn lobby-action-btn"
               title="Logout"
               onClick={handleLogout}
             >
-              LOGOUT
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+              <span className="btn-label">LOGOUT</span>
             </button>
           </div>
         </div>

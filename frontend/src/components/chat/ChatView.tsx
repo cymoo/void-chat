@@ -18,7 +18,7 @@ export function ChatView({ send, roomName, currentUser, onDisconnect }: ChatView
   const users = useChatStore((s) => s.users);
   const typingUsers = useChatStore((s) => s.typingUsers);
   const unreadDmCount = useChatStore((s) => s.unreadDmCount);
-  const [usersPanelOpen, setUsersPanelOpen] = useState(true);
+  const [usersPanelOpen, setUsersPanelOpen] = useState(() => window.innerWidth > 768);
   const { searchOpen, toggleSearch, setProfileOpen, dmInboxOpen, setDmInboxOpen } = useUiStore();
   const activeTypingUsers = typingUsers.filter((u) => u.userId !== currentUser.id);
   const typingText =
