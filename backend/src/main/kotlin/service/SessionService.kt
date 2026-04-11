@@ -43,4 +43,8 @@ class SessionService {
     fun invalidateSession(token: String) {
         sessions.remove(token)
     }
+
+    fun invalidateSessionsForUser(userId: Int) {
+        sessions.entries.removeIf { it.value.userId == userId }
+    }
 }

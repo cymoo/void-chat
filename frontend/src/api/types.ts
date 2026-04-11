@@ -10,6 +10,11 @@ export interface User {
   status?: string | null;
   role?: string | null;
   capabilities?: UserCapabilities | null;
+  isDisabled?: boolean;
+  disabledReason?: string | null;
+  mutedUntil?: number | null;
+  muteReason?: string | null;
+  isMuted?: boolean;
   createdAt: number;
   lastSeen: number;
 }
@@ -258,6 +263,37 @@ export interface AuthResponse {
 export interface AdminDashboardResponse {
   users: User[];
   rooms: RoomInfo[];
+  registrationMode: RegistrationMode;
+  invites: InviteLink[];
+}
+
+export type RegistrationMode = "open" | "invite_only";
+
+export interface RegistrationModeResponse {
+  mode: RegistrationMode;
+}
+
+export interface InviteLink {
+  id: number;
+  codePreview: string;
+  createdByUserId: number;
+  createdByUsername?: string | null;
+  maxUses?: number | null;
+  usedCount: number;
+  expiresAt?: number | null;
+  revokedAt?: number | null;
+  createdAt: number;
+  isActive: boolean;
+}
+
+export interface CreateInviteLinkRequest {
+  maxUses?: number | null;
+  expiresInHours?: number | null;
+}
+
+export interface CreateInviteLinkResponse {
+  invite: InviteLink;
+  code: string;
 }
 
 export interface CreateRoomRequest {
@@ -282,6 +318,21 @@ export interface UpdateProfileRequest {
 
 export interface UpdateUserRoleRequest {
   role: string;
+}
+
+export interface UpdateUserDisableRequest {
+  disabled: boolean;
+  reason?: string | null;
+}
+
+export interface UpdateUserMuteRequest {
+  muted: boolean;
+  durationMinutes?: number | null;
+  reason?: string | null;
+}
+
+export interface UpdateRegistrationModeRequest {
+  mode: RegistrationMode;
 }
 
 export interface UploadResponse {

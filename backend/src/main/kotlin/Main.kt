@@ -16,6 +16,7 @@ import service.RoomService
 import service.SessionService
 import service.UserService
 import service.AuthorizationService
+import service.InvitationService
 import java.nio.file.Paths
 
 val logger: Logger = LoggerFactory.getLogger("App")
@@ -56,6 +57,7 @@ fun main() {
 
     // Create services
     val authorizationService = AuthorizationService()
+    val invitationService = InvitationService(dsl)
     val userService = UserService(dsl, authorizationService)
     val roomService = RoomService(dsl, authorizationService)
     val chatService = ChatService(dsl, objectMapper)
@@ -67,8 +69,8 @@ fun main() {
     app.use(Cors.permissive())
 
     // Controllers
-    app.addController(AuthController(userService, sessionService))
-    app.addController(ApiController(roomService, fileService, userService, sessionService, chatService, authorizationService))
+    app.addController(AuthController(userService, sessionService, invitationService))
+    app.addController(ApiController(roomService, fileService, userService, invitationService, sessionService, chatService, authorizationService))
     app.addController(FileController(fileService))
     app.addController(ChatController(userService, chatService, roomService, sessionService, objectMapper))
 

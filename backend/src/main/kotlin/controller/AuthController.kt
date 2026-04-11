@@ -3,8 +3,10 @@ package controller
 import io.github.cymoo.colleen.*
 import model.AuthResponse
 import model.LoginRequest
+import model.RegistrationModeResponse
 import model.RegisterRequest
 import model.User
+import service.InvitationService
 import service.SessionService
 import service.UserService
 import util.BearerToken
@@ -15,7 +17,8 @@ import util.BearerToken
 @Controller("/api/auth")
 class AuthController(
     private val userService: UserService,
-    private val sessionService: SessionService
+    private val sessionService: SessionService,
+    private val invitationService: InvitationService
 ) {
 
     @Post("/register")
@@ -25,6 +28,7 @@ class AuthController(
         if (req.password.length < 6) throw BadRequest("Password must be at least 6 characters")
 
         return try {
+            invitationService.validateAndConsumeRegistrationInvite(req.inviteCode)
             val result = userService.register(req.username, req.password)
             val token = sessionService.createSession(result.user.id)
             AuthResponse(token = token, user = result.user)
@@ -50,7 +54,18 @@ class AuthController(
 
     @Get("/me")
     fun me(token: BearerToken): User {
-        val userId = sessionService.validateSession(token.require()) ?: throw Unauthorized("Invalid or expired session")
-        return userService.getUserById(userId) ?: throw NotFound("User not found")
+        val rawToken = token.require()
+        val userId = sessionService.validateSession(rawToken) ?: throw Unauthorized("Invalid or expired session")
+        val user = userService.getUserById(userId) ?: throw NotFound("User not found")
+        if (user.isDisabled) {
+            sessionService.invalidateSession(rawToken)
+            throw Unauthorized("Account is disabled")
+        }
+        return user
+    }
+
+    @Get("/registration-mode")
+    fun registrationMode(): RegistrationModeResponse {
+        return RegistrationModeResponse(mode = invitationService.getRegistrationMode())
     }
 }

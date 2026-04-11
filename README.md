@@ -38,6 +38,7 @@ void-chat/
 - **Real-time chat** via WebSocket with reconnection
 - **Multiple rooms** with private (password-protected) room support
 - **Authentication** (register/login with token-based sessions)
+- **Invitation links** with registration mode support (`open` / `invite_only`)
 - **Message features**: edit, delete, reply-to, @mentions, search
 - **File sharing**: images (5MB) and files (20MB) with upload
 - **Private messages** (DMs) between users
@@ -47,6 +48,8 @@ void-chat/
   - Room roles: `owner`, `admin`, `moderator`, `member`
   - Centralized authorization checks for room moderation actions
 - **Admin dashboard** for user-role management and room overview
+- **User moderation**: disable account, mute room messaging (with confirmations)
+- **Admin access control**: invite management + registration mode switching
 - **Terminal aesthetic**: IBM Plex Mono, green-on-black, ASCII decorations
 
 ## Technology Stack
@@ -101,16 +104,22 @@ npm run build     # Output in frontend/dist/
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/auth/register` | Register user |
+| POST | `/api/auth/register` | Register user (optional `inviteCode`) |
 | POST | `/api/auth/login` | Login |
 | POST | `/api/auth/logout` | Logout |
 | GET | `/api/auth/me` | Current user |
+| GET | `/api/auth/registration-mode` | Public registration mode |
 | GET | `/api/rooms` | List rooms |
 | POST | `/api/rooms` | Create room |
 | PATCH | `/api/rooms/{roomId}` | Update room (owner or platform admin) |
 | DELETE | `/api/rooms/{roomId}` | Delete room (owner or platform admin) |
-| GET | `/api/admin/dashboard` | Admin dashboard data (users + rooms) |
+| GET | `/api/admin/dashboard` | Admin dashboard data (users + rooms + invites + mode) |
 | PATCH | `/api/admin/users/{userId}/role` | Update platform role |
+| PATCH | `/api/admin/users/{userId}/disable` | Disable / enable user |
+| PATCH | `/api/admin/users/{userId}/mute` | Mute / unmute user room messaging |
+| POST | `/api/admin/invites` | Create invite link |
+| PATCH | `/api/admin/invites/{inviteId}/revoke` | Revoke invite link |
+| PATCH | `/api/admin/registration-mode` | Update registration mode |
 | POST | `/api/upload/image` | Upload image |
 | POST | `/api/upload/file` | Upload file |
 | PATCH | `/api/users/me` | Update profile |

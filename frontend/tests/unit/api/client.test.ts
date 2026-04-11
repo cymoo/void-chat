@@ -82,6 +82,31 @@ describe("API client", () => {
     });
   });
 
+  it("should send invite code for register when provided", async () => {
+    mockFetch.mockResolvedValue(
+      mockResponse({
+        ok: true,
+        status: 200,
+        json: {
+          token: "t",
+          user: { id: 1, username: "u", createdAt: 0, lastSeen: 0 },
+        },
+      }),
+    );
+
+    await client.register("user", "pass123", "invite-code");
+
+    expect(mockFetch).toHaveBeenCalledWith("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: "user",
+        password: "pass123",
+        inviteCode: "invite-code",
+      }),
+    });
+  });
+
   it("should send JSON body for room update PATCH requests", async () => {
     localStorage.setItem("authToken", "my-token");
     mockFetch.mockResolvedValue(
@@ -216,6 +241,161 @@ describe("API client", () => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ role: "platform_admin" }),
+    });
+  });
+
+  it("should send disable payload for admin user moderation", async () => {
+    localStorage.setItem("authToken", "admin-token");
+    mockFetch.mockResolvedValue(
+      mockResponse({
+        ok: true,
+        status: 200,
+        json: {
+          id: 3,
+          username: "target",
+          isDisabled: true,
+          createdAt: 0,
+          lastSeen: 0,
+        },
+      }),
+    );
+
+    await client.updateAdminUserDisabled(3, true, "abuse");
+
+    expect(mockFetch).toHaveBeenCalledWith("/api/admin/users/3/disable", {
+      method: "PATCH",
+      headers: {
+        Authorization: "Bearer admin-token",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ disabled: true, reason: "abuse" }),
+    });
+  });
+
+  it("should send mute payload for admin user moderation", async () => {
+    localStorage.setItem("authToken", "admin-token");
+    mockFetch.mockResolvedValue(
+      mockResponse({
+        ok: true,
+        status: 200,
+        json: {
+          id: 3,
+          username: "target",
+          isMuted: true,
+          mutedUntil: Date.now() + 60_000,
+          createdAt: 0,
+          lastSeen: 0,
+        },
+      }),
+    );
+
+    await client.updateAdminUserMute(3, true, 60, "spam");
+
+    expect(mockFetch).toHaveBeenCalledWith("/api/admin/users/3/mute", {
+      method: "PATCH",
+      headers: {
+        Authorization: "Bearer admin-token",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ muted: true, durationMinutes: 60, reason: "spam" }),
+    });
+  });
+
+  it("should create invite link via admin API", async () => {
+    localStorage.setItem("authToken", "admin-token");
+    mockFetch.mockResolvedValue(
+      mockResponse({
+        ok: true,
+        status: 200,
+        json: {
+          code: "invite-code",
+          invite: {
+            id: 1,
+            codePreview: "invite...",
+            createdByUserId: 1,
+            usedCount: 0,
+            isActive: true,
+            createdAt: 0,
+          },
+        },
+      }),
+    );
+
+    await client.createAdminInvite(5, 24);
+
+    expect(mockFetch).toHaveBeenCalledWith("/api/admin/invites", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer admin-token",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ maxUses: 5, expiresInHours: 24 }),
+    });
+  });
+
+  it("should revoke invite link via admin API", async () => {
+    localStorage.setItem("authToken", "admin-token");
+    mockFetch.mockResolvedValue(
+      mockResponse({
+        ok: true,
+        status: 200,
+        json: {
+          id: 1,
+          codePreview: "invite...",
+          createdByUserId: 1,
+          usedCount: 0,
+          isActive: false,
+          createdAt: 0,
+        },
+      }),
+    );
+
+    await client.revokeAdminInvite(1);
+
+    expect(mockFetch).toHaveBeenCalledWith("/api/admin/invites/1/revoke", {
+      method: "PATCH",
+      headers: { Authorization: "Bearer admin-token" },
+      body: undefined,
+    });
+  });
+
+  it("should update registration mode via admin API", async () => {
+    localStorage.setItem("authToken", "admin-token");
+    mockFetch.mockResolvedValue(
+      mockResponse({
+        ok: true,
+        status: 200,
+        json: { mode: "invite_only" },
+      }),
+    );
+
+    await client.updateRegistrationMode("invite_only");
+
+    expect(mockFetch).toHaveBeenCalledWith("/api/admin/registration-mode", {
+      method: "PATCH",
+      headers: {
+        Authorization: "Bearer admin-token",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ mode: "invite_only" }),
+    });
+  });
+
+  it("should fetch public registration mode", async () => {
+    mockFetch.mockResolvedValue(
+      mockResponse({
+        ok: true,
+        status: 200,
+        json: { mode: "open" },
+      }),
+    );
+
+    await client.getRegistrationMode();
+
+    expect(mockFetch).toHaveBeenCalledWith("/api/auth/registration-mode", {
+      method: "GET",
+      headers: {},
+      body: undefined,
     });
   });
 });

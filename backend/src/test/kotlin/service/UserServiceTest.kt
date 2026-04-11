@@ -156,4 +156,58 @@ class UserServiceTest {
             userService.updateUserRole(actor, target.id, "platform_admin")
         }
     }
+
+    @Test
+    fun `super admin can disable and enable user`() {
+        val superAdmin = userService.register("root", "password123").user
+        val target = userService.register("target", "password123").user
+
+        val disabled = userService.updateUserDisabled(superAdmin, target.id, disabled = true, reason = "abuse")
+        assertNotNull(disabled)
+        assertTrue(disabled!!.isDisabled)
+        assertEquals("abuse", disabled.disabledReason)
+
+        val enabled = userService.updateUserDisabled(superAdmin, target.id, disabled = false, reason = null)
+        assertNotNull(enabled)
+        assertFalse(enabled!!.isDisabled)
+    }
+
+    @Test
+    fun `disabled user cannot login`() {
+        val superAdmin = userService.register("root", "password123").user
+        val target = userService.register("target", "password123").user
+        userService.updateUserDisabled(superAdmin, target.id, disabled = true, reason = "suspended")
+
+        val loginResult = userService.login("target", "password123")
+        assertNull(loginResult)
+    }
+
+    @Test
+    fun `platform admin cannot disable super admin`() {
+        val superAdmin = userService.register("root", "password123").user
+        val platformAdminSeed = userService.register("manager", "password123").user
+        userService.updateUserRole(superAdmin, platformAdminSeed.id, "platform_admin")
+        val platformAdmin = userService.getUserById(platformAdminSeed.id)!!
+
+        assertThrows<IllegalArgumentException> {
+            userService.updateUserDisabled(platformAdmin, superAdmin.id, disabled = true, reason = "nope")
+        }
+    }
+
+    @Test
+    fun `super admin can mute and unmute user`() {
+        val superAdmin = userService.register("root", "password123").user
+        val target = userService.register("target", "password123").user
+
+        val muted = userService.updateUserMute(superAdmin, target.id, muted = true, durationMinutes = 60, reason = "spam")
+        assertNotNull(muted)
+        assertTrue(muted!!.isMuted)
+        assertNotNull(muted.mutedUntil)
+        assertEquals("spam", muted.muteReason)
+
+        val unmuted = userService.updateUserMute(superAdmin, target.id, muted = false, durationMinutes = null, reason = null)
+        assertNotNull(unmuted)
+        assertFalse(unmuted!!.isMuted)
+        assertNull(unmuted.mutedUntil)
+    }
 }

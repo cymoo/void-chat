@@ -4,6 +4,8 @@ import model.AuthResponse
 import model.User
 import org.jooq.DSLContext
 import repository.UserRepository
+import java.time.LocalDateTime
+import java.time.ZoneOffset
 import util.PasswordUtils
 
 /**
@@ -26,6 +28,7 @@ class UserService(
         var user = if (existing != null) {
             // Legacy account (no password) can claim ownership by registering
             require(existing.passwordHash == null) { "Username already taken" }
+            require(!existing.user.isDisabled) { "Account is disabled" }
             userRepo.setPasswordHash(existing.user.id, passwordHash)
             existing.user
         } else {
@@ -43,6 +46,7 @@ class UserService(
 
     fun login(username: String, password: String): User? {
         val authUser = userRepo.findByUsernameForAuth(username) ?: return null
+        if (authUser.user.isDisabled) return null
         if (authUser.passwordHash == null) return null // unregistered legacy account
         if (!PasswordUtils.verifyPassword(password, authUser.passwordHash)) return null
         userRepo.updateLastSeen(authUser.user.id)
@@ -95,6 +99,67 @@ class UserService(
         }
 
         if (!userRepo.updateRole(targetUserId, desiredRole)) return null
+        return userRepo.findById(targetUserId)
+    }
+
+    fun updateUserDisabled(actorUser: User, targetUserId: Int, disabled: Boolean, reason: String?): User? {
+        if (!authorizationService.canManagePlatformUsers(actorUser)) {
+            throw IllegalArgumentException("Insufficient permission to manage users")
+        }
+        if (actorUser.id == targetUserId) {
+            throw IllegalArgumentException("Cannot change your own account status")
+        }
+
+        val targetUser = userRepo.findById(targetUserId) ?: return null
+        if (!authorizationService.canModeratePlatformUser(actorUser, targetUser.role)) {
+            throw IllegalArgumentException("Target user is protected")
+        }
+
+        val targetRole = authorizationService.normalizePlatformRole(targetUser.role)
+        if (disabled && targetRole == AuthorizationService.ROLE_SUPER_ADMIN &&
+            userRepo.countActiveByRole(AuthorizationService.ROLE_SUPER_ADMIN) <= 1
+        ) {
+            throw IllegalArgumentException("At least one active super admin must remain")
+        }
+
+        val normalizedReason = reason?.trim()?.ifEmpty { null }
+        if (!userRepo.updateDisabled(targetUserId, disabled, if (disabled) normalizedReason else null)) {
+            return null
+        }
+        return userRepo.findById(targetUserId)
+    }
+
+    fun updateUserMute(
+        actorUser: User,
+        targetUserId: Int,
+        muted: Boolean,
+        durationMinutes: Int?,
+        reason: String?
+    ): User? {
+        if (!authorizationService.canManagePlatformUsers(actorUser)) {
+            throw IllegalArgumentException("Insufficient permission to manage users")
+        }
+        if (actorUser.id == targetUserId) {
+            throw IllegalArgumentException("Cannot change your own account status")
+        }
+
+        val targetUser = userRepo.findById(targetUserId) ?: return null
+        if (!authorizationService.canModeratePlatformUser(actorUser, targetUser.role)) {
+            throw IllegalArgumentException("Target user is protected")
+        }
+
+        val normalizedReason = reason?.trim()?.ifEmpty { null }
+        val mutedUntil = if (muted) {
+            val minutes = durationMinutes ?: 60
+            require(minutes in 1..(7 * 24 * 60)) { "Mute duration must be between 1 and 10080 minutes" }
+            LocalDateTime.now(ZoneOffset.UTC).plusMinutes(minutes.toLong())
+        } else {
+            null
+        }
+
+        if (!userRepo.updateMute(targetUserId, mutedUntil, if (muted) normalizedReason else null)) {
+            return null
+        }
         return userRepo.findById(targetUserId)
     }
 

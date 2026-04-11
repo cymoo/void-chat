@@ -45,6 +45,10 @@ class ChatController(
             ctx.status(401).json(mapOf("error" to "User not found"))
             return
         }
+        if (user.isDisabled) {
+            ctx.status(401).json(mapOf("error" to "Account is disabled"))
+            return
+        }
 
         ctx.setState("user", user)
         next()
@@ -110,6 +114,14 @@ class ChatController(
         // Handle incoming messages
         conn.onMessage { msg ->
             try {
+                val latestUser = userService.getUserById(currentUser.id)
+                if (latestUser == null || latestUser.isDisabled) {
+                    conn.send(chatService.serializeEvent(WsEvent.Error("Account is disabled")))
+                    conn.close()
+                    return@onMessage
+                }
+                currentUser = latestUser
+
                 val payload = objectMapper.readTree(msg)
                 val type = payload.path("type").asText("")
                 val content = payload.path("content").takeIf { !it.isMissingNode && !it.isNull }?.asText()
@@ -133,21 +145,39 @@ class ChatController(
                 when (type) {
                     "text" -> {
                         content?.let { text ->
-                            chatService.sendTextMessage(roomId, currentUser, text, replyToId)
+                            val sent = chatService.sendTextMessage(roomId, currentUser, text, replyToId)
+                            if (!sent) {
+                                conn.send(chatService.serializeEvent(WsEvent.Error(
+                                    chatService.roomMessageBlockReason(currentUser.id)
+                                        ?: "Message sending is not allowed"
+                                )))
+                            }
                         }
                     }
                     "image" -> {
                         imageUrl?.let { image ->
-                            chatService.sendImageMessage(roomId, currentUser, image, thumbnailUrl, replyToId)
+                            val sent = chatService.sendImageMessage(roomId, currentUser, image, thumbnailUrl, replyToId)
+                            if (!sent) {
+                                conn.send(chatService.serializeEvent(WsEvent.Error(
+                                    chatService.roomMessageBlockReason(currentUser.id)
+                                        ?: "Message sending is not allowed"
+                                )))
+                            }
                         }
                     }
                     "file" -> {
                         if (fileName != null && fileUrl != null &&
                             fileSize != null && mimeType != null) {
-                            chatService.sendFileMessage(
+                            val sent = chatService.sendFileMessage(
                                 roomId, currentUser, fileName, fileUrl,
                                 fileSize, mimeType, replyToId
                             )
+                            if (!sent) {
+                                conn.send(chatService.serializeEvent(WsEvent.Error(
+                                    chatService.roomMessageBlockReason(currentUser.id)
+                                        ?: "Message sending is not allowed"
+                                )))
+                            }
                         }
                     }
                     "edit" -> {

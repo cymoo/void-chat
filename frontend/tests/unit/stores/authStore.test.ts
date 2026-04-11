@@ -83,6 +83,27 @@ describe("authStore", () => {
     expect(state.user).toEqual(mockUser);
   });
 
+  it("should pass invite code to register api", async () => {
+    const mockUser = {
+      id: 2,
+      username: "newuser",
+      createdAt: Date.now(),
+      lastSeen: Date.now(),
+    };
+    vi.mocked(api.register).mockResolvedValue({
+      token: "new-token",
+      user: mockUser,
+    });
+
+    await useAuthStore.getState().register("newuser", "password123", "invite-123");
+
+    expect(api.register).toHaveBeenCalledWith(
+      "newuser",
+      "password123",
+      "invite-123",
+    );
+  });
+
   it("should logout and clear state", async () => {
     // Set initial authenticated state
     useAuthStore.setState({

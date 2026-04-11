@@ -27,6 +27,7 @@ class ChatServiceAuthzTest {
     private val chatService = ChatService(dsl, objectMapper)
     private val userRepo = UserRepository(dsl)
     private val roomRepo = RoomRepository(dsl)
+    private val userService = UserService(dsl)
 
     private fun mockConnection(): WsConnection {
         val conn = mockk<WsConnection>(relaxed = true)
@@ -70,5 +71,21 @@ class ChatServiceAuthzTest {
         assertTrue(kickOk)
         verify(atLeast = 1) { targetConn.send(any<String>()) }
         verify(atLeast = 1) { targetConn.close() }
+    }
+
+    @Test
+    fun `muted user cannot send room text message`() {
+        val roomId = roomRepo.findByName("general")!!.id
+
+        val superAdmin = userService.register("root", "password123").user
+        val target = userService.register("muted-user", "password123").user
+        userService.updateUserMute(superAdmin, target.id, muted = true, durationMinutes = 60, reason = "spam")
+
+        val targetConn = mockConnection()
+        chatService.joinRoom(roomId, targetConn, target)
+        awaitBroadcasts()
+
+        val sent = chatService.sendTextMessage(roomId, target, "hello")
+        assertEquals(false, sent)
     }
 }

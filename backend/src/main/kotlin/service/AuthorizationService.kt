@@ -51,6 +51,20 @@ class AuthorizationService {
 
     fun canManagePlatformUsers(user: User): Boolean = capabilitiesForPlatformRole(user.role).canManagePlatformUsers
 
+    fun canManageInvites(user: User): Boolean = canManagePlatformUsers(user)
+
+    fun canManageRegistrationMode(user: User): Boolean = canManagePlatformUsers(user)
+
+    fun canModeratePlatformUser(actorUser: User, targetCurrentRole: String?): Boolean {
+        val actorRole = normalizePlatformRole(actorUser.role)
+        val targetRole = normalizePlatformRole(targetCurrentRole)
+        return when (actorRole) {
+            ROLE_SUPER_ADMIN -> true
+            ROLE_PLATFORM_ADMIN -> targetRole != ROLE_SUPER_ADMIN
+            else -> false
+        }
+    }
+
     fun canAssignPlatformRole(actorUser: User, targetCurrentRole: String?, targetRole: String): Boolean {
         val actorRole = normalizePlatformRole(actorUser.role)
         val currentTargetRole = normalizePlatformRole(targetCurrentRole)

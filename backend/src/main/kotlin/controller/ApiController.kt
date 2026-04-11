@@ -5,6 +5,7 @@ import model.*
 import service.AuthorizationService
 import service.ChatService
 import service.FileService
+import service.InvitationService
 import service.RoomService
 import service.SessionService
 import service.UserService
@@ -18,6 +19,7 @@ class ApiController(
     private val roomService: RoomService,
     private val fileService: FileService,
     private val userService: UserService,
+    private val invitationService: InvitationService,
     private val sessionService: SessionService,
     private val chatService: ChatService,
     private val authorizationService: AuthorizationService
@@ -121,7 +123,14 @@ class ApiController(
         requireAdminAccess(actor)
         val rooms = getRooms()
         val users = userService.listUsers()
-        return AdminDashboardResponse(users = users, rooms = rooms)
+        val invites = invitationService.listInvites()
+        val registrationMode = invitationService.getRegistrationMode()
+        return AdminDashboardResponse(
+            users = users,
+            rooms = rooms,
+            registrationMode = registrationMode,
+            invites = invites
+        )
     }
 
     @Patch("/admin/users/{userId}/role")
@@ -142,9 +151,102 @@ class ApiController(
         }
     }
 
+    @Patch("/admin/users/{userId}/disable")
+    fun updateAdminUserDisabled(userId: Path<Int>, body: Json<UpdateUserDisableRequest>, token: BearerToken): User {
+        val actor = requireAuthUser(token)
+        if (!authorizationService.canManagePlatformUsers(actor)) {
+            throw Unauthorized("Admin permission required")
+        }
+
+        val req = body.value
+        return try {
+            val updated = userService.updateUserDisabled(
+                actorUser = actor,
+                targetUserId = userId.value,
+                disabled = req.disabled,
+                reason = req.reason
+            ) ?: throw NotFound("User not found")
+            if (updated.isDisabled) {
+                sessionService.invalidateSessionsForUser(updated.id)
+            }
+            updated
+        } catch (e: IllegalArgumentException) {
+            throw BadRequest(e.message ?: "Failed to update disabled state")
+        }
+    }
+
+    @Patch("/admin/users/{userId}/mute")
+    fun updateAdminUserMute(userId: Path<Int>, body: Json<UpdateUserMuteRequest>, token: BearerToken): User {
+        val actor = requireAuthUser(token)
+        if (!authorizationService.canManagePlatformUsers(actor)) {
+            throw Unauthorized("Admin permission required")
+        }
+
+        val req = body.value
+        return try {
+            userService.updateUserMute(
+                actorUser = actor,
+                targetUserId = userId.value,
+                muted = req.muted,
+                durationMinutes = req.durationMinutes,
+                reason = req.reason
+            ) ?: throw NotFound("User not found")
+        } catch (e: IllegalArgumentException) {
+            throw BadRequest(e.message ?: "Failed to update mute state")
+        }
+    }
+
+    @Post("/admin/invites")
+    fun createAdminInvite(body: Json<CreateInviteLinkRequest>, token: BearerToken): CreateInviteLinkResponse {
+        val actor = requireAuthUser(token)
+        if (!authorizationService.canManageInvites(actor)) {
+            throw Unauthorized("Admin permission required")
+        }
+
+        val req = body.value
+        return try {
+            invitationService.createInvite(
+                createdByUserId = actor.id,
+                maxUses = req.maxUses,
+                expiresInHours = req.expiresInHours
+            )
+        } catch (e: IllegalArgumentException) {
+            throw BadRequest(e.message ?: "Failed to create invite")
+        }
+    }
+
+    @Patch("/admin/invites/{inviteId}/revoke")
+    fun revokeAdminInvite(inviteId: Path<Int>, token: BearerToken): InviteLink {
+        val actor = requireAuthUser(token)
+        if (!authorizationService.canManageInvites(actor)) {
+            throw Unauthorized("Admin permission required")
+        }
+        return invitationService.revokeInvite(inviteId.value) ?: throw NotFound("Invite not found")
+    }
+
+    @Patch("/admin/registration-mode")
+    fun updateRegistrationMode(body: Json<UpdateRegistrationModeRequest>, token: BearerToken): RegistrationModeResponse {
+        val actor = requireAuthUser(token)
+        if (!authorizationService.canManageRegistrationMode(actor)) {
+            throw Unauthorized("Admin permission required")
+        }
+        val req = body.value
+        return try {
+            RegistrationModeResponse(mode = invitationService.updateRegistrationMode(req.mode))
+        } catch (e: IllegalArgumentException) {
+            throw BadRequest(e.message ?: "Failed to update registration mode")
+        }
+    }
+
     private fun requireAuthUser(token: BearerToken): User {
-        val userId = sessionService.validateSession(token.require()) ?: throw Unauthorized("Invalid or expired session")
-        return userService.getUserById(userId) ?: throw NotFound("User not found")
+        val rawToken = token.require()
+        val userId = sessionService.validateSession(rawToken) ?: throw Unauthorized("Invalid or expired session")
+        val user = userService.getUserById(userId) ?: throw NotFound("User not found")
+        if (user.isDisabled) {
+            sessionService.invalidateSession(rawToken)
+            throw Unauthorized("Account is disabled")
+        }
+        return user
     }
 
     private fun requireAdminAccess(user: User) {

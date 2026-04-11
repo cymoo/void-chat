@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import * as api from "@/api/client";
 import { useAuthStore } from "@/stores/authStore";
 
 export function AuthPage() {
@@ -8,12 +9,34 @@ export function AuthPage() {
   const [regUsername, setRegUsername] = useState("");
   const [regPassword, setRegPassword] = useState("");
   const [regConfirm, setRegConfirm] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
+  const [registrationMode, setRegistrationMode] = useState<"open" | "invite_only">("open");
   const [statusText, setStatusText] = useState("SYSTEM READY");
   const [statusError, setStatusError] = useState(false);
 
   const login = useAuthStore((s) => s.login);
   const register = useAuthStore((s) => s.register);
   const loading = useAuthStore((s) => s.loading);
+
+  useEffect(() => {
+    let active = true;
+    const loadMode = async () => {
+      try {
+        const result = await api.getRegistrationMode();
+        if (active) {
+          setRegistrationMode(result.mode);
+        }
+      } catch {
+        if (active) {
+          setRegistrationMode("open");
+        }
+      }
+    };
+    void loadMode();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
@@ -35,10 +58,15 @@ export function AuthPage() {
       setStatusError(true);
       return;
     }
+    if (registrationMode === "invite_only" && inviteCode.trim().length === 0) {
+      setStatusText("[ERR] Invite code is required");
+      setStatusError(true);
+      return;
+    }
     setStatusText("REGISTERING...");
     setStatusError(false);
     try {
-      await register(regUsername, regPassword);
+      await register(regUsername, regPassword, inviteCode.trim() || undefined);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Registration failed";
       setStatusText(`[ERR] ${msg}`);
@@ -69,6 +97,10 @@ export function AuthPage() {
           >
             REGISTER
           </button>
+        </div>
+
+        <div className="auth-mode-hint">
+          REGISTRATION MODE: {registrationMode === "invite_only" ? "INVITE ONLY" : "OPEN"}
         </div>
 
         {tab === "login" ? (
@@ -138,6 +170,20 @@ export function AuthPage() {
                 required
                 value={regConfirm}
                 onChange={(e) => setRegConfirm(e.target.value)}
+              />
+            </div>
+            <div className="input-group">
+              <label className="input-label">
+                &gt; INVITE CODE {registrationMode === "invite_only" ? "(REQUIRED)" : "(OPTIONAL)"}
+              </label>
+              <input
+                className="terminal-input"
+                type="text"
+                placeholder="INVITE-XXXX"
+                autoComplete="off"
+                required={registrationMode === "invite_only"}
+                value={inviteCode}
+                onChange={(e) => setInviteCode(e.target.value)}
               />
             </div>
             <button className="connect-btn" type="submit" disabled={loading}>

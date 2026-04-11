@@ -1,7 +1,11 @@
 import type {
   AdminDashboardResponse,
   AuthResponse,
+  CreateInviteLinkResponse,
   CreateRoomRequest,
+  InviteLink,
+  RegistrationMode,
+  RegistrationModeResponse,
   RoomInfo,
   Room,
   UpdateRoomRequest,
@@ -123,8 +127,9 @@ export async function login(
 export async function register(
   username: string,
   password: string,
+  inviteCode?: string,
 ): Promise<AuthResponse> {
-  return request("POST", "/api/auth/register", { username, password });
+  return request("POST", "/api/auth/register", { username, password, inviteCode });
 }
 
 export async function logout(): Promise<void> {
@@ -133,6 +138,10 @@ export async function logout(): Promise<void> {
 
 export async function getMe(): Promise<User> {
   return request("GET", "/api/auth/me");
+}
+
+export async function getRegistrationMode(): Promise<RegistrationModeResponse> {
+  return request("GET", "/api/auth/registration-mode");
 }
 
 // Room API
@@ -193,6 +202,44 @@ export async function updateAdminUserRole(
   role: string,
 ): Promise<User> {
   return request("PATCH", `/api/admin/users/${userId}/role`, { role });
+}
+
+export async function updateAdminUserDisabled(
+  userId: number,
+  disabled: boolean,
+  reason?: string,
+): Promise<User> {
+  return request("PATCH", `/api/admin/users/${userId}/disable`, { disabled, reason });
+}
+
+export async function updateAdminUserMute(
+  userId: number,
+  muted: boolean,
+  durationMinutes?: number,
+  reason?: string,
+): Promise<User> {
+  return request("PATCH", `/api/admin/users/${userId}/mute`, {
+    muted,
+    durationMinutes,
+    reason,
+  });
+}
+
+export async function createAdminInvite(
+  maxUses?: number,
+  expiresInHours?: number,
+): Promise<CreateInviteLinkResponse> {
+  return request("POST", "/api/admin/invites", { maxUses, expiresInHours });
+}
+
+export async function revokeAdminInvite(inviteId: number): Promise<InviteLink> {
+  return request("PATCH", `/api/admin/invites/${inviteId}/revoke`);
+}
+
+export async function updateRegistrationMode(
+  mode: RegistrationMode,
+): Promise<RegistrationModeResponse> {
+  return request("PATCH", "/api/admin/registration-mode", { mode });
 }
 
 // File upload API

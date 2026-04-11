@@ -159,7 +159,8 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
         }
     }
 
-    fun sendTextMessage(roomId: Int, user: User, content: String, replyToId: Int? = null) {
+    fun sendTextMessage(roomId: Int, user: User, content: String, replyToId: Int? = null): Boolean {
+        if (roomMessageBlockReason(user.id) != null) return false
         val messageId = messageRepo.saveTextMessage(roomId, user.id, content, replyToId)
 
         val replyInfo = if (replyToId != null) getReplyInfoById(replyToId) else null
@@ -178,9 +179,11 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
 
         // Parse mentions
         parseMentions(content, roomId, messageId, user.username)
+        return true
     }
 
-    fun sendImageMessage(roomId: Int, user: User, imageUrl: String, thumbnailUrl: String?, replyToId: Int? = null) {
+    fun sendImageMessage(roomId: Int, user: User, imageUrl: String, thumbnailUrl: String?, replyToId: Int? = null): Boolean {
+        if (roomMessageBlockReason(user.id) != null) return false
         val messageId = messageRepo.saveImageMessage(roomId, user.id, imageUrl, thumbnailUrl, replyToId)
 
         val replyInfo = if (replyToId != null) getReplyInfoById(replyToId) else null
@@ -197,6 +200,7 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
         )
 
         broadcastToRoom(roomId, WsEvent.Message(message))
+        return true
     }
 
     fun sendFileMessage(
@@ -207,7 +211,8 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
         fileSize: Long,
         mimeType: String,
         replyToId: Int? = null
-    ) {
+    ): Boolean {
+        if (roomMessageBlockReason(user.id) != null) return false
         val messageId = messageRepo.saveFileMessage(
             roomId, user.id, fileName, fileUrl, fileSize, mimeType, replyToId
         )
@@ -228,6 +233,7 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
         )
 
         broadcastToRoom(roomId, WsEvent.Message(message))
+        return true
     }
 
     fun editMessage(roomId: Int, user: User, messageId: Int, newContent: String) {
@@ -358,6 +364,13 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
 
     fun sendTypingStatus(roomId: Int, user: User, isTyping: Boolean) {
         broadcastToRoom(roomId, WsEvent.Typing(user.id, user.username, isTyping))
+    }
+
+    fun roomMessageBlockReason(userId: Int): String? {
+        val latestUser = userRepo.findById(userId) ?: return "User not found"
+        if (latestUser.isDisabled) return "Account is disabled"
+        if (latestUser.isMuted) return "You are muted and cannot send room messages"
+        return null
     }
 
     // Room permissions

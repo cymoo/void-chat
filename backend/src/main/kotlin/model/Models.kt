@@ -19,6 +19,11 @@ data class User(
     val status: String? = null,
     val role: String? = null,
     val capabilities: UserCapabilities? = null,
+    val isDisabled: Boolean = false,
+    val disabledReason: String? = null,
+    val mutedUntil: Long? = null,
+    val muteReason: String? = null,
+    val isMuted: Boolean = false,
     val createdAt: Long,
     val lastSeen: Long
 )
@@ -229,7 +234,8 @@ data class UpdateRoomRequest(
 
 data class RegisterRequest(
     val username: String,
-    val password: String
+    val password: String,
+    val inviteCode: String? = null
 )
 
 data class LoginRequest(
@@ -254,7 +260,9 @@ data class UpdateUserRoleRequest(
 
 data class AdminDashboardResponse(
     val users: List<User>,
-    val rooms: List<RoomInfo>
+    val rooms: List<RoomInfo>,
+    val registrationMode: String = "open",
+    val invites: List<InviteLink> = emptyList()
 )
 
 data class UploadResponse(
@@ -264,4 +272,46 @@ data class UploadResponse(
     val fileName: String? = null,
     val fileSize: Long? = null,
     val error: String? = null
+)
+
+data class InviteLink(
+    val id: Int,
+    val codePreview: String,
+    val createdByUserId: Int,
+    val createdByUsername: String? = null,
+    val maxUses: Int? = null,
+    val usedCount: Int,
+    val expiresAt: Long? = null,
+    val revokedAt: Long? = null,
+    val createdAt: Long,
+    val isActive: Boolean
+)
+
+data class CreateInviteLinkRequest(
+    val maxUses: Int? = null,
+    val expiresInHours: Int? = null
+)
+
+data class CreateInviteLinkResponse(
+    val invite: InviteLink,
+    val code: String
+)
+
+data class UpdateUserDisableRequest(
+    val disabled: Boolean,
+    val reason: String? = null
+)
+
+data class UpdateUserMuteRequest(
+    val muted: Boolean,
+    val durationMinutes: Int? = null,
+    val reason: String? = null
+)
+
+data class UpdateRegistrationModeRequest(
+    val mode: String
+)
+
+data class RegistrationModeResponse(
+    val mode: String
 )

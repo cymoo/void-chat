@@ -314,6 +314,13 @@ body {
   display: flex;
 }
 
+.auth-mode-hint {
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: var(--color-text-dim);
+  margin: -14px 0 16px;
+}
+
 /* ============================================
    SHARED FORM STYLES
    ============================================ */
@@ -2668,12 +2675,29 @@ kbd {
   flex: 1;
 }
 
+.admin-right-column {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+}
+
 .admin-card {
   border: 1px solid var(--color-border);
   background: rgba(0, 0, 0, 0.25);
   min-height: 0;
   display: flex;
   flex-direction: column;
+}
+
+.admin-access-card {
+  flex: 0 0 44%;
+  min-height: 300px;
+}
+
+.admin-rooms-card {
+  flex: 1;
+  min-height: 0;
 }
 
 .admin-card-title {
@@ -2688,6 +2712,38 @@ kbd {
   overflow: auto;
   min-height: 0;
   flex: 1;
+}
+
+.admin-user-filters {
+  display: grid;
+  grid-template-columns: 1.3fr 0.9fr 0.9fr auto;
+  gap: 8px;
+  padding: 10px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.admin-filter-input,
+.admin-filter-select {
+  font-size: 12px;
+  padding: 8px 10px;
+  min-width: 0;
+}
+
+.admin-filter-input::placeholder {
+  color: var(--color-text-muted);
+  opacity: 1;
+}
+
+.admin-wide-select {
+  width: 100%;
+}
+
+.admin-filter-count {
+  display: flex;
+  align-items: center;
+  font-size: 11px;
+  color: var(--color-text-dim);
+  white-space: nowrap;
 }
 
 .admin-users-table {
@@ -2721,19 +2777,172 @@ kbd {
   font-size: 12px;
 }
 
-.admin-save-btn {
+.admin-row-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.admin-mini-btn {
   background: rgba(0, 255, 65, 0.1);
   border: 1px solid rgba(0, 255, 65, 0.35);
   color: var(--color-text);
   font-size: 11px;
   letter-spacing: 0.5px;
-  padding: 6px 10px;
+  padding: 6px 8px;
   cursor: pointer;
+  white-space: nowrap;
 }
 
-.admin-save-btn:disabled {
+.admin-mini-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.admin-mini-btn-danger {
+  border-color: rgba(255, 68, 68, 0.45);
+  color: var(--color-warning);
+}
+
+.admin-mini-btn-ok {
+  border-color: rgba(0, 217, 255, 0.45);
+  color: var(--color-info);
+}
+
+.admin-state-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border);
+  padding: 2px 6px;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+}
+
+.admin-state-badge.state-active {
+  border-color: rgba(0, 255, 65, 0.35);
+  color: var(--color-text);
+}
+
+.admin-state-badge.state-muted {
+  border-color: rgba(255, 196, 0, 0.45);
+  color: #ffcd66;
+}
+
+.admin-state-badge.state-disabled {
+  border-color: rgba(255, 68, 68, 0.45);
+  color: var(--color-warning);
+}
+
+.admin-control-panel {
+  border-bottom: 1px solid var(--color-border);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-control-row {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.admin-control-label {
+  font-size: 11px;
+  color: var(--color-text-dim);
+  letter-spacing: 0.6px;
+  min-width: 0;
+}
+
+.admin-invite-create-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.admin-invite-input {
+  width: 100%;
+  -moz-appearance: textfield;
+}
+
+.admin-invite-input::-webkit-outer-spin-button,
+.admin-invite-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.admin-create-invite-btn {
+  grid-column: 1 / -1;
+  padding: 8px 10px;
+  text-align: center;
+}
+
+.admin-latest-invite {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-latest-invite code {
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--color-border);
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--color-accent);
+}
+
+.admin-invite-list {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: auto;
+  min-height: 0;
+  flex: 1;
+}
+
+.admin-invite-item {
+  border: 1px solid rgba(31, 41, 55, 0.9);
+  background: rgba(10, 14, 20, 0.8);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.admin-invite-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-invite-code {
+  color: var(--color-accent);
+  font-size: 12px;
+  letter-spacing: 0.6px;
+}
+
+.admin-invite-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.admin-revoke-btn {
+  padding: 4px 8px;
+  font-size: 10px;
+}
+
+.admin-invite-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--color-text-dim);
 }
 
 .admin-room-list {
@@ -2772,6 +2981,25 @@ kbd {
   font-size: 12px;
   color: var(--color-text);
   word-break: break-word;
+}
+
+@media (max-width: 1100px) {
+  .admin-dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-access-card {
+    flex: 0 0 auto;
+    min-height: 0;
+  }
+
+  .admin-invite-create-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-create-invite-btn {
+    grid-column: auto;
+  }
 }
 
 /* ============================================
