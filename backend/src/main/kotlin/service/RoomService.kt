@@ -2,6 +2,7 @@ package service
 
 import model.Room
 import model.RoomInfo
+import model.User
 import org.jooq.DSLContext
 import repository.RoomRepository
 import util.PasswordUtils
@@ -9,7 +10,10 @@ import util.PasswordUtils
 /**
  * Room management service
  */
-class RoomService(dsl: DSLContext) {
+class RoomService(
+    dsl: DSLContext,
+    private val authorizationService: AuthorizationService = AuthorizationService()
+) {
 
     private val roomRepo = RoomRepository(dsl)
 
@@ -50,14 +54,36 @@ class RoomService(dsl: DSLContext) {
         isPrivate: Boolean,
         password: String?
     ): Room? {
+        val room = roomRepo.findById(roomId) ?: return null
+        if (room.creatorId != userId) return null
+        return updateRoomInternal(room, name, description, isPrivate, password)
+    }
+
+    fun updateRoom(
+        roomId: Int,
+        actorUser: User,
+        name: String,
+        description: String?,
+        isPrivate: Boolean,
+        password: String?
+    ): Room? {
+        val room = roomRepo.findById(roomId) ?: return null
+        if (!authorizationService.canManageRoom(actorUser, room.creatorId)) return null
+        return updateRoomInternal(room, name, description, isPrivate, password)
+    }
+
+    private fun updateRoomInternal(
+        room: Room,
+        name: String,
+        description: String?,
+        isPrivate: Boolean,
+        password: String?
+    ): Room? {
         val normalizedName = name.trim()
         require(normalizedName.isNotBlank()) { "Room name is required" }
 
-        val room = roomRepo.findById(roomId) ?: return null
-        if (room.creatorId != userId) return null
-
         val normalizedDescription = description?.trim()?.ifEmpty { null }
-        val currentPasswordHash = roomRepo.getPasswordHash(roomId)
+        val currentPasswordHash = roomRepo.getPasswordHash(room.id)
         val passwordHash = when {
             !isPrivate -> null
             !password.isNullOrBlank() -> PasswordUtils.hashPassword(password)
@@ -66,13 +92,13 @@ class RoomService(dsl: DSLContext) {
         }
 
         roomRepo.update(
-            roomId = roomId,
+            roomId = room.id,
             name = normalizedName,
             description = normalizedDescription,
             isPrivate = isPrivate,
             passwordHash = passwordHash
         )
-        return roomRepo.findById(roomId)
+        return roomRepo.findById(room.id)
     }
 
     /** Verifies the password for a private room. Returns true if correct or room is public. */
@@ -87,6 +113,13 @@ class RoomService(dsl: DSLContext) {
     fun deleteRoom(roomId: Int, userId: Int): Boolean {
         val room = roomRepo.findById(roomId) ?: return false
         if (room.creatorId != userId) return false
+        roomRepo.delete(roomId)
+        return true
+    }
+
+    fun deleteRoom(roomId: Int, actorUser: User): Boolean {
+        val room = roomRepo.findById(roomId) ?: return false
+        if (!authorizationService.canManageRoom(actorUser, room.creatorId)) return false
         roomRepo.delete(roomId)
         return true
     }

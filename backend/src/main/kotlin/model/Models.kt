@@ -6,6 +6,11 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
 /**
  * User model
  */
+data class UserCapabilities(
+    val canAccessAdminDashboard: Boolean,
+    val canManagePlatformUsers: Boolean
+)
+
 data class User(
     val id: Int,
     val username: String,
@@ -13,6 +18,7 @@ data class User(
     val bio: String? = null,
     val status: String? = null,
     val role: String? = null,
+    val capabilities: UserCapabilities? = null,
     val createdAt: Long,
     val lastSeen: Long
 )
@@ -240,6 +246,15 @@ data class UpdateProfileRequest(
     val avatarUrl: String? = null,
     val bio: String? = null,
     val status: String? = null
+)
+
+data class UpdateUserRoleRequest(
+    val role: String
+)
+
+data class AdminDashboardResponse(
+    val users: List<User>,
+    val rooms: List<RoomInfo>
 )
 
 data class UploadResponse(

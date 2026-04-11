@@ -20,6 +20,11 @@ export function LobbyPage() {
 
   const [passwordRoom, setPasswordRoom] = useState<RoomInfo | null>(null);
   const [editingRoom, setEditingRoom] = useState<RoomInfo | null>(null);
+  const canAccessAdminDashboard = Boolean(
+    user?.capabilities?.canAccessAdminDashboard ||
+      user?.role === "platform_admin" ||
+      user?.role === "super_admin",
+  );
 
   useEffect(() => {
     fetchRooms();
@@ -103,6 +108,21 @@ export function LobbyPage() {
               </svg>
               <span className="btn-label">NEW ROOM</span>
             </button>
+            {canAccessAdminDashboard && (
+              <button
+                className="icon-btn lobby-action-btn"
+                title="Admin Dashboard"
+                onClick={() => navigate("/admin")}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2" />
+                  <path d="M9 8h6" />
+                  <path d="M9 12h6" />
+                  <path d="M9 16h6" />
+                </svg>
+                <span className="btn-label">ADMIN</span>
+              </button>
+            )}
             <button
               className="icon-btn lobby-action-btn"
               title="Logout"
@@ -125,6 +145,8 @@ export function LobbyPage() {
             <div className="lobby-loading">NO ROOMS AVAILABLE. CREATE ONE!</div>
           ) : (
             rooms.map((room) => (
+              // Platform admins can manage any room; creators can always manage their own room.
+              // UI visibility mirrors backend checks but backend remains source of truth.
               <div
                 key={room.id}
                 className="room-card"
@@ -143,7 +165,7 @@ export function LobbyPage() {
                     {room.name}
                     {room.isPrivate && <span className="room-lock-icon">🔒</span>}
                   </div>
-                  {room.creatorId === user?.id && (
+                  {(room.creatorId === user?.id || canAccessAdminDashboard) && (
                     <div className="room-card-actions">
                       <button
                         className="icon-btn room-edit-btn"

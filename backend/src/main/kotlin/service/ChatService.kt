@@ -25,6 +25,7 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
     private val roomRepo = RoomRepository(dsl)
     private val userRepo = UserRepository(dsl)
     private val privateMessageRepo = PrivateMessageRepository(dsl)
+    private val authorizationService = AuthorizationService()
 
     // Room ID -> Set of WS connections
     private val roomConnections = ConcurrentHashMap<Int, CopyOnWriteArraySet<WsConnection>>()
@@ -75,10 +76,10 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
             if (activeCount != 1) return@synchronized null
 
             val isRoomOwner = roomRepo.findById(roomId)?.creatorId == user.id
-            val desiredRole = if (isRoomOwner) "owner" else "member"
+            val desiredRole = if (isRoomOwner) AuthorizationService.ROOM_ROLE_OWNER else AuthorizationService.ROOM_ROLE_MEMBER
             roomMemberRepo.addMember(roomId, user.id, desiredRole)
-            if (isRoomOwner && roomMemberRepo.getMemberRole(roomId, user.id) != "owner") {
-                roomMemberRepo.updateMemberRole(roomId, user.id, "owner")
+            if (isRoomOwner && roomMemberRepo.getMemberRole(roomId, user.id) != AuthorizationService.ROOM_ROLE_OWNER) {
+                roomMemberRepo.updateMemberRole(roomId, user.id, AuthorizationService.ROOM_ROLE_OWNER)
             }
             userRepo.updateLastSeen(user.id)
 
@@ -237,9 +238,8 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
     }
 
     fun deleteMessage(roomId: Int, user: User, messageId: Int) {
-        // Check if user is admin/moderator or message owner
-        val role = roomMemberRepo.getMemberRole(roomId, user.id)
-        val deleted = if (role in listOf("owner", "admin", "moderator")) {
+        val roomRole = roomMemberRepo.getMemberRole(roomId, user.id)
+        val deleted = if (authorizationService.canDeleteAnyMessage(user, roomRole)) {
             messageRepo.adminDeleteMessage(messageId)
         } else {
             messageRepo.softDeleteMessage(messageId, user.id)
@@ -361,18 +361,37 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
     }
 
     // Room permissions
-    fun setUserRole(roomId: Int, actorUser: User, targetUserId: Int, role: String) {
-        val actorRole = roomMemberRepo.getMemberRole(roomId, actorUser.id) ?: return
-        if (actorRole !in listOf("owner", "admin")) return
-        if (role !in listOf("admin", "moderator", "member")) return
+    fun setUserRole(roomId: Int, actorUser: User, targetUserId: Int, role: String): Boolean {
+        val actorRoomRole = roomMemberRepo.getMemberRole(roomId, actorUser.id)
+        if (!authorizationService.canManageRoomRoles(actorUser, actorRoomRole)) return false
 
-        roomMemberRepo.updateMemberRole(roomId, targetUserId, role)
-        broadcastToRoom(roomId, WsEvent.RoleChanged(targetUserId, role))
+        val desiredRole = role.trim().lowercase()
+        if (!authorizationService.isValidAssignableRoomRole(desiredRole)) return false
+
+        val targetCurrentRole = roomMemberRepo.getMemberRole(roomId, targetUserId) ?: return false
+        if (authorizationService.normalizeRoomRole(targetCurrentRole) == AuthorizationService.ROOM_ROLE_OWNER &&
+            !authorizationService.isPlatformAdmin(actorUser)
+        ) {
+            return false
+        }
+
+        roomMemberRepo.updateMemberRole(roomId, targetUserId, desiredRole)
+        broadcastToRoom(roomId, WsEvent.RoleChanged(targetUserId, desiredRole))
+        return true
     }
 
-    fun kickUser(roomId: Int, actorUser: User, targetUserId: Int, reason: String = "Kicked by admin") {
-        val actorRole = roomMemberRepo.getMemberRole(roomId, actorUser.id) ?: return
-        if (actorRole !in listOf("owner", "admin", "moderator")) return
+    fun kickUser(roomId: Int, actorUser: User, targetUserId: Int, reason: String = "Kicked by admin"): Boolean {
+        val actorRoomRole = roomMemberRepo.getMemberRole(roomId, actorUser.id)
+        if (!authorizationService.canKickUsers(actorUser, actorRoomRole)) return false
+
+        val targetRole = roomMemberRepo.getMemberRole(roomId, targetUserId)
+        if (authorizationService.normalizeRoomRole(targetRole) == AuthorizationService.ROOM_ROLE_OWNER &&
+            !authorizationService.isPlatformAdmin(actorUser)
+        ) {
+            return false
+        }
+
+        roomMemberRepo.removeMember(roomId, targetUserId)
 
         val targetConn = userConnections[targetUserId]
         if (targetConn != null) {
@@ -381,6 +400,9 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
                 targetConn.close()
             }
         }
+
+        broadcastToRoom(roomId, WsEvent.Users(getRoomUsers(roomId)))
+        return true
     }
 
     // User profiles — returns the refreshed user
@@ -391,7 +413,9 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
         // Broadcast to all rooms the user is in
         for ((roomId, connections) in roomConnections) {
             if (connections.any { userConnections[user.id] == it }) {
-                broadcastToRoom(roomId, WsEvent.UserUpdated(updatedUser))
+                val roomRole = roomMemberRepo.getMemberRole(roomId, user.id)
+                val roomScopedUser = updatedUser.copy(role = roomRole ?: AuthorizationService.ROOM_ROLE_MEMBER)
+                broadcastToRoom(roomId, WsEvent.UserUpdated(roomScopedUser))
             }
         }
         return updatedUser

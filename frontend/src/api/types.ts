@@ -9,8 +9,14 @@ export interface User {
   bio?: string | null;
   status?: string | null;
   role?: string | null;
+  capabilities?: UserCapabilities | null;
   createdAt: number;
   lastSeen: number;
+}
+
+export interface UserCapabilities {
+  canAccessAdminDashboard: boolean;
+  canManagePlatformUsers: boolean;
 }
 
 export interface Room {
@@ -249,6 +255,11 @@ export interface AuthResponse {
   user: User;
 }
 
+export interface AdminDashboardResponse {
+  users: User[];
+  rooms: RoomInfo[];
+}
+
 export interface CreateRoomRequest {
   name: string;
   description?: string | null;
@@ -267,6 +278,10 @@ export interface UpdateProfileRequest {
   avatarUrl?: string | null;
   bio?: string | null;
   status?: string | null;
+}
+
+export interface UpdateUserRoleRequest {
+  role: string;
 }
 
 export interface UploadResponse {

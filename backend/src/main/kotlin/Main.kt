@@ -15,6 +15,7 @@ import service.FileService
 import service.RoomService
 import service.SessionService
 import service.UserService
+import service.AuthorizationService
 import java.nio.file.Paths
 
 val logger: Logger = LoggerFactory.getLogger("App")
@@ -54,8 +55,9 @@ fun main() {
     }
 
     // Create services
-    val userService = UserService(dsl)
-    val roomService = RoomService(dsl)
+    val authorizationService = AuthorizationService()
+    val userService = UserService(dsl, authorizationService)
+    val roomService = RoomService(dsl, authorizationService)
     val chatService = ChatService(dsl, objectMapper)
     val fileService = FileService("${projectRoot}/uploads")
     val sessionService = SessionService()
@@ -66,7 +68,7 @@ fun main() {
 
     // Controllers
     app.addController(AuthController(userService, sessionService))
-    app.addController(ApiController(roomService, fileService, userService, sessionService, chatService))
+    app.addController(ApiController(roomService, fileService, userService, sessionService, chatService, authorizationService))
     app.addController(FileController(fileService))
     app.addController(ChatController(userService, chatService, roomService, sessionService, objectMapper))
 

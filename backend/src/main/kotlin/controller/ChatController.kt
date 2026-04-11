@@ -232,12 +232,18 @@ class ChatController(
                     }
                     "set_role" -> {
                         if (targetUserId != null && role != null) {
-                            chatService.setUserRole(roomId, currentUser, targetUserId, role)
+                            val ok = chatService.setUserRole(roomId, currentUser, targetUserId, role)
+                            if (!ok) {
+                                conn.send(chatService.serializeEvent(WsEvent.Error("Permission denied for role change")))
+                            }
                         }
                     }
                     "kick" -> {
                         targetUserId?.let { userId ->
-                            chatService.kickUser(roomId, currentUser, userId)
+                            val ok = chatService.kickUser(roomId, currentUser, userId)
+                            if (!ok) {
+                                conn.send(chatService.serializeEvent(WsEvent.Error("Permission denied for kick action")))
+                            }
                         }
                     }
                     "leave" -> {

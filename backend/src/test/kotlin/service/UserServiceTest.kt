@@ -27,6 +27,19 @@ class UserServiceTest {
     }
 
     @Test
+    fun `first registered user is promoted to super admin`() {
+        val result = userService.register("root", "password123")
+        assertEquals("super_admin", result.user.role)
+    }
+
+    @Test
+    fun `second registered user defaults to user role`() {
+        userService.register("root", "password123")
+        val second = userService.register("normal", "password123")
+        assertEquals("user", second.user.role)
+    }
+
+    @Test
     fun `register with blank username throws`() {
         assertThrows<IllegalArgumentException> {
             userService.register("", "password123")
@@ -107,5 +120,40 @@ class UserServiceTest {
         assertEquals(guest.id, result.user.id)
         // Now can login
         assertNotNull(userService.login("legacy", "newpassword"))
+    }
+
+    @Test
+    fun `super admin can grant platform admin role`() {
+        val superAdmin = userService.register("root", "password123").user
+        val target = userService.register("target", "password123").user
+
+        val updated = userService.updateUserRole(superAdmin, target.id, "platform_admin")
+        assertNotNull(updated)
+        assertEquals("platform_admin", updated!!.role)
+    }
+
+    @Test
+    fun `platform admin cannot grant super admin role`() {
+        val superAdmin = userService.register("root", "password123").user
+        val platformAdmin = userService.register("manager", "password123").user
+        val target = userService.register("target", "password123").user
+
+        userService.updateUserRole(superAdmin, platformAdmin.id, "platform_admin")
+        val actor = userService.getUserById(platformAdmin.id)!!
+
+        assertThrows<IllegalArgumentException> {
+            userService.updateUserRole(actor, target.id, "super_admin")
+        }
+    }
+
+    @Test
+    fun `regular user cannot manage other user roles`() {
+        userService.register("root", "password123")
+        val actor = userService.register("actor", "password123").user
+        val target = userService.register("target", "password123").user
+
+        assertThrows<IllegalArgumentException> {
+            userService.updateUserRole(actor, target.id, "platform_admin")
+        }
     }
 }

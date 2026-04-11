@@ -42,7 +42,11 @@ void-chat/
 - **File sharing**: images (5MB) and files (20MB) with upload
 - **Private messages** (DMs) between users
 - **User profiles** with avatar, bio, and status
-- **Role management**: admin/moderator roles, kick users
+- **Role management**:
+  - Platform roles: `super_admin`, `platform_admin`, `user`
+  - Room roles: `owner`, `admin`, `moderator`, `member`
+  - Centralized authorization checks for room moderation actions
+- **Admin dashboard** for user-role management and room overview
 - **Terminal aesthetic**: IBM Plex Mono, green-on-black, ASCII decorations
 
 ## Technology Stack
@@ -73,7 +77,7 @@ mvn exec:java
 
 ```bash
 cd frontend
-npm install
+npm install --legacy-peer-deps
 npm run dev
 # Dev server runs on http://localhost:5173 (proxies API to :8000)
 ```
@@ -103,6 +107,10 @@ npm run build     # Output in frontend/dist/
 | GET | `/api/auth/me` | Current user |
 | GET | `/api/rooms` | List rooms |
 | POST | `/api/rooms` | Create room |
+| PATCH | `/api/rooms/{roomId}` | Update room (owner or platform admin) |
+| DELETE | `/api/rooms/{roomId}` | Delete room (owner or platform admin) |
+| GET | `/api/admin/dashboard` | Admin dashboard data (users + rooms) |
+| PATCH | `/api/admin/users/{userId}/role` | Update platform role |
 | POST | `/api/upload/image` | Upload image |
 | POST | `/api/upload/file` | Upload file |
 | PATCH | `/api/users/me` | Update profile |

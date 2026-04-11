@@ -168,4 +168,54 @@ describe("API client", () => {
       "Network error",
     );
   });
+
+  it("should request admin dashboard with auth header", async () => {
+    localStorage.setItem("authToken", "admin-token");
+    mockFetch.mockResolvedValue(
+      mockResponse({
+        ok: true,
+        status: 200,
+        json: {
+          users: [],
+          rooms: [],
+        },
+      }),
+    );
+
+    await client.getAdminDashboard();
+
+    expect(mockFetch).toHaveBeenCalledWith("/api/admin/dashboard", {
+      method: "GET",
+      headers: { Authorization: "Bearer admin-token" },
+      body: undefined,
+    });
+  });
+
+  it("should send role update payload for admin user role change", async () => {
+    localStorage.setItem("authToken", "admin-token");
+    mockFetch.mockResolvedValue(
+      mockResponse({
+        ok: true,
+        status: 200,
+        json: {
+          id: 3,
+          username: "target",
+          role: "platform_admin",
+          createdAt: 0,
+          lastSeen: 0,
+        },
+      }),
+    );
+
+    await client.updateAdminUserRole(3, "platform_admin");
+
+    expect(mockFetch).toHaveBeenCalledWith("/api/admin/users/3/role", {
+      method: "PATCH",
+      headers: {
+        Authorization: "Bearer admin-token",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ role: "platform_admin" }),
+    });
+  });
 });

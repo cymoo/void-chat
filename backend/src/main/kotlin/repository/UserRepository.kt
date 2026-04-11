@@ -3,6 +3,8 @@ package repository
 import chatroom.jooq.generated.Tables.USERS
 import model.User
 import org.jooq.DSLContext
+import org.jooq.Record
+import service.AuthorizationService
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
@@ -12,27 +14,21 @@ data class AuthUser(val user: User, val passwordHash: String?)
 
 class UserRepository(private val dsl: DSLContext) {
 
+    private val authorizationService = AuthorizationService()
+
     fun findByUsername(username: String): User? = findByUsernameForAuth(username)?.user
 
     fun findByUsernameForAuth(username: String): AuthUser? {
         return dsl.select(
             USERS.ID, USERS.USERNAME, USERS.AVATAR_URL,
-            USERS.CREATED_AT, USERS.LAST_SEEN, USERS.BIO, USERS.STATUS, USERS.PASSWORD_HASH
+            USERS.CREATED_AT, USERS.LAST_SEEN, USERS.BIO, USERS.STATUS, USERS.ROLE, USERS.PASSWORD_HASH
         )
             .from(USERS)
             .where(USERS.USERNAME.eq(username))
             .fetchOne()
             ?.let { record ->
                 AuthUser(
-                    user = User(
-                        id = record.get(USERS.ID)!!,
-                        username = record.get(USERS.USERNAME)!!,
-                        avatarUrl = record.get(USERS.AVATAR_URL),
-                        bio = record.get(USERS.BIO),
-                        status = record.get(USERS.STATUS),
-                        createdAt = parseTimestamp(record.get(USERS.CREATED_AT)),
-                        lastSeen = parseTimestamp(record.get(USERS.LAST_SEEN))
-                    ),
+                    user = mapRecordToUser(record),
                     passwordHash = record.get(USERS.PASSWORD_HASH)
                 )
             }
@@ -41,38 +37,37 @@ class UserRepository(private val dsl: DSLContext) {
     fun findById(id: Int): User? {
         return dsl.select(
             USERS.ID, USERS.USERNAME, USERS.AVATAR_URL,
-            USERS.CREATED_AT, USERS.LAST_SEEN, USERS.BIO, USERS.STATUS
+            USERS.CREATED_AT, USERS.LAST_SEEN, USERS.BIO, USERS.STATUS, USERS.ROLE
         )
             .from(USERS)
             .where(USERS.ID.eq(id))
             .fetchOne()
-            ?.let { record ->
-                User(
-                    id = record.get(USERS.ID)!!,
-                    username = record.get(USERS.USERNAME)!!,
-                    avatarUrl = record.get(USERS.AVATAR_URL),
-                    bio = record.get(USERS.BIO),
-                    status = record.get(USERS.STATUS),
-                    createdAt = parseTimestamp(record.get(USERS.CREATED_AT)),
-                    lastSeen = parseTimestamp(record.get(USERS.LAST_SEEN))
-                )
-            }
+            ?.let(::mapRecordToUser)
+    }
+
+    fun listUsers(): List<User> {
+        return dsl.select(
+            USERS.ID, USERS.USERNAME, USERS.AVATAR_URL,
+            USERS.CREATED_AT, USERS.LAST_SEEN, USERS.BIO, USERS.STATUS, USERS.ROLE
+        )
+            .from(USERS)
+            .orderBy(USERS.CREATED_AT.desc(), USERS.ID.desc())
+            .fetch()
+            .map(::mapRecordToUser)
     }
 
     fun createUser(username: String, passwordHash: String? = null): User {
         val record = dsl.insertInto(USERS)
             .set(USERS.USERNAME, username)
             .set(USERS.PASSWORD_HASH, passwordHash)
-            .returningResult(USERS.ID, USERS.USERNAME, USERS.AVATAR_URL, USERS.CREATED_AT, USERS.LAST_SEEN)
+            .set(USERS.ROLE, AuthorizationService.ROLE_USER)
+            .returningResult(
+                USERS.ID, USERS.USERNAME, USERS.AVATAR_URL,
+                USERS.CREATED_AT, USERS.LAST_SEEN, USERS.BIO, USERS.STATUS, USERS.ROLE
+            )
             .fetchOne()!!
 
-        return User(
-            id = record.get(USERS.ID)!!,
-            username = record.get(USERS.USERNAME)!!,
-            avatarUrl = record.get(USERS.AVATAR_URL),
-            createdAt = parseTimestamp(record.get(USERS.CREATED_AT)),
-            lastSeen = parseTimestamp(record.get(USERS.LAST_SEEN))
-        )
+        return mapRecordToUser(record)
     }
 
     fun setPasswordHash(userId: Int, passwordHash: String) {
@@ -80,6 +75,19 @@ class UserRepository(private val dsl: DSLContext) {
             .set(USERS.PASSWORD_HASH, passwordHash)
             .where(USERS.ID.eq(userId))
             .execute()
+    }
+
+    fun updateRole(userId: Int, role: String): Boolean {
+        return dsl.update(USERS)
+            .set(USERS.ROLE, role)
+            .where(USERS.ID.eq(userId))
+            .execute() > 0
+    }
+
+    fun countByRole(role: String): Int {
+        return dsl.fetchCount(
+            dsl.selectFrom(USERS).where(USERS.ROLE.eq(role))
+        )
     }
 
     fun updateLastSeen(userId: Int) {
@@ -97,6 +105,21 @@ class UserRepository(private val dsl: DSLContext) {
         if (bio != null) step = step.set(USERS.BIO, bio)
         if (status != null) step = step.set(USERS.STATUS, status)
         step.where(USERS.ID.eq(userId)).execute()
+    }
+
+    private fun mapRecordToUser(record: Record): User {
+        val role = authorizationService.normalizePlatformRole(record.get(USERS.ROLE))
+        return User(
+            id = record.get(USERS.ID)!!,
+            username = record.get(USERS.USERNAME)!!,
+            avatarUrl = record.get(USERS.AVATAR_URL),
+            bio = record.get(USERS.BIO),
+            status = record.get(USERS.STATUS),
+            role = role,
+            capabilities = authorizationService.capabilitiesForPlatformRole(role),
+            createdAt = parseTimestamp(record.get(USERS.CREATED_AT)),
+            lastSeen = parseTimestamp(record.get(USERS.LAST_SEEN))
+        )
     }
 
     private fun parseTimestamp(timestamp: LocalDateTime?): Long {

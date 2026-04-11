@@ -1,4 +1,5 @@
 import type {
+  AdminDashboardResponse,
   AuthResponse,
   CreateRoomRequest,
   RoomInfo,
@@ -180,6 +181,18 @@ export async function getUnreadDmSenders(): Promise<
     senderUsername: item.senderUsername ?? item.username ?? "",
     unreadCount: item.unreadCount ?? 0,
   }));
+}
+
+// Admin API
+export async function getAdminDashboard(): Promise<AdminDashboardResponse> {
+  return request("GET", "/api/admin/dashboard");
+}
+
+export async function updateAdminUserRole(
+  userId: number,
+  role: string,
+): Promise<User> {
+  return request("PATCH", `/api/admin/users/${userId}/role`, { role });
 }
 
 // File upload API
