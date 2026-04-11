@@ -125,22 +125,24 @@ export const useChatStore = create<ChatState>((set, get) => ({
         break;
 
       case "message":
-        const messageUserId =
-          event.message.messageType === "system" ? null : event.message.userId;
-        set((state) => {
-          if (state.messages.some((m) => m.id === event.message.id)) {
-            return state;
+        {
+          const messageUserId =
+            event.message.messageType === "system" ? null : event.message.userId;
+          set((state) => {
+            if (state.messages.some((m) => m.id === event.message.id)) {
+              return state;
+            }
+            return { messages: [...state.messages, event.message] };
+          });
+          if (messageUserId !== null) {
+            set((state) => ({
+              typingUsers: state.typingUsers.filter(
+                (typingUser) => typingUser.userId !== messageUserId,
+              ),
+            }));
           }
-          return { messages: [...state.messages, event.message] };
-        });
-        if (messageUserId !== null) {
-          set((state) => ({
-            typingUsers: state.typingUsers.filter(
-              (typingUser) => typingUser.userId !== messageUserId,
-            ),
-          }));
+          break;
         }
-        break;
 
       case "user_joined":
         set((state) => {

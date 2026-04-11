@@ -25,17 +25,7 @@ function MessageItemInner({
   const showUserCard = useUiStore((s) => s.showUserCard);
   const setImageModal = useUiStore((s) => s.setImageModal);
 
-  if (message.messageType === "system") {
-    return (
-      <div className="message system" data-message-id={message.id}>
-        <div className="message-content">
-          <div className="message-text">{message.content}</div>
-        </div>
-      </div>
-    );
-  }
-
-  const isOwn = message.userId === currentUser.id;
+  const isOwn = message.messageType !== "system" && message.userId === currentUser.id;
 
   const handleDelete = useCallback(async () => {
     const confirmed = await confirm({
@@ -60,6 +50,16 @@ function MessageItemInner({
     if (message.messageType !== "text") return null;
     return highlightMentions(renderMarkdown(message.content), currentUser.username);
   }, [message, currentUser.username]);
+
+  if (message.messageType === "system") {
+    return (
+      <div className="message system" data-message-id={message.id}>
+        <div className="message-content">
+          <div className="message-text">{message.content}</div>
+        </div>
+      </div>
+    );
+  }
 
   const renderContent = () => {
     if (message.messageType === "text") {

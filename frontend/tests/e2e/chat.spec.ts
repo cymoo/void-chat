@@ -67,7 +67,7 @@ test.describe("Chat", () => {
   });
 
   test("user list should update when a user leaves", async ({ browser }) => {
-    const { contextA, contextB, pageA, pageB, userA, userB } = await setupTwoUsers(browser);
+    const { contextA, contextB, pageA, userB } = await setupTwoUsers(browser);
 
     // Close user B's context (disconnect)
     await contextB.close();
@@ -138,7 +138,7 @@ test.describe("Chat", () => {
   });
 
   test("user list should update when a user navigates back to lobby", async ({ browser }) => {
-    const { contextA, contextB, pageA, pageB, userA, userB } = await setupTwoUsers(browser);
+    const { contextA, contextB, pageA, pageB, userB } = await setupTwoUsers(browser);
 
     // B clicks "Back to Lobby" button
     await pageB.locator('button[aria-label="Back to lobby"]').click();
@@ -210,7 +210,6 @@ test.describe("Chat", () => {
     await dmInputA.fill("**bold** line 1\nline 2");
     await dmInputA.press("Enter");
 
-    const dmPanelA = pageA.locator(".private-chat-messages");
     const dmPanelB = pageB.locator(".private-chat-messages");
     await expect(dmPanelB.locator("strong", { hasText: "bold" })).toBeVisible();
     await expect(dmPanelB.locator("text=line 2")).toBeVisible();

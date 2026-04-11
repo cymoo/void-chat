@@ -132,7 +132,7 @@ describe("API client", () => {
     );
 
     await expect(client.login("bad", "wrong")).rejects.toThrow(
-      "用户名或密码错误",
+      "Username or password is incorrect",
     );
   });
 
