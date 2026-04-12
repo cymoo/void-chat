@@ -37,12 +37,14 @@ void-chat/
 
 - **Real-time chat** via WebSocket with reconnection
 - **Multiple rooms** with private (password-protected) room support
+- **Room capacity control** configurable on room create/edit (default `100`)
 - **Authentication** (register/login with token-based sessions)
 - **Invitation links** with registration mode support (`open` / `invite_only`)
 - **Message features**: edit, delete, reply-to, @mentions, search
 - **File sharing**: images (5MB) and files (20MB) with upload
 - **Private messages** (DMs) between users
-- **User profiles** with avatar, bio, and status
+- **Mailbox view** for browsing DM contacts and unread counts
+- **User profiles** with username, avatar, bio, and status
 - **Role management**:
   - Platform roles: `super_admin`, `platform_admin`, `user`
   - Room roles: `owner`, `admin`, `moderator`, `member`
@@ -110,8 +112,9 @@ npm run build     # Output in frontend/dist/
 | GET | `/api/auth/me` | Current user |
 | GET | `/api/auth/registration-mode` | Public registration mode |
 | GET | `/api/rooms` | List rooms |
-| POST | `/api/rooms` | Create room |
-| PATCH | `/api/rooms/{roomId}` | Update room (owner or platform admin) |
+| GET | `/api/dms/inbox` | Mailbox contacts with unread counts |
+| POST | `/api/rooms` | Create room (`maxUsers` optional, default `100`) |
+| PATCH | `/api/rooms/{roomId}` | Update room (owner or platform admin, supports `maxUsers`) |
 | DELETE | `/api/rooms/{roomId}` | Delete room (owner or platform admin) |
 | GET | `/api/admin/dashboard` | Admin dashboard data (users + rooms + invites + mode) |
 | PATCH | `/api/admin/users/{userId}/role` | Update platform role |
@@ -122,8 +125,9 @@ npm run build     # Output in frontend/dist/
 | PATCH | `/api/admin/registration-mode` | Update registration mode |
 | POST | `/api/upload/image` | Upload image |
 | POST | `/api/upload/file` | Upload file |
-| PATCH | `/api/users/me` | Update profile |
+| PATCH | `/api/users/me` | Update profile (`username`, `avatarUrl`, `bio`, `status`) |
 | WS | `/chat/{roomId}?token=...` | WebSocket chat |
+| WS | `/chat/dm?token=...` | WebSocket direct messaging without joining a room |
 
 ## Design Philosophy
 

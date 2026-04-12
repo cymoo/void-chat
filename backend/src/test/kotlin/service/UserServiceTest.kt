@@ -98,11 +98,34 @@ class UserServiceTest {
     @Test
     fun `updateProfile updates user fields`() {
         val result = userService.register("dave", "password123")
-        val updated = userService.updateProfile(result.user.id, avatarUrl = "http://img.png", bio = "Hello", status = "online")
+        val updated = userService.updateProfile(
+            result.user.id,
+            username = "dave-v2",
+            avatarUrl = "http://img.png",
+            bio = "Hello",
+            status = "online"
+        )
         assertNotNull(updated)
+        assertEquals("dave-v2", updated!!.username)
         assertEquals("http://img.png", updated!!.avatarUrl)
         assertEquals("Hello", updated.bio)
         assertEquals("online", updated.status)
+    }
+
+    @Test
+    fun `updateProfile rejects duplicate username`() {
+        val first = userService.register("first", "password123")
+        val second = userService.register("second", "password123")
+
+        assertThrows<IllegalArgumentException> {
+            userService.updateProfile(
+                second.user.id,
+                username = first.user.username,
+                avatarUrl = null,
+                bio = null,
+                status = null
+            )
+        }
     }
 
     @Test

@@ -10,6 +10,7 @@ export function ProfileModal() {
   const setProfileOpen = useUiStore((s) => s.setProfileOpen);
   const addToast = useUiStore((s) => s.addToast);
 
+  const [username, setUsername] = useState(user?.username ?? "");
   const [status, setStatus] = useState(user?.status ?? "");
   const [bio, setBio] = useState(user?.bio ?? "");
   const [saving, setSaving] = useState(false);
@@ -32,14 +33,19 @@ export function ProfileModal() {
   };
 
   const handleSave = async () => {
+    const trimmedUsername = username.trim();
+    if (!trimmedUsername) {
+      addToast("Username is required", "error");
+      return;
+    }
     setSaving(true);
     try {
-      const updated = await api.updateProfile({ status, bio });
+      const updated = await api.updateProfile({ username: trimmedUsername, status, bio });
       updateUser(updated);
       addToast("Profile updated", "success");
       setProfileOpen(false);
-    } catch {
-      addToast("Failed to update profile", "error");
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : "Failed to update profile", "error");
     }
     setSaving(false);
   };
@@ -82,6 +88,16 @@ export function ProfileModal() {
             <div className="my-profile-avatar-hint">&gt; CLICK AVATAR TO UPLOAD</div>
           </div>
           <div className="input-group">
+            <label className="input-label">&gt; USERNAME</label>
+            <input
+              className="terminal-input"
+              type="text"
+              placeholder="anonymous"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+            />
+          </div>
+          <div className="input-group">
             <label className="input-label">&gt; STATUS</label>
             <input
               className="terminal-input"
@@ -99,15 +115,6 @@ export function ProfileModal() {
               rows={3}
               value={bio}
               onChange={(e) => setBio(e.target.value)}
-            />
-          </div>
-          <div className="input-group">
-            <label className="input-label">&gt; USERNAME (read-only)</label>
-            <input
-              className="terminal-input"
-              type="text"
-              disabled
-              value={user?.username ?? ""}
             />
           </div>
           <button

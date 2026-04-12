@@ -46,6 +46,12 @@ class RoomServiceTest {
     }
 
     @Test
+    fun `createRoom applies custom max users`() {
+        val room = roomService.createRoom("capacity-room", "A room with limit", creatorId = ownerId, maxUsers = 42)
+        assertEquals(42, room.maxUsers)
+    }
+
+    @Test
     fun `createRoom with blank name throws`() {
         assertThrows<IllegalArgumentException> {
             roomService.createRoom("", "desc")
@@ -56,6 +62,13 @@ class RoomServiceTest {
     fun `createRoom private without password throws`() {
         assertThrows<IllegalArgumentException> {
             roomService.createRoom("private-room", "desc", isPrivate = true)
+        }
+    }
+
+    @Test
+    fun `createRoom with invalid max users throws`() {
+        assertThrows<IllegalArgumentException> {
+            roomService.createRoom("invalid-capacity", "desc", creatorId = ownerId, maxUsers = 0)
         }
     }
 
@@ -157,6 +170,23 @@ class RoomServiceTest {
         assertEquals("private-edited", updated!!.name)
         assertTrue(updated.isPrivate)
         assertTrue(roomService.verifyRoomPassword(room.id, "old-secret"))
+    }
+
+    @Test
+    fun `updateRoom updates room capacity for owner`() {
+        val room = roomService.createRoom("capacity-edit", "desc", creatorId = ownerId, maxUsers = 100)
+        val updated = roomService.updateRoom(
+            roomId = room.id,
+            userId = ownerId,
+            name = room.name,
+            description = room.description,
+            isPrivate = room.isPrivate,
+            password = null,
+            maxUsers = 150
+        )
+
+        assertNotNull(updated)
+        assertEquals(150, updated!!.maxUsers)
     }
 
     @Test

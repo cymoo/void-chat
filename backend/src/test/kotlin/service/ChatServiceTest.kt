@@ -160,6 +160,27 @@ class ChatServiceTest {
     }
 
     @Test
+    fun `joinRoom rejects user when room is at capacity`() {
+        val limitedRoom = roomRepo.create(
+            name = "limited-room",
+            description = "one seat only",
+            maxUsers = 1
+        )
+        val userA = createUser("limit-a")
+        val userB = createUser("limit-b")
+        val connA = mockConnection()
+        val connB = mockConnection()
+
+        val firstJoin = chatService.joinRoom(limitedRoom.id, connA, userA)
+        val secondJoin = chatService.joinRoom(limitedRoom.id, connB, userB)
+
+        assertTrue(firstJoin)
+        assertFalse(secondJoin)
+        assertEquals(1, chatService.getOnlineUserCounts()[limitedRoom.id])
+        assertEquals(listOf("limit-a"), chatService.getRoomUsers(limitedRoom.id).map { it.username })
+    }
+
+    @Test
     fun `online count drops to zero when all users leave`() {
         val userA = createUser("ivan")
         val userB = createUser("judy")

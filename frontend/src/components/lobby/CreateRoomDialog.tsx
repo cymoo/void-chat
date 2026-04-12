@@ -11,15 +11,22 @@ export function CreateRoomModal() {
   const [description, setDescription] = useState("");
   const [visibility, setVisibility] = useState<"public" | "private">("public");
   const [password, setPassword] = useState("");
+  const [maxUsers, setMaxUsers] = useState("100");
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    const parsedMaxUsers = Number(maxUsers);
+    if (!Number.isInteger(parsedMaxUsers) || parsedMaxUsers < 1 || parsedMaxUsers > 1000) {
+      addToast("Room capacity must be an integer between 1 and 1000", "error");
+      return;
+    }
     try {
       const room = await createRoom({
         name,
         description: description || null,
         isPrivate: visibility === "private",
         password: visibility === "private" ? password : null,
+        maxUsers: parsedMaxUsers,
       });
       setCreateRoomOpen(false);
       joinRoom(room.id, room.name, visibility === "private" ? password : undefined);
@@ -91,6 +98,18 @@ export function CreateRoomModal() {
                 PRIVATE
               </label>
             </div>
+          </div>
+          <div className="input-group">
+            <label className="input-label">&gt; ROOM CAPACITY</label>
+            <input
+              className="terminal-input"
+              type="number"
+              min={1}
+              max={1000}
+              placeholder="100"
+              value={maxUsers}
+              onChange={(e) => setMaxUsers(e.target.value)}
+            />
           </div>
           {visibility === "private" && (
             <div className="input-group">

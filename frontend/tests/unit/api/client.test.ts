@@ -11,9 +11,13 @@ function mockResponse(opts: {
   ok: boolean;
   status: number;
   json?: unknown;
+  text?: string;
   contentType?: string;
 }) {
-  return {
+  const rawText =
+    opts.text ??
+    (opts.json === undefined ? "" : JSON.stringify(opts.json));
+  const response = {
     ok: opts.ok,
     status: opts.status,
     headers: {
@@ -23,7 +27,10 @@ function mockResponse(opts: {
           : null,
     },
     json: () => Promise.resolve(opts.json),
+    text: () => Promise.resolve(rawText),
+    clone: () => response,
   };
+  return response;
 }
 
 describe("API client", () => {
@@ -147,6 +154,33 @@ describe("API client", () => {
     });
   });
 
+  it("should send username when updating profile", async () => {
+    localStorage.setItem("authToken", "token");
+    mockFetch.mockResolvedValue(
+      mockResponse({
+        ok: true,
+        status: 200,
+        json: {
+          id: 1,
+          username: "renamed",
+          createdAt: 0,
+          lastSeen: 0,
+        },
+      }),
+    );
+
+    await client.updateProfile({ username: "renamed", bio: "bio" });
+
+    expect(mockFetch).toHaveBeenCalledWith("/api/users/me", {
+      method: "PATCH",
+      headers: {
+        Authorization: "Bearer token",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ username: "renamed", bio: "bio" }),
+    });
+  });
+
   it("should throw ApiError on non-ok response", async () => {
     mockFetch.mockResolvedValue(
       mockResponse({
@@ -177,12 +211,28 @@ describe("API client", () => {
       mockResponse({
         ok: false,
         status: 502,
+        text: "<html>bad gateway</html>",
         contentType: "text/html",
       }),
     );
 
     await expect(client.login("user", "pass")).rejects.toThrow(
       "Server error (502)",
+    );
+  });
+
+  it("should surface plain text registration errors", async () => {
+    mockFetch.mockResolvedValue(
+      mockResponse({
+        ok: false,
+        status: 400,
+        text: "Invalid invite code",
+        contentType: "text/plain",
+      }),
+    );
+
+    await expect(client.register("user", "pass123", "bad-code")).rejects.toThrow(
+      "Invalid invite code",
     );
   });
 
@@ -395,6 +445,32 @@ describe("API client", () => {
     expect(mockFetch).toHaveBeenCalledWith("/api/auth/registration-mode", {
       method: "GET",
       headers: {},
+      body: undefined,
+    });
+  });
+
+  it("should fetch dm inbox entries", async () => {
+    localStorage.setItem("authToken", "auth-token");
+    mockFetch.mockResolvedValue(
+      mockResponse({
+        ok: true,
+        status: 200,
+        json: [
+          { userId: 2, username: "alice", unreadCount: 3 },
+          { userId: 3, username: "bob", unreadCount: 0 },
+        ],
+      }),
+    );
+
+    const inbox = await client.getDmInbox();
+
+    expect(inbox).toEqual([
+      { userId: 2, username: "alice", avatarUrl: null, unreadCount: 3 },
+      { userId: 3, username: "bob", avatarUrl: null, unreadCount: 0 },
+    ]);
+    expect(mockFetch).toHaveBeenCalledWith("/api/dms/inbox", {
+      method: "GET",
+      headers: { Authorization: "Bearer auth-token" },
       body: undefined,
     });
   });

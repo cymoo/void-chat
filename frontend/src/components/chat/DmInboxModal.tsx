@@ -3,16 +3,10 @@ import { useChatStore } from "@/stores/chatStore";
 import { useUiStore } from "@/stores/uiStore";
 import * as api from "@/api/client";
 import { getInitials } from "@/lib/utils";
-import type { WsSendPayload } from "@/api/types";
+import type { DmInboxEntry, WsSendPayload } from "@/api/types";
 
 interface DmInboxModalProps {
-  send: (payload: WsSendPayload) => void;
-}
-
-interface DmSender {
-  senderId: number;
-  senderUsername: string;
-  unreadCount: number;
+  send?: (payload: WsSendPayload) => void;
 }
 
 export function DmInboxModal({ send }: DmInboxModalProps) {
@@ -20,30 +14,37 @@ export function DmInboxModal({ send }: DmInboxModalProps) {
   const setDmInboxOpen = useUiStore((s) => s.setDmInboxOpen);
   const addToast = useUiStore((s) => s.addToast);
   const openPrivateChat = useChatStore((s) => s.openPrivateChat);
-  const [senders, setSenders] = useState<DmSender[]>([]);
+  const [entries, setEntries] = useState<DmInboxEntry[]>([]);
 
   useEffect(() => {
-    if (dmInboxOpen) {
-      api
-        .getUnreadDmSenders()
-        .then((rows) =>
-          setSenders(
-            rows.filter(
-              (row) => row.senderId > 0 && row.senderUsername.trim().length > 0,
-            ),
+    if (!dmInboxOpen) return;
+
+    api
+      .getDmInbox()
+      .then((rows) =>
+        setEntries(
+          rows.filter(
+            (row) => row.userId > 0 && row.username.trim().length > 0,
           ),
-        )
-        .catch(() => {
-          addToast("Failed to load unread messages", "error");
-        });
-    }
+        ),
+      )
+      .catch((err) => {
+        const message =
+          err instanceof Error ? err.message : "Failed to load mailbox";
+        addToast(message, "error");
+      });
   }, [addToast, dmInboxOpen]);
 
   if (!dmInboxOpen) return null;
 
-  const handleSenderClick = (sender: DmSender) => {
-    openPrivateChat(sender.senderId, sender.senderUsername);
-    send({ type: "private_history", targetUserId: sender.senderId });
+  const handleEntryClick = (entry: DmInboxEntry) => {
+    if (!send) {
+      addToast("Join any room to open a live DM chat", "info");
+      return;
+    }
+
+    openPrivateChat(entry.userId, entry.username);
+    send({ type: "private_history", targetUserId: entry.userId });
     setDmInboxOpen(false);
   };
 
@@ -52,24 +53,48 @@ export function DmInboxModal({ send }: DmInboxModalProps) {
       <div className="modal-backdrop" onClick={() => setDmInboxOpen(false)} />
       <div className="dm-inbox-container">
         <div className="modal-header">
-          <span className="modal-title">UNREAD MESSAGES</span>
+          <div>
+            <span className="modal-title">PRIVATE MAILBOX</span>
+            <div className="dm-inbox-subtitle">
+              {send
+                ? "Select a user to open the DM stream."
+                : "Browse contacts and unread counts from the lobby."}
+            </div>
+          </div>
           <button className="modal-close-btn" onClick={() => setDmInboxOpen(false)}>
             ✕
           </button>
         </div>
         <div className="dm-inbox-list">
-          {senders.length === 0 ? (
-            <div className="dm-inbox-empty">No unread messages</div>
+          {entries.length === 0 ? (
+            <div className="dm-inbox-empty">No users available</div>
           ) : (
-            senders.map((s) => (
+            entries.map((entry) => (
               <div
-                key={s.senderId}
+                key={entry.userId}
                 className="dm-inbox-item"
-                onClick={() => handleSenderClick(s)}
+                onClick={() => handleEntryClick(entry)}
               >
-                <div className="dm-inbox-avatar">{getInitials(s.senderUsername)}</div>
-                <div className="dm-inbox-name">{s.senderUsername}</div>
-                <div className="dm-inbox-badge">{s.unreadCount}</div>
+                <div className="dm-inbox-avatar">
+                  {entry.avatarUrl ? (
+                    <img
+                      src={entry.avatarUrl}
+                      alt={entry.username}
+                      className="avatar-img-large"
+                    />
+                  ) : (
+                    getInitials(entry.username)
+                  )}
+                </div>
+                <div className="dm-inbox-name-group">
+                  <div className="dm-inbox-name">{entry.username}</div>
+                  <div className="dm-inbox-meta">
+                    {entry.unreadCount > 0 ? `${entry.unreadCount} unread` : "No unread"}
+                  </div>
+                </div>
+                {entry.unreadCount > 0 && (
+                  <div className="dm-inbox-badge">{entry.unreadCount}</div>
+                )}
               </div>
             ))
           )}

@@ -167,6 +167,13 @@ data class UnreadSender(
     val unreadCount: Int
 )
 
+data class DmInboxEntry(
+    val userId: Int,
+    val username: String,
+    val avatarUrl: String? = null,
+    val unreadCount: Int
+)
+
 /**
  * WebSocket message payloads
  */
@@ -222,14 +229,16 @@ data class CreateRoomRequest(
     val name: String,
     val description: String?,
     val isPrivate: Boolean = false,
-    val password: String? = null
+    val password: String? = null,
+    val maxUsers: Int? = 100
 )
 
 data class UpdateRoomRequest(
     val name: String,
     val description: String?,
     val isPrivate: Boolean = false,
-    val password: String? = null
+    val password: String? = null,
+    val maxUsers: Int? = null
 )
 
 data class RegisterRequest(
@@ -249,6 +258,7 @@ data class AuthResponse(
 )
 
 data class UpdateProfileRequest(
+    val username: String? = null,
     val avatarUrl: String? = null,
     val bio: String? = null,
     val status: String? = null

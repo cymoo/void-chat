@@ -32,13 +32,21 @@ class RoomRepository(private val dsl: DSLContext) {
             ?.toModel()
     }
 
-    fun create(name: String, description: String?, isPrivate: Boolean = false, passwordHash: String? = null, creatorId: Int? = null): Room {
+    fun create(
+        name: String,
+        description: String?,
+        isPrivate: Boolean = false,
+        passwordHash: String? = null,
+        creatorId: Int? = null,
+        maxUsers: Int = 100
+    ): Room {
         val id = dsl.insertInto(ROOMS)
             .set(ROOMS.NAME, name)
             .set(ROOMS.DESCRIPTION, description)
             .set(ROOMS.IS_PRIVATE, if (isPrivate) 1 else 0)
             .set(ROOMS.PASSWORD_HASH, passwordHash)
             .set(ROOMS.CREATOR_ID, creatorId)
+            .set(ROOMS.MAX_USERS, maxUsers)
             .returning(ROOMS.ID)
             .fetchOne()!!
             .get(ROOMS.ID)!!
@@ -55,12 +63,20 @@ class RoomRepository(private val dsl: DSLContext) {
             ?.get(ROOMS.PASSWORD_HASH)
     }
 
-    fun update(roomId: Int, name: String, description: String?, isPrivate: Boolean, passwordHash: String?): Boolean {
+    fun update(
+        roomId: Int,
+        name: String,
+        description: String?,
+        isPrivate: Boolean,
+        passwordHash: String?,
+        maxUsers: Int
+    ): Boolean {
         return dsl.update(ROOMS)
             .set(ROOMS.NAME, name)
             .set(ROOMS.DESCRIPTION, description)
             .set(ROOMS.IS_PRIVATE, if (isPrivate) 1 else 0)
             .set(ROOMS.PASSWORD_HASH, passwordHash)
+            .set(ROOMS.MAX_USERS, maxUsers)
             .where(ROOMS.ID.eq(roomId))
             .execute() > 0
     }

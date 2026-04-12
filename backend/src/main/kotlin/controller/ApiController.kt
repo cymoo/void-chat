@@ -38,7 +38,18 @@ class ApiController(
         val request = body.value
         if (request.name.isBlank()) throw BadRequest("Room name is required")
         if (request.isPrivate && request.password.isNullOrBlank()) throw BadRequest("Private rooms require a password")
-        return roomService.createRoom(request.name, request.description, request.isPrivate, request.password, actor.id)
+        return try {
+            roomService.createRoom(
+                name = request.name,
+                description = request.description,
+                isPrivate = request.isPrivate,
+                password = request.password,
+                creatorId = actor.id,
+                maxUsers = request.maxUsers
+            )
+        } catch (e: IllegalArgumentException) {
+            throw BadRequest(e.message ?: "Failed to create room")
+        }
     }
 
     @Patch("/rooms/{roomId}")
@@ -53,7 +64,8 @@ class ApiController(
                 name = request.name,
                 description = request.description,
                 isPrivate = request.isPrivate,
-                password = request.password
+                password = request.password,
+                maxUsers = request.maxUsers
             ) ?: throw BadRequest("Cannot update room: not found or insufficient permission")
         } catch (e: IllegalArgumentException) {
             throw BadRequest(e.message ?: "Failed to update room")
@@ -109,12 +121,46 @@ class ApiController(
         return chatService.getUnreadDmSenders(actor.id)
     }
 
+    @Get("/dms/inbox")
+    fun getDmInbox(token: BearerToken): List<DmInboxEntry> {
+        val actor = requireAuthUser(token)
+        val unreadByUserId = chatService.getUnreadDmSenders(actor.id).associateBy { it.senderId }
+        return userService.listUsers()
+            .asSequence()
+            .filter { it.id != actor.id }
+            .filter { !it.isDisabled }
+            .map { user ->
+                DmInboxEntry(
+                    userId = user.id,
+                    username = user.username,
+                    avatarUrl = user.avatarUrl,
+                    unreadCount = unreadByUserId[user.id]?.unreadCount ?: 0
+                )
+            }
+            .sortedWith(
+                compareByDescending<DmInboxEntry> { it.unreadCount }
+                    .thenBy { it.username.lowercase() }
+            )
+            .toList()
+    }
+
     @Patch("/users/me")
     fun updateMyProfile(body: Json<UpdateProfileRequest>, token: BearerToken): User {
         val actor = requireAuthUser(token)
         val req = body.value
-        return userService.updateProfile(actor.id, req.avatarUrl, req.bio, req.status)
-            ?: throw NotFound("User not found")
+        return try {
+            val updated = userService.updateProfile(
+                userId = actor.id,
+                username = req.username,
+                avatarUrl = req.avatarUrl,
+                bio = req.bio,
+                status = req.status
+            ) ?: throw NotFound("User not found")
+            chatService.broadcastUserUpdate(updated)
+            updated
+        } catch (e: IllegalArgumentException) {
+            throw BadRequest(e.message ?: "Failed to update profile")
+        }
     }
 
     @Get("/admin/dashboard")

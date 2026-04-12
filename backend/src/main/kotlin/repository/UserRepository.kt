@@ -117,10 +117,17 @@ class UserRepository(private val dsl: DSLContext) {
             .execute()
     }
 
-    fun updateProfile(userId: Int, avatarUrl: String?, bio: String?, status: String?) {
-        if (avatarUrl == null && bio == null && status == null) return
+    fun updateProfile(
+        userId: Int,
+        username: String?,
+        avatarUrl: String?,
+        bio: String?,
+        status: String?
+    ) {
+        if (username == null && avatarUrl == null && bio == null && status == null) return
 
         var step = dsl.update(USERS).set(USERS.LAST_SEEN, USERS.LAST_SEEN)
+        if (username != null) step = step.set(USERS.USERNAME, username)
         if (avatarUrl != null) step = step.set(USERS.AVATAR_URL, avatarUrl)
         if (bio != null) step = step.set(USERS.BIO, bio)
         if (status != null) step = step.set(USERS.STATUS, status)

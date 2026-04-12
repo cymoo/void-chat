@@ -163,8 +163,26 @@ class UserService(
         return userRepo.findById(targetUserId)
     }
 
-    fun updateProfile(userId: Int, avatarUrl: String?, bio: String?, status: String?): User? {
-        userRepo.updateProfile(userId, avatarUrl, bio, status)
+    fun updateProfile(
+        userId: Int,
+        username: String?,
+        avatarUrl: String?,
+        bio: String?,
+        status: String?
+    ): User? {
+        val currentUser = userRepo.findById(userId) ?: return null
+        val normalizedUsername = username?.trim()?.also {
+            require(it.isNotEmpty()) { "Username is required" }
+        }
+
+        if (normalizedUsername != null && normalizedUsername != currentUser.username) {
+            val existing = userRepo.findByUsernameForAuth(normalizedUsername)
+            if (existing != null && existing.user.id != userId) {
+                throw IllegalArgumentException("Username already taken")
+            }
+        }
+
+        userRepo.updateProfile(userId, normalizedUsername, avatarUrl, bio, status)
         return userRepo.findById(userId)
     }
 }

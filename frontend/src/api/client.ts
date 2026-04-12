@@ -3,6 +3,7 @@ import type {
   AuthResponse,
   CreateInviteLinkResponse,
   CreateRoomRequest,
+  DmInboxEntry,
   InviteLink,
   RegistrationMode,
   RegistrationModeResponse,
@@ -21,6 +22,25 @@ class ApiError extends Error {
   ) {
     super(message);
     this.name = "ApiError";
+  }
+}
+
+async function readResponseBody(
+  res: Response,
+): Promise<{ data?: Record<string, unknown>; rawText: string }> {
+  const rawText = await res.clone().text().catch(() => "");
+
+  if (rawText.trim().length === 0) {
+    return { rawText };
+  }
+
+  try {
+    return {
+      data: JSON.parse(rawText) as Record<string, unknown>,
+      rawText,
+    };
+  } catch {
+    return { rawText };
   }
 }
 
@@ -91,17 +111,16 @@ async function request<T>(
 
   if (res.status === 204) return null as T;
 
-  let data: Record<string, unknown> | undefined;
-  try {
-    data = await res.json();
-  } catch {
-    // Response body is not valid JSON
-  }
+  const { data, rawText } = await readResponseBody(res);
 
   if (!res.ok) {
+    const plainText = rawText.trim();
+    const fallbackText =
+      plainText.length > 0 && !plainText.startsWith("<") ? plainText : undefined;
     const rawMsg =
       (data?.message as string) ??
       (data?.error as string) ??
+      fallbackText ??
       `Server error (${res.status})`;
     throw new ApiError(
       res.status,
@@ -192,6 +211,23 @@ export async function getUnreadDmSenders(): Promise<
   }));
 }
 
+export async function getDmInbox(): Promise<DmInboxEntry[]> {
+  const data = await request<
+    Array<{
+      userId?: number;
+      username?: string;
+      avatarUrl?: string | null;
+      unreadCount?: number;
+    }>
+  >("GET", "/api/dms/inbox");
+  return data.map((item) => ({
+    userId: item.userId ?? 0,
+    username: item.username ?? "",
+    avatarUrl: item.avatarUrl ?? null,
+    unreadCount: item.unreadCount ?? 0,
+  }));
+}
+
 // Admin API
 export async function getAdminDashboard(): Promise<AdminDashboardResponse> {
   return request("GET", "/api/admin/dashboard");
@@ -266,17 +302,16 @@ async function uploadMultipart(
     throw new ApiError(0, "Network error — is the server running?");
   }
 
-  let data: Record<string, unknown> | undefined;
-  try {
-    data = await res.json();
-  } catch {
-    // server may return plain text for large payload (e.g. 413)
-  }
+  const { data, rawText } = await readResponseBody(res);
 
   if (!res.ok) {
+    const plainText = rawText.trim();
+    const fallbackText =
+      plainText.length > 0 && !plainText.startsWith("<") ? plainText : undefined;
     const rawMsg =
       (data?.message as string) ??
       (data?.error as string) ??
+      fallbackText ??
       `Server error (${res.status})`;
     throw new ApiError(
       res.status,

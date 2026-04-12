@@ -116,9 +116,17 @@ export interface PrivateMessage {
   timestamp: number;
 }
 
+export interface DmInboxEntry {
+  userId: number;
+  username: string;
+  avatarUrl?: string | null;
+  unreadCount: number;
+}
+
 // WebSocket message payloads (client → server)
 export interface WsSendPayload {
   type: string;
+  username?: string;
   content?: string;
   imageUrl?: string;
   thumbnailUrl?: string;
@@ -301,6 +309,7 @@ export interface CreateRoomRequest {
   description?: string | null;
   isPrivate?: boolean;
   password?: string | null;
+  maxUsers?: number | null;
 }
 
 export interface UpdateRoomRequest {
@@ -308,9 +317,11 @@ export interface UpdateRoomRequest {
   description?: string | null;
   isPrivate: boolean;
   password?: string | null;
+  maxUsers?: number | null;
 }
 
 export interface UpdateProfileRequest {
+  username?: string | null;
   avatarUrl?: string | null;
   bio?: string | null;
   status?: string | null;

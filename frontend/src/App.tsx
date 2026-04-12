@@ -3,7 +3,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { AuthPage } from "@/pages/AuthPage";
 import { LobbyPage } from "@/pages/LobbyPage";
 import { ChatPage } from "@/pages/ChatPage";
-import { AdminDashboardPage } from "@/pages/AdminDashboardPage";
+import { AdminPage } from "@/pages/AdminPage";
 import { ToastContainer } from "@/components/ui/Toast";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { MatrixRain } from "@/components/effects/MatrixRain";
@@ -15,8 +15,8 @@ export function App() {
   const checkAuth = useAuthStore((s) => s.checkAuth);
   const canAccessAdminDashboard = Boolean(
     user?.capabilities?.canAccessAdminDashboard ||
-      user?.role === "platform_admin" ||
-      user?.role === "super_admin",
+    user?.role === "platform_admin" ||
+    user?.role === "super_admin",
   );
 
   useEffect(() => {
@@ -45,7 +45,7 @@ export function App() {
           element={
             token ? (
               canAccessAdminDashboard ? (
-                <AdminDashboardPage />
+                <AdminPage />
               ) : (
                 <Navigate to="/lobby" replace />
               )
@@ -54,7 +54,10 @@ export function App() {
             )
           }
         />
-        <Route path="*" element={<Navigate to={token ? "/lobby" : "/auth"} replace />} />
+        <Route
+          path="*"
+          element={<Navigate to={token ? "/lobby" : "/auth"} replace />}
+        />
       </Routes>
       <ToastContainer />
       <ConfirmDialog />

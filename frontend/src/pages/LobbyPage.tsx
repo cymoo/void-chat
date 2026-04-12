@@ -1,34 +1,72 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/stores/authStore";
 import { useRoomStore } from "@/stores/roomStore";
+import { useChatStore } from "@/stores/chatStore";
 import { useUiStore } from "@/stores/uiStore";
+import { useDirectWebSocket } from "@/hooks/useDirectWebSocket";
 import { CreateRoomModal } from "@/components/lobby/CreateRoomDialog";
 import { EditRoomModal } from "@/components/lobby/EditRoomDialog";
 import { ProfileModal } from "@/components/profile/ProfileModal";
 import { RoomPasswordModal } from "@/components/lobby/RoomPasswordModal";
+import { DmInboxModal } from "@/components/chat/DmInboxModal";
+import { PrivateChat } from "@/components/chat/PrivateChat";
+import { ImageModal } from "@/components/chat/ImageModal";
+import * as api from "@/api/client";
 import type { RoomInfo } from "@/api/types";
 
 export function LobbyPage() {
   const navigate = useNavigate();
+  const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const { rooms, loading, fetchRooms, joinRoom, deleteRoom } = useRoomStore();
-  const { profileOpen, setProfileOpen, createRoomOpen, setCreateRoomOpen } = useUiStore();
+  const privateChatUserId = useChatStore((s) => s.privateChatUserId);
+  const {
+    profileOpen,
+    setProfileOpen,
+    createRoomOpen,
+    setCreateRoomOpen,
+    dmInboxOpen,
+    setDmInboxOpen,
+  } = useUiStore();
   const addToast = useUiStore((s) => s.addToast);
   const confirm = useUiStore((s) => s.confirm);
 
   const [passwordRoom, setPasswordRoom] = useState<RoomInfo | null>(null);
   const [editingRoom, setEditingRoom] = useState<RoomInfo | null>(null);
+  const [dmUnreadCount, setDmUnreadCount] = useState(0);
+  const { send: sendDirectDm } = useDirectWebSocket({ token: token ?? "" });
   const canAccessAdminDashboard = Boolean(
     user?.capabilities?.canAccessAdminDashboard ||
       user?.role === "platform_admin" ||
       user?.role === "super_admin",
   );
 
+  const loadUnreadDmCount = useCallback(async () => {
+    try {
+      const unread = await api.getDmInbox();
+      setDmUnreadCount(
+        unread.reduce((sum, item) => sum + Math.max(0, item.unreadCount), 0),
+      );
+    } catch {
+      setDmUnreadCount(0);
+    }
+  }, []);
+
   useEffect(() => {
     fetchRooms();
   }, [fetchRooms]);
+
+  useEffect(() => {
+    void loadUnreadDmCount();
+  }, [loadUnreadDmCount]);
+
+  useEffect(() => {
+    if (dmInboxOpen) {
+      void loadUnreadDmCount();
+    }
+  }, [dmInboxOpen, loadUnreadDmCount]);
 
   const handleRoomClick = (room: RoomInfo) => {
     if (room.isPrivate) {
@@ -96,6 +134,17 @@ export function LobbyPage() {
                 <circle cx="12" cy="7" r="4" />
               </svg>
               <span className="btn-label">PROFILE</span>
+            </button>
+            <button
+              className="icon-btn lobby-action-btn dm-badge-btn"
+              title="Private Mailbox"
+              onClick={() => setDmInboxOpen(true)}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+              <span className="btn-label">MAILBOX</span>
+              {dmUnreadCount > 0 && <span className="dm-unread-count">{dmUnreadCount}</span>}
             </button>
             <button
               className="icon-btn lobby-action-btn"
@@ -200,7 +249,7 @@ export function LobbyPage() {
                 )}
                 <div className="room-card-meta">
                   <span className="pulse-dot" />
-                  {room.onlineUsers} ONLINE
+                  {room.onlineUsers}/{room.maxUsers} ONLINE
                 </div>
               </div>
             ))
@@ -216,6 +265,9 @@ export function LobbyPage() {
         />
       )}
       {profileOpen && <ProfileModal />}
+      {privateChatUserId !== null && user && <PrivateChat send={sendDirectDm} currentUser={user} />}
+      <ImageModal />
+      <DmInboxModal send={sendDirectDm} />
       {passwordRoom && (
         <RoomPasswordModal
           roomName={passwordRoom.name}

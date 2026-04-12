@@ -67,19 +67,17 @@ export function ChatView({ send, roomName, currentUser, onDisconnect }: ChatView
                 <circle cx="12" cy="7" r="4" />
               </svg>
             </button>
-            {unreadDmCount > 0 && (
-              <button
-                className="icon-btn dm-badge-btn"
-                title="Unread DMs"
-                aria-label={`Unread direct messages: ${unreadDmCount}`}
-                onClick={() => setDmInboxOpen(!dmInboxOpen)}
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                </svg>
-                <span className="dm-unread-count">{unreadDmCount}</span>
-              </button>
-            )}
+            <button
+              className="icon-btn dm-badge-btn"
+              title="Private mailbox"
+              aria-label={`Open private mailbox, unread: ${unreadDmCount}`}
+              onClick={() => setDmInboxOpen(!dmInboxOpen)}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+              {unreadDmCount > 0 && <span className="dm-unread-count">{unreadDmCount}</span>}
+            </button>
           </div>
           <div className="header-session">
             <div className="user-info">

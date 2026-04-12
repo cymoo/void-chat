@@ -91,7 +91,11 @@ class ChatController(
         }
 
         // Join room
-        chatService.joinRoom(roomId, conn, currentUser)
+        if (!chatService.joinRoom(roomId, conn, currentUser)) {
+            conn.send(chatService.serializeEvent(WsEvent.Error("Room is full")))
+            conn.close()
+            return
+        }
         joinedRoom.set(true)
 
         // Send message history with hasMore flag
@@ -136,6 +140,7 @@ class ChatController(
                 val beforeId = payload.path("beforeId").takeIf { !it.isMissingNode && !it.isNull }?.asInt()
                 val query = payload.path("query").takeIf { !it.isMissingNode && !it.isNull }?.asText()
                 val role = payload.path("role").takeIf { !it.isMissingNode && !it.isNull }?.asText()
+                val username = payload.path("username").takeIf { !it.isMissingNode && !it.isNull }?.asText()
                 val avatarUrl = payload.path("avatarUrl").takeIf { !it.isMissingNode && !it.isNull }?.asText()
                 val bio = payload.path("bio").takeIf { !it.isMissingNode && !it.isNull }?.asText()
                 val status = payload.path("status").takeIf { !it.isMissingNode && !it.isNull }?.asText()
@@ -282,10 +287,17 @@ class ChatController(
                         }
                     }
                     "update_profile" -> {
-                        // Update currentUser so subsequent messages carry the new avatar/status
-                        currentUser = chatService.updateUserProfile(
-                            currentUser, avatarUrl, bio, status
+                        val updated = userService.updateProfile(
+                            userId = currentUser.id,
+                            username = username,
+                            avatarUrl = avatarUrl,
+                            bio = bio,
+                            status = status
                         )
+                        if (updated != null) {
+                            currentUser = updated
+                            chatService.broadcastUserUpdate(updated)
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -305,6 +317,121 @@ class ChatController(
 
         conn.onError { error ->
             println("WebSocket error for user ${currentUser.username}: ${error.message}")
+        }
+    }
+
+    @Ws("/dm")
+    fun directMessages(conn: WsConnection) {
+        var currentUser = conn.getStateOrNull<User>("user")
+            ?: run {
+                conn.send("""{"type":"error","message":"User not authenticated"}""")
+                conn.close()
+                return
+            }
+
+        chatService.attachDirectConnection(currentUser.id, conn)
+        conn.send(chatService.serializeEvent(WsEvent.UnreadCounts(chatService.getUnreadDmCount(currentUser.id))))
+
+        conn.onMessage { msg ->
+            try {
+                val latestUser = userService.getUserById(currentUser.id)
+                if (latestUser == null || latestUser.isDisabled) {
+                    conn.send(chatService.serializeEvent(WsEvent.Error("Account is disabled")))
+                    conn.close()
+                    return@onMessage
+                }
+                currentUser = latestUser
+
+                val payload = objectMapper.readTree(msg)
+                val type = payload.path("type").asText("")
+                val content = payload.path("content").takeIf { !it.isMissingNode && !it.isNull }?.asText()
+                val imageUrl = payload.path("imageUrl").takeIf { !it.isMissingNode && !it.isNull }?.asText()
+                val thumbnailUrl = payload.path("thumbnailUrl").takeIf { !it.isMissingNode && !it.isNull }?.asText()
+                val fileName = payload.path("fileName").takeIf { !it.isMissingNode && !it.isNull }?.asText()
+                val fileUrl = payload.path("fileUrl").takeIf { !it.isMissingNode && !it.isNull }?.asText()
+                val mimeType = payload.path("mimeType").takeIf { !it.isMissingNode && !it.isNull }?.asText()
+                val targetUserId = payload.path("targetUserId").takeIf { !it.isMissingNode && !it.isNull }?.asInt()
+                val beforeId = payload.path("beforeId").takeIf { !it.isMissingNode && !it.isNull }?.asInt()
+                val username = payload.path("username").takeIf { !it.isMissingNode && !it.isNull }?.asText()
+                val avatarUrl = payload.path("avatarUrl").takeIf { !it.isMissingNode && !it.isNull }?.asText()
+                val bio = payload.path("bio").takeIf { !it.isMissingNode && !it.isNull }?.asText()
+                val status = payload.path("status").takeIf { !it.isMissingNode && !it.isNull }?.asText()
+                val fileSize = payload.path("fileSize").takeIf { !it.isMissingNode && !it.isNull }?.asLong()
+
+                when (type) {
+                    "private_message" -> {
+                        if (targetUserId != null) {
+                            when {
+                                content != null -> {
+                                    chatService.sendPrivateMessage(
+                                        sender = currentUser,
+                                        receiverId = targetUserId,
+                                        messageType = "text",
+                                        content = content
+                                    )
+                                }
+                                imageUrl != null -> {
+                                    chatService.sendPrivateMessage(
+                                        sender = currentUser,
+                                        receiverId = targetUserId,
+                                        messageType = "image",
+                                        fileUrl = imageUrl,
+                                        thumbnailUrl = thumbnailUrl
+                                    )
+                                }
+                                fileUrl != null && fileName != null && fileSize != null && mimeType != null -> {
+                                    chatService.sendPrivateMessage(
+                                        sender = currentUser,
+                                        receiverId = targetUserId,
+                                        messageType = "file",
+                                        fileUrl = fileUrl,
+                                        fileName = fileName,
+                                        fileSize = fileSize,
+                                        mimeType = mimeType
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    "private_history" -> {
+                        targetUserId?.let { userId ->
+                            val (messages, hasMore) = chatService.getPrivateHistory(currentUser.id, userId, beforeId)
+                            conn.send(chatService.serializeEvent(WsEvent.PrivateHistory(messages, hasMore)))
+                        }
+                    }
+                    "mark_read" -> {
+                        targetUserId?.let { userId ->
+                            chatService.markPrivateMessagesRead(currentUser.id, userId)
+                        }
+                    }
+                    "update_profile" -> {
+                        val updated = userService.updateProfile(
+                            userId = currentUser.id,
+                            username = username,
+                            avatarUrl = avatarUrl,
+                            bio = bio,
+                            status = status
+                        )
+                        if (updated != null) {
+                            currentUser = updated
+                            chatService.broadcastUserUpdate(updated)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                conn.send(objectMapper.writeValueAsString(mapOf(
+                    "type" to "error",
+                    "message" to "Failed to process message: ${e.message}"
+                )))
+            }
+        }
+
+        conn.onClose { _ ->
+            chatService.detachDirectConnection(currentUser.id, conn)
+        }
+
+        conn.onError { error ->
+            println("WebSocket DM error for user ${currentUser.username}: ${error.message}")
         }
     }
 }

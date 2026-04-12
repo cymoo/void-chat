@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import * as api from "@/api/client";
 import { useAuthStore } from "@/stores/authStore";
+import { useUiStore } from "@/stores/uiStore";
 
 export function AuthPage() {
   const [tab, setTab] = useState<"login" | "register">("login");
@@ -17,6 +18,7 @@ export function AuthPage() {
   const login = useAuthStore((s) => s.login);
   const register = useAuthStore((s) => s.register);
   const loading = useAuthStore((s) => s.loading);
+  const addToast = useUiStore((s) => s.addToast);
 
   useEffect(() => {
     let active = true;
@@ -48,6 +50,7 @@ export function AuthPage() {
       const msg = err instanceof Error ? err.message : "Login failed";
       setStatusText(`[ERR] ${msg}`);
       setStatusError(true);
+      addToast(msg, "error");
     }
   };
 
@@ -71,6 +74,7 @@ export function AuthPage() {
       const msg = err instanceof Error ? err.message : "Registration failed";
       setStatusText(`[ERR] ${msg}`);
       setStatusError(true);
+      addToast(msg, "error");
     }
   };
 

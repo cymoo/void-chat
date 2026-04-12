@@ -17,6 +17,7 @@ export function EditRoomModal({ room, onClose }: EditRoomModalProps) {
     room.isPrivate ? "private" : "public",
   );
   const [password, setPassword] = useState("");
+  const [maxUsers, setMaxUsers] = useState(String(room.maxUsers ?? 100));
   const [saving, setSaving] = useState(false);
 
   const requiresPassword = visibility === "private" && !room.isPrivate;
@@ -35,6 +36,11 @@ export function EditRoomModal({ room, onClose }: EditRoomModalProps) {
       addToast("Password is required when switching to private", "error");
       return;
     }
+    const parsedMaxUsers = Number(maxUsers);
+    if (!Number.isInteger(parsedMaxUsers) || parsedMaxUsers < 1 || parsedMaxUsers > 1000) {
+      addToast("Room capacity must be an integer between 1 and 1000", "error");
+      return;
+    }
 
     setSaving(true);
     try {
@@ -43,6 +49,7 @@ export function EditRoomModal({ room, onClose }: EditRoomModalProps) {
         description: trimmedDescription || null,
         isPrivate: visibility === "private",
         password: visibility === "private" ? (trimmedPassword || null) : null,
+        maxUsers: parsedMaxUsers,
       });
       addToast(`Room "${updated.name}" updated`, "success");
       onClose();
@@ -115,6 +122,17 @@ export function EditRoomModal({ room, onClose }: EditRoomModalProps) {
                 PRIVATE
               </label>
             </div>
+          </div>
+          <div className="input-group">
+            <label className="input-label">&gt; ROOM CAPACITY</label>
+            <input
+              className="terminal-input"
+              type="number"
+              min={1}
+              max={1000}
+              value={maxUsers}
+              onChange={(e) => setMaxUsers(e.target.value)}
+            />
           </div>
           {visibility === "private" && (
             <div className="input-group">
