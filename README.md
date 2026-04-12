@@ -1,4 +1,4 @@
-# TERMINAL.CHAT — Real-time Chat Room Application
+# VOID.CHAT — Real-time Chat Room Application
 
 A feature-rich, real-time chat room application with a Kotlin backend and React frontend, featuring WebSocket communication, file uploads, and a distinctive terminal aesthetic.
 

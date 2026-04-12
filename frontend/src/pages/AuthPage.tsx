@@ -82,8 +82,8 @@ export function AuthPage() {
     <div id="auth-screen" className="screen active">
       <div className="login-container">
         <div className="glitch-wrapper">
-          <h1 className="title glitch" data-text="TERMINAL.CHAT">
-            TERMINAL.CHAT
+          <h1 className="title glitch" data-text="VOID.CHAT">
+            VOID.CHAT
           </h1>
         </div>
         <div className="subtitle">/// ENTER THE VOID</div>

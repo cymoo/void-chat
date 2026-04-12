@@ -14,7 +14,7 @@ async function register(page: import("@playwright/test").Page, username: string,
 test.describe("Authentication", () => {
   test("should show auth page by default", async ({ page }) => {
     await page.goto("/");
-    await expect(page.locator("text=TERMINAL.CHAT")).toBeVisible();
+    await expect(page.locator("text=VOID.CHAT")).toBeVisible();
     await expect(page.locator(".auth-tabs .auth-tab", { hasText: "LOGIN" })).toBeVisible();
     await expect(page.locator(".auth-tabs .auth-tab", { hasText: "REGISTER" })).toBeVisible();
   });
