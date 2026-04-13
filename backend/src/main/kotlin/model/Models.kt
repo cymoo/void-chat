@@ -171,6 +171,10 @@ data class DmInboxEntry(
     val userId: Int,
     val username: String,
     val avatarUrl: String? = null,
+    val latestMessageType: String,
+    val latestMessagePreview: String,
+    val latestMessageTimestamp: Long,
+    val latestMessageSenderId: Int,
     val unreadCount: Int
 )
 

@@ -10,7 +10,6 @@ import { ProfileModal } from "@/components/profile/ProfileModal";
 import { UserCard } from "@/components/profile/UserCard";
 import { PrivateChat } from "@/components/chat/PrivateChat";
 import { ImageModal } from "@/components/chat/ImageModal";
-import { DmInboxModal } from "@/components/chat/DmInboxModal";
 
 export function ChatPage() {
   const navigate = useNavigate();
@@ -79,6 +78,13 @@ export function ChatPage() {
     navigate("/lobby");
   };
 
+  const handleOpenMailbox = () => {
+    leaveRoom();
+    navigate("/mailbox", {
+      state: { returnTo: roomIdNum ? `/chat/${roomIdNum}` : "/lobby" },
+    });
+  };
+
   const displayedRoomName =
     currentRoomName || rooms.find((r) => r.id === roomIdNum)?.name || `Room ${roomId}`;
 
@@ -89,12 +95,12 @@ export function ChatPage() {
         roomName={displayedRoomName}
         currentUser={user!}
         onDisconnect={handleDisconnect}
+        onOpenMailbox={handleOpenMailbox}
       />
       {profileOpen && <ProfileModal />}
       {userCardUserId !== null && <UserCard send={send} />}
       {privateChatUserId !== null && <PrivateChat send={send} currentUser={user!} />}
       <ImageModal />
-      <DmInboxModal send={send} />
     </div>
   );
 }

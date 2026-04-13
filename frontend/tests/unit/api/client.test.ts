@@ -456,8 +456,24 @@ describe("API client", () => {
         ok: true,
         status: 200,
         json: [
-          { userId: 2, username: "alice", unreadCount: 3 },
-          { userId: 3, username: "bob", unreadCount: 0 },
+          {
+            userId: 2,
+            username: "alice",
+            unreadCount: 3,
+            latestMessageType: "text",
+            latestMessagePreview: "latest from alice",
+            latestMessageTimestamp: 1234,
+            latestMessageSenderId: 2,
+          },
+          {
+            userId: 3,
+            username: "bob",
+            unreadCount: 0,
+            latestMessageType: "file",
+            latestMessagePreview: "report.pdf",
+            latestMessageTimestamp: 5678,
+            latestMessageSenderId: 1,
+          },
         ],
       }),
     );
@@ -465,8 +481,26 @@ describe("API client", () => {
     const inbox = await client.getDmInbox();
 
     expect(inbox).toEqual([
-      { userId: 2, username: "alice", avatarUrl: null, unreadCount: 3 },
-      { userId: 3, username: "bob", avatarUrl: null, unreadCount: 0 },
+      {
+        userId: 2,
+        username: "alice",
+        avatarUrl: null,
+        unreadCount: 3,
+        latestMessageType: "text",
+        latestMessagePreview: "latest from alice",
+        latestMessageTimestamp: 1234,
+        latestMessageSenderId: 2,
+      },
+      {
+        userId: 3,
+        username: "bob",
+        avatarUrl: null,
+        unreadCount: 0,
+        latestMessageType: "file",
+        latestMessagePreview: "report.pdf",
+        latestMessageTimestamp: 5678,
+        latestMessageSenderId: 1,
+      },
     ]);
     expect(mockFetch).toHaveBeenCalledWith("/api/dms/inbox", {
       method: "GET",

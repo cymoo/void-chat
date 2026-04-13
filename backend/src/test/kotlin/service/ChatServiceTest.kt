@@ -358,4 +358,47 @@ class ChatServiceTest {
         assertEquals(0, onlineCount, "Online count should be 0 after all leaves")
         assertFalse(userInDb, "User should not be in DB after all leaves")
     }
+
+    @Test
+    fun `getDmInbox returns only users with private history plus latest message and unread count`() {
+        val currentUser = createUser("current-user")
+        val alice = createUser("alice-dm")
+        val bob = createUser("bob-dm")
+        val noHistory = createUser("no-history")
+
+        chatService.sendPrivateMessage(
+            sender = alice,
+            receiverId = currentUser.id,
+            messageType = "text",
+            content = "first from alice"
+        )
+        chatService.sendPrivateMessage(
+            sender = currentUser,
+            receiverId = bob.id,
+            messageType = "text",
+            content = "hello bob"
+        )
+        chatService.sendPrivateMessage(
+            sender = alice,
+            receiverId = currentUser.id,
+            messageType = "text",
+            content = "latest from alice"
+        )
+
+        val inbox = chatService.getDmInbox(currentUser.id)
+
+        assertEquals(listOf(alice.id, bob.id), inbox.map { it.userId })
+        assertEquals("alice-dm", inbox[0].username)
+        assertEquals("latest from alice", inbox[0].latestMessagePreview)
+        assertEquals("text", inbox[0].latestMessageType)
+        assertEquals(alice.id, inbox[0].latestMessageSenderId)
+        assertEquals(2, inbox[0].unreadCount)
+        assertTrue(inbox[0].latestMessageTimestamp > 0)
+
+        assertEquals("bob-dm", inbox[1].username)
+        assertEquals("hello bob", inbox[1].latestMessagePreview)
+        assertEquals(currentUser.id, inbox[1].latestMessageSenderId)
+        assertEquals(0, inbox[1].unreadCount)
+        assertFalse(inbox.any { it.userId == noHistory.id })
+    }
 }

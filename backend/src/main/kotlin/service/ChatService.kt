@@ -388,6 +388,8 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
 
     fun getUnreadDmSenders(userId: Int): List<UnreadSender> = privateMessageRepo.getUnreadSenders(userId)
 
+    fun getDmInbox(userId: Int): List<DmInboxEntry> = privateMessageRepo.getInbox(userId)
+
     fun markPrivateMessagesRead(currentUserId: Int, senderId: Int) {
         privateMessageRepo.markAsRead(senderId, currentUserId)
         sendToUser(currentUserId, WsEvent.UnreadCounts(privateMessageRepo.getUnreadCount(currentUserId)))

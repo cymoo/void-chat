@@ -120,6 +120,10 @@ export interface DmInboxEntry {
   userId: number;
   username: string;
   avatarUrl?: string | null;
+  latestMessageType: string;
+  latestMessagePreview: string;
+  latestMessageTimestamp: number;
+  latestMessageSenderId: number;
   unreadCount: number;
 }
 

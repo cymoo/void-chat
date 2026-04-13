@@ -12,14 +12,21 @@ interface ChatViewProps {
   roomName: string;
   currentUser: User;
   onDisconnect: () => void;
+  onOpenMailbox: () => void;
 }
 
-export function ChatView({ send, roomName, currentUser, onDisconnect }: ChatViewProps) {
+export function ChatView({
+  send,
+  roomName,
+  currentUser,
+  onDisconnect,
+  onOpenMailbox,
+}: ChatViewProps) {
   const users = useChatStore((s) => s.users);
   const typingUsers = useChatStore((s) => s.typingUsers);
   const unreadDmCount = useChatStore((s) => s.unreadDmCount);
   const [usersPanelOpen, setUsersPanelOpen] = useState(() => window.innerWidth > 768);
-  const { searchOpen, toggleSearch, setProfileOpen, dmInboxOpen, setDmInboxOpen } = useUiStore();
+  const { searchOpen, toggleSearch, setProfileOpen } = useUiStore();
   const activeTypingUsers = typingUsers.filter((u) => u.userId !== currentUser.id);
   const typingText =
     activeTypingUsers.length === 1
@@ -71,7 +78,7 @@ export function ChatView({ send, roomName, currentUser, onDisconnect }: ChatView
               className="icon-btn dm-badge-btn"
               title="Private mailbox"
               aria-label={`Open private mailbox, unread: ${unreadDmCount}`}
-              onClick={() => setDmInboxOpen(!dmInboxOpen)}
+              onClick={onOpenMailbox}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />

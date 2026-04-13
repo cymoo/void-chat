@@ -4,6 +4,7 @@ import { AuthPage } from "@/pages/AuthPage";
 import { LobbyPage } from "@/pages/LobbyPage";
 import { ChatPage } from "@/pages/ChatPage";
 import { AdminPage } from "@/pages/AdminPage";
+import { MailboxPage } from "@/pages/MailboxPage";
 import { ToastContainer } from "@/components/ui/Toast";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { MatrixRain } from "@/components/effects/MatrixRain";
@@ -39,6 +40,10 @@ export function App() {
         <Route
           path="/chat/:roomId"
           element={token ? <ChatPage /> : <Navigate to="/auth" replace />}
+        />
+        <Route
+          path="/mailbox"
+          element={token ? <MailboxPage /> : <Navigate to="/auth" replace />}
         />
         <Route
           path="/admin"

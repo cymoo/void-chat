@@ -28,7 +28,6 @@ interface UiState {
   createRoomOpen: boolean;
   userCardUserId: number | null;
   imageModalUrl: string | null;
-  dmInboxOpen: boolean;
   toasts: Toast[];
   confirmDialog: ConfirmDialog | null;
 
@@ -39,7 +38,6 @@ interface UiState {
   showUserCard: (userId: number) => void;
   hideUserCard: () => void;
   setImageModal: (url: string | null) => void;
-  setDmInboxOpen: (open: boolean) => void;
   addToast: (message: string, type?: Toast["type"]) => void;
   removeToast: (id: string) => void;
   confirm: (options: ConfirmOptions) => Promise<boolean>;
@@ -55,7 +53,6 @@ export const useUiStore = create<UiState>((set) => ({
   createRoomOpen: false,
   userCardUserId: null,
   imageModalUrl: null,
-  dmInboxOpen: false,
   toasts: [],
   confirmDialog: null,
 
@@ -66,7 +63,6 @@ export const useUiStore = create<UiState>((set) => ({
   showUserCard: (userId) => set({ userCardUserId: userId }),
   hideUserCard: () => set({ userCardUserId: null }),
   setImageModal: (url) => set({ imageModalUrl: url }),
-  setDmInboxOpen: (open) => set({ dmInboxOpen: open }),
 
   addToast: (message, type = "info") => {
     const id = `toast-${++toastCounter}`;

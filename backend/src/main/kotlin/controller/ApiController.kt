@@ -124,24 +124,7 @@ class ApiController(
     @Get("/dms/inbox")
     fun getDmInbox(token: BearerToken): List<DmInboxEntry> {
         val actor = requireAuthUser(token)
-        val unreadByUserId = chatService.getUnreadDmSenders(actor.id).associateBy { it.senderId }
-        return userService.listUsers()
-            .asSequence()
-            .filter { it.id != actor.id }
-            .filter { !it.isDisabled }
-            .map { user ->
-                DmInboxEntry(
-                    userId = user.id,
-                    username = user.username,
-                    avatarUrl = user.avatarUrl,
-                    unreadCount = unreadByUserId[user.id]?.unreadCount ?: 0
-                )
-            }
-            .sortedWith(
-                compareByDescending<DmInboxEntry> { it.unreadCount }
-                    .thenBy { it.username.lowercase() }
-            )
-            .toList()
+        return chatService.getDmInbox(actor.id)
     }
 
     @Patch("/users/me")

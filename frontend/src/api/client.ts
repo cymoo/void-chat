@@ -217,6 +217,10 @@ export async function getDmInbox(): Promise<DmInboxEntry[]> {
       userId?: number;
       username?: string;
       avatarUrl?: string | null;
+      latestMessageType?: string;
+      latestMessagePreview?: string;
+      latestMessageTimestamp?: number;
+      latestMessageSenderId?: number;
       unreadCount?: number;
     }>
   >("GET", "/api/dms/inbox");
@@ -224,6 +228,10 @@ export async function getDmInbox(): Promise<DmInboxEntry[]> {
     userId: item.userId ?? 0,
     username: item.username ?? "",
     avatarUrl: item.avatarUrl ?? null,
+    latestMessageType: item.latestMessageType ?? "text",
+    latestMessagePreview: item.latestMessagePreview ?? "",
+    latestMessageTimestamp: item.latestMessageTimestamp ?? 0,
+    latestMessageSenderId: item.latestMessageSenderId ?? 0,
     unreadCount: item.unreadCount ?? 0,
   }));
 }

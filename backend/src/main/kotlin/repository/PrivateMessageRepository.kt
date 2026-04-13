@@ -2,9 +2,11 @@ package repository
 
 import chatroom.jooq.generated.Tables.PRIVATE_MESSAGES
 import chatroom.jooq.generated.Tables.USERS
+import model.DmInboxEntry
 import model.PrivateMessage
 import model.UnreadSender
 import org.jooq.DSLContext
+import org.jooq.impl.DSL
 import org.jooq.impl.DSL.count
 import java.time.Instant
 import java.time.LocalDateTime
@@ -123,6 +125,78 @@ class PrivateMessageRepository(private val dsl: DSLContext) {
                     senderId = r.get(PRIVATE_MESSAGES.SENDER_ID)!!,
                     senderUsername = r.get(USERS.USERNAME) ?: "",
                     unreadCount = r.get(unreadCount) ?: 0
+                )
+            }
+    }
+
+    fun getInbox(userId: Int): List<DmInboxEntry> {
+        val counterpartId = DSL.field(
+            "case when {0} = {1} then {2} else {0} end",
+            Int::class.java,
+            PRIVATE_MESSAGES.SENDER_ID,
+            DSL.inline(userId),
+            PRIVATE_MESSAGES.RECEIVER_ID
+        )
+
+        val latestMessageId = DSL.max(PRIVATE_MESSAGES.ID).`as`("latest_message_id")
+        val latestConversations = dsl.select(
+            counterpartId.`as`("counterpart_id"),
+            latestMessageId
+        )
+            .from(PRIVATE_MESSAGES)
+            .where(PRIVATE_MESSAGES.SENDER_ID.eq(userId).or(PRIVATE_MESSAGES.RECEIVER_ID.eq(userId)))
+            .groupBy(counterpartId)
+            .asTable("latest_conversations")
+
+        val unreadCount = count().`as`("unread_count")
+        val unreadCounts = dsl.select(
+            PRIVATE_MESSAGES.SENDER_ID.`as`("counterpart_id"),
+            unreadCount
+        )
+            .from(PRIVATE_MESSAGES)
+            .where(PRIVATE_MESSAGES.RECEIVER_ID.eq(userId))
+            .and(PRIVATE_MESSAGES.IS_READ.eq(0).or(PRIVATE_MESSAGES.IS_READ.isNull))
+            .groupBy(PRIVATE_MESSAGES.SENDER_ID)
+            .asTable("unread_counts")
+
+        val latestConversationCounterpartId = latestConversations.field("counterpart_id", Int::class.java)!!
+        val latestConversationMessageId = latestConversations.field("latest_message_id", Int::class.java)!!
+        val unreadConversationCounterpartId = unreadCounts.field("counterpart_id", Int::class.java)!!
+        val unreadConversationCount = unreadCounts.field("unread_count", Int::class.java)!!
+
+        return dsl.select(
+            USERS.ID,
+            USERS.USERNAME,
+            USERS.AVATAR_URL,
+            PRIVATE_MESSAGES.MESSAGE_TYPE,
+            PRIVATE_MESSAGES.CONTENT,
+            PRIVATE_MESSAGES.FILE_NAME,
+            PRIVATE_MESSAGES.CREATED_AT,
+            PRIVATE_MESSAGES.SENDER_ID,
+            unreadConversationCount
+        )
+            .from(latestConversations)
+            .join(PRIVATE_MESSAGES).on(PRIVATE_MESSAGES.ID.eq(latestConversationMessageId))
+            .join(USERS).on(USERS.ID.eq(latestConversationCounterpartId))
+            .leftJoin(unreadCounts).on(unreadConversationCounterpartId.eq(USERS.ID))
+            .orderBy(latestConversationMessageId.desc())
+            .fetch { record ->
+                val latestMessageType = record.get(PRIVATE_MESSAGES.MESSAGE_TYPE) ?: "text"
+                val latestMessagePreview = when (latestMessageType) {
+                    "image" -> record.get(PRIVATE_MESSAGES.FILE_NAME)?.takeIf { it.isNotBlank() } ?: "Shared an image"
+                    "file" -> record.get(PRIVATE_MESSAGES.FILE_NAME)?.takeIf { it.isNotBlank() } ?: "Shared a file"
+                    else -> record.get(PRIVATE_MESSAGES.CONTENT)?.trim().orEmpty()
+                }
+
+                DmInboxEntry(
+                    userId = record.get(USERS.ID)!!,
+                    username = record.get(USERS.USERNAME) ?: "",
+                    avatarUrl = record.get(USERS.AVATAR_URL),
+                    latestMessageType = latestMessageType,
+                    latestMessagePreview = latestMessagePreview,
+                    latestMessageTimestamp = parseTimestamp(record.get(PRIVATE_MESSAGES.CREATED_AT)),
+                    latestMessageSenderId = record.get(PRIVATE_MESSAGES.SENDER_ID)!!,
+                    unreadCount = record.get(unreadConversationCount) ?: 0
                 )
             }
     }
