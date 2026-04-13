@@ -14,7 +14,7 @@
         <kotlin.version>2.3.0</kotlin.version>
 
         <!-- Dependency versions -->
-        <colleen.version>0.4.5</colleen.version>
+        <colleen.version>0.4.6</colleen.version>
         <slf4j.version>2.0.9</slf4j.version>
         <logback.version>1.5.27</logback.version>
         <junit.version>5.11.4</junit.version>
