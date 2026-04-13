@@ -97,13 +97,4 @@ CREATE INDEX idx_private_messages_receiver ON private_messages(receiver_id, is_r
 CREATE INDEX idx_invite_links_code_hash ON invite_links(code_hash);
 CREATE INDEX idx_invite_links_created_by ON invite_links(created_by);
 
--- Default rooms
-INSERT INTO rooms (name, description) VALUES
-    ('general', 'General discussion room'),
-    ('random', 'Random chat and off-topic'),
-    ('tech', 'Technology and programming');
 
--- Default system settings
-INSERT INTO system_settings(key, value)
-VALUES ('registration_mode', 'open')
-ON CONFLICT(key) DO NOTHING;
