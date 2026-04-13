@@ -4,11 +4,12 @@ import org.jooq.impl.DSL
 import javax.sql.DataSource
 
 /**
- * Shared test database helper. Uses a single connection pool and resets
- * data between tests via TRUNCATE + re-seeding.
+ * Shared test database helper. Uses a dedicated test database (void_chat_test)
+ * so that tests never touch production data. Resets state between tests via
+ * TRUNCATE + re-seeding.
  */
 object TestDatabase {
-    private const val TEST_DB_URL = "jdbc:postgresql://localhost:5432/void_chat"
+    private const val TEST_DB_URL = "jdbc:postgresql://localhost:5432/void_chat_test"
     private const val TEST_DB_USER = "postgres"
     private const val TEST_DB_PASSWORD = "postgres"
 
