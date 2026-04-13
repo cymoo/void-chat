@@ -5,20 +5,31 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import io.github.cymoo.colleen.ws.WsConnection
 import model.*
 import org.jooq.DSLContext
+import org.slf4j.LoggerFactory
+import redis.clients.jedis.JedisPool
+import redis.clients.jedis.JedisPubSub
 import repository.MessageRepository
 import repository.PrivateMessageRepository
 import repository.RoomMemberRepository
 import repository.RoomRepository
 import repository.UserRepository
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArraySet
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 /**
- * Chat service managing rooms, connections, and message broadcasting
+ * Chat service managing rooms, connections, and message broadcasting.
+ * Optionally uses Redis pub/sub for multi-instance broadcast readiness.
  */
-class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
+class ChatService(
+    dsl: DSLContext,
+    private val objectMapper: ObjectMapper,
+    private val jedisPool: JedisPool? = null
+) {
+    private val log = LoggerFactory.getLogger(ChatService::class.java)
+    private val instanceId = UUID.randomUUID().toString()
 
     private val messageRepo = MessageRepository(dsl)
     private val roomMemberRepo = RoomMemberRepository(dsl)
@@ -356,22 +367,10 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
         )
 
         // Send to receiver
-        val receiverConn = userConnections[receiverId]
-        if (receiverConn != null) {
-            runCatching { receiverConn.send(serializeEvent(WsEvent.PrivateMessageEvent(pm))) }
-            // Don't push UnreadCounts here — the frontend increments its own
-            // counter when a private_message arrives outside an active chat.
-            // Pushing the DB count would overwrite the frontend's correct value
-            // when the receiver is currently viewing this conversation (messages
-            // are saved as is_read=0 until the chat is closed via mark_read).
-        }
-        // If offline — unread count will be picked up on next connect
+        sendToUser(receiverId, WsEvent.PrivateMessageEvent(pm))
 
         // Send to sender (confirmation)
-        val senderConn = userConnections[sender.id]
-        if (senderConn != null) {
-            runCatching { senderConn.send(serializeEvent(WsEvent.PrivateMessageEvent(pm))) }
-        }
+        sendToUser(sender.id, WsEvent.PrivateMessageEvent(pm))
     }
 
     fun getPrivateHistory(userId1: Int, userId2: Int, beforeId: Int? = null): Pair<List<PrivateMessage>, Boolean> {
@@ -439,12 +438,11 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
 
         roomMemberRepo.removeMember(roomId, targetUserId)
 
+        sendToUser(targetUserId, WsEvent.Kicked(reason))
+        // Close local connection if present (WsConnection is JVM-local)
         val targetConn = userConnections[targetUserId]
         if (targetConn != null) {
-            runCatching {
-                targetConn.send(serializeEvent(WsEvent.Kicked(reason)))
-                targetConn.close()
-            }
+            runCatching { targetConn.close() }
         }
 
         broadcastToRoom(roomId, WsEvent.Users(getRoomUsers(roomId)))
@@ -470,12 +468,7 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
         mentions.forEach { username ->
             val mentionedUser = roomUsers.find { it.username == username }
             if (mentionedUser != null) {
-                val conn = userConnections[mentionedUser.id]
-                if (conn != null) {
-                    runCatching {
-                        conn.send(serializeEvent(WsEvent.Mention(messageId, mentionedBy, content)))
-                    }
-                }
+                sendToUser(mentionedUser.id, WsEvent.Mention(messageId, mentionedBy, content))
             }
         }
     }
@@ -485,21 +478,80 @@ class ChatService(dsl: DSLContext, private val objectMapper: ObjectMapper) {
     }
 
     fun broadcastToRoom(roomId: Int, event: WsEvent) {
-        val connections = roomConnections[roomId] ?: return
         val eventJson = serializeEvent(event)
-
-        // Take snapshot and broadcast asynchronously
-        val snapshot = connections.toList()
-        broadcastExecutor.execute {
-            snapshot.forEach { conn ->
-                runCatching { conn.send(eventJson) }
-            }
-        }
+        deliverToLocalRoom(roomId, eventJson)
+        publishToRedis("room:$roomId", eventJson)
     }
 
     fun sendToUser(userId: Int, event: WsEvent) {
+        val eventJson = serializeEvent(event)
+        deliverToLocalUser(userId, eventJson)
+        publishToRedis("user:$userId", eventJson)
+    }
+
+    /** Deliver to WebSocket connections on this JVM instance. */
+    private fun deliverToLocalRoom(roomId: Int, eventJson: String) {
+        val connections = roomConnections[roomId] ?: return
+        val snapshot = connections.toList()
+        broadcastExecutor.execute {
+            snapshot.forEach { conn -> runCatching { conn.send(eventJson) } }
+        }
+    }
+
+    private fun deliverToLocalUser(userId: Int, eventJson: String) {
         val conn = userConnections[userId] ?: return
-        runCatching { conn.send(serializeEvent(event)) }
+        runCatching { conn.send(eventJson) }
+    }
+
+    private fun publishToRedis(channel: String, message: String) {
+        if (jedisPool == null) return
+        try {
+            jedisPool.resource.use { jedis ->
+                jedis.publish(channel, "$instanceId|$message")
+            }
+        } catch (e: Exception) {
+            log.warn("Redis publish to {} failed: {}", channel, e.message)
+        }
+    }
+
+    /**
+     * Start the Redis subscriber thread for cross-instance message delivery.
+     * Call once after construction (in Main.kt). No-op if jedisPool is null.
+     */
+    fun startRedisSubscriber() {
+        if (jedisPool == null) return
+        Thread({
+            while (!Thread.currentThread().isInterrupted) {
+                try {
+                    jedisPool.resource.use { jedis ->
+                        jedis.psubscribe(object : JedisPubSub() {
+                            override fun onPMessage(pattern: String, channel: String, message: String) {
+                                val sep = message.indexOf('|')
+                                if (sep < 0) return
+                                val senderId = message.substring(0, sep)
+                                if (senderId == instanceId) return
+                                val eventJson = message.substring(sep + 1)
+
+                                when {
+                                    channel.startsWith("room:") -> {
+                                        val roomId = channel.removePrefix("room:").toIntOrNull() ?: return
+                                        deliverToLocalRoom(roomId, eventJson)
+                                    }
+                                    channel.startsWith("user:") -> {
+                                        val userId = channel.removePrefix("user:").toIntOrNull() ?: return
+                                        deliverToLocalUser(userId, eventJson)
+                                    }
+                                }
+                            }
+                        }, "room:*", "user:*")
+                    }
+                } catch (e: Exception) {
+                    log.warn("Redis subscriber disconnected, reconnecting in 3s: {}", e.message)
+                    Thread.sleep(3000)
+                }
+            }
+        }, "redis-subscriber").apply { isDaemon = true }.start()
+        log.info("Redis pub/sub subscriber started (instance={})", instanceId.take(8))
     }
 
     fun serializeEvent(event: WsEvent): String {

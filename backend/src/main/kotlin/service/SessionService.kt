@@ -1,50 +1,50 @@
 package service
 
+import redis.clients.jedis.JedisPool
 import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
-
-data class SessionInfo(val userId: Int, val expiresAt: Long)
 
 /**
- * In-memory session management. Sessions survive until server restart or expiry.
+ * Redis-backed session management. Sessions survive server restarts.
  */
-class SessionService {
-    private val sessions = ConcurrentHashMap<String, SessionInfo>()
-    private val sessionDurationMs = 7 * 24 * 60 * 60 * 1000L // 7 days
+class SessionService(private val jedisPool: JedisPool) {
+    private val sessionTtlSeconds = 7 * 24 * 60 * 60L // 7 days
 
-    init {
-        // Periodically clean up expired sessions
-        val scheduler = Executors.newSingleThreadScheduledExecutor { r ->
-            Thread(r).apply { isDaemon = true; name = "session-cleanup" }
-        }
-        scheduler.scheduleAtFixedRate({
-            val now = System.currentTimeMillis()
-            sessions.entries.removeIf { it.value.expiresAt < now }
-        }, 1, 1, TimeUnit.HOURS)
-    }
+    private fun sessionKey(token: String) = "session:$token"
+    private fun userSessionsKey(userId: Int) = "user_sessions:$userId"
 
     fun createSession(userId: Int): String {
         val token = UUID.randomUUID().toString()
-        sessions[token] = SessionInfo(userId, System.currentTimeMillis() + sessionDurationMs)
+        jedisPool.resource.use { jedis ->
+            jedis.setex(sessionKey(token), sessionTtlSeconds, userId.toString())
+            jedis.sadd(userSessionsKey(userId), token)
+            jedis.expire(userSessionsKey(userId), sessionTtlSeconds)
+        }
         return token
     }
 
     fun validateSession(token: String): Int? {
-        val session = sessions[token] ?: return null
-        if (session.expiresAt < System.currentTimeMillis()) {
-            sessions.remove(token)
-            return null
+        return jedisPool.resource.use { jedis ->
+            jedis.get(sessionKey(token))?.toIntOrNull()
         }
-        return session.userId
     }
 
     fun invalidateSession(token: String) {
-        sessions.remove(token)
+        jedisPool.resource.use { jedis ->
+            val userId = jedis.get(sessionKey(token))?.toIntOrNull()
+            jedis.del(sessionKey(token))
+            if (userId != null) {
+                jedis.srem(userSessionsKey(userId), token)
+            }
+        }
     }
 
     fun invalidateSessionsForUser(userId: Int) {
-        sessions.entries.removeIf { it.value.userId == userId }
+        jedisPool.resource.use { jedis ->
+            val tokens = jedis.smembers(userSessionsKey(userId))
+            if (tokens.isNotEmpty()) {
+                jedis.del(*tokens.map { sessionKey(it) }.toTypedArray())
+            }
+            jedis.del(userSessionsKey(userId))
+        }
     }
 }

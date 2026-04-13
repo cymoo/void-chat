@@ -15,7 +15,8 @@ class RoomMemberRepository(private val dsl: DSLContext) {
             .set(ROOM_MEMBERS.ROOM_ID, roomId)
             .set(ROOM_MEMBERS.USER_ID, userId)
             .set(ROOM_MEMBERS.ROLE, role)
-            .onDuplicateKeyIgnore()
+            .onConflict(ROOM_MEMBERS.ROOM_ID, ROOM_MEMBERS.USER_ID)
+            .doNothing()
             .execute()
     }
 

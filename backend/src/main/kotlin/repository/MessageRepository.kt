@@ -12,7 +12,7 @@ import java.time.ZoneOffset
 
 class MessageRepository(private val dsl: DSLContext) {
     private val visibleRoomMessageCondition = MESSAGES.MESSAGE_TYPE.ne("system")
-        .and(MESSAGES.IS_DELETED.eq(0).or(MESSAGES.IS_DELETED.isNull))
+        .and(MESSAGES.IS_DELETED.eq(false))
 
     private val messageSelectFields = arrayOf(
         MESSAGES.ID,
@@ -81,7 +81,7 @@ class MessageRepository(private val dsl: DSLContext) {
             .set(MESSAGES.MESSAGE_TYPE, "file")
             .set(MESSAGES.FILE_NAME, fileName)
             .set(MESSAGES.FILE_URL, fileUrl)
-            .set(MESSAGES.FILE_SIZE, toSqliteInt(fileSize, "fileSize"))
+            .set(MESSAGES.FILE_SIZE, fileSize)
             .set(MESSAGES.MIME_TYPE, mimeType)
 
         if (replyToId != null) {
@@ -116,7 +116,7 @@ class MessageRepository(private val dsl: DSLContext) {
 
     fun softDeleteMessage(messageId: Int, userId: Int): Boolean {
         val updated = dsl.update(MESSAGES)
-            .set(MESSAGES.IS_DELETED, 1)
+            .set(MESSAGES.IS_DELETED, true)
             .where(MESSAGES.ID.eq(messageId))
             .and(MESSAGES.USER_ID.eq(userId))
             .execute()
@@ -125,7 +125,7 @@ class MessageRepository(private val dsl: DSLContext) {
 
     fun adminDeleteMessage(messageId: Int): Boolean {
         val updated = dsl.update(MESSAGES)
-            .set(MESSAGES.IS_DELETED, 1)
+            .set(MESSAGES.IS_DELETED, true)
             .where(MESSAGES.ID.eq(messageId))
             .execute()
         return updated > 0
@@ -210,7 +210,7 @@ class MessageRepository(private val dsl: DSLContext) {
             .from(MESSAGES)
             .leftJoin(USERS).on(MESSAGES.USER_ID.eq(USERS.ID))
             .where(MESSAGES.ID.`in`(replyIds))
-            .and(MESSAGES.IS_DELETED.eq(0).or(MESSAGES.IS_DELETED.isNull))
+            .and(MESSAGES.IS_DELETED.eq(false))
             .fetch()
 
         return records.associate { record ->
@@ -271,7 +271,7 @@ class MessageRepository(private val dsl: DSLContext) {
                 avatarUrl = avatarUrl,
                 fileName = record.get(MESSAGES.FILE_NAME) ?: "",
                 fileUrl = record.get(MESSAGES.FILE_URL) ?: "",
-                fileSize = record.get(MESSAGES.FILE_SIZE)?.toLong() ?: 0L,
+                fileSize = record.get(MESSAGES.FILE_SIZE) ?: 0L,
                 mimeType = record.get(MESSAGES.MIME_TYPE) ?: "application/octet-stream",
                 timestamp = timestamp,
                 replyTo = replyInfo
@@ -289,12 +289,5 @@ class MessageRepository(private val dsl: DSLContext) {
     private fun parseTimestamp(timestamp: LocalDateTime?): Long {
         return timestamp?.toInstant(ZoneOffset.UTC)?.toEpochMilli()
             ?: Instant.now().toEpochMilli()
-    }
-
-    private fun toSqliteInt(value: Long, fieldName: String): Int {
-        require(value in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong()) {
-            "$fieldName out of supported range for this schema: $value"
-        }
-        return value.toInt()
     }
 }

@@ -9,31 +9,32 @@ import org.jooq.impl.DSL
 import javax.sql.DataSource
 
 object DatabaseConfig {
-    private const val DB_PATH = "chat.db"
-    private const val JDBC_URL = "jdbc:sqlite:$DB_PATH"
 
-    fun createDataSource(dbUrl: String): DataSource {
+    fun createDataSource(dbUrl: String, dbUser: String, dbPassword: String): DataSource {
         val config = HikariConfig().apply {
             jdbcUrl = dbUrl
-            driverClassName = "org.sqlite.JDBC"
-            maximumPoolSize = 3
-            minimumIdle = 1
+            username = dbUser
+            password = dbPassword
+            driverClassName = "org.postgresql.Driver"
+            maximumPoolSize = 10
+            minimumIdle = 2
             isAutoCommit = true
-            connectionInitSql = "PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL"
         }
         return HikariDataSource(config)
     }
 
-    fun runMigrations(dataSource: DataSource) {
+    fun runMigrations(dataSource: DataSource, clean: Boolean = false) {
         val flyway = Flyway.configure()
             .dataSource(dataSource)
             .locations("classpath:db/migration")
+            .cleanDisabled(!clean)
             .load()
 
+        if (clean) flyway.clean()
         flyway.migrate()
     }
 
     fun createDSLContext(dataSource: DataSource): DSLContext {
-        return DSL.using(dataSource, SQLDialect.SQLITE)
+        return DSL.using(dataSource, SQLDialect.POSTGRES)
     }
 }

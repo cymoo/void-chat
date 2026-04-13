@@ -1,6 +1,5 @@
 package service
 
-import config.DatabaseConfig
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertThrows
@@ -10,9 +9,7 @@ class InvitationServiceTest {
 
     @Test
     fun `registration mode defaults to open`() {
-        val ds = DatabaseConfig.createDataSource("jdbc:sqlite::memory:")
-        DatabaseConfig.runMigrations(ds)
-        val dsl = DatabaseConfig.createDSLContext(ds)
+        val dsl = TestDatabase.createDsl()
         val invitationService = InvitationService(dsl)
 
         assertEquals("open", invitationService.getRegistrationMode())
@@ -20,9 +17,7 @@ class InvitationServiceTest {
 
     @Test
     fun `invite only mode requires invite code`() {
-        val ds = DatabaseConfig.createDataSource("jdbc:sqlite::memory:")
-        DatabaseConfig.runMigrations(ds)
-        val dsl = DatabaseConfig.createDSLContext(ds)
+        val dsl = TestDatabase.createDsl()
 
         val userService = UserService(dsl)
         val invitationService = InvitationService(dsl)
@@ -44,9 +39,7 @@ class InvitationServiceTest {
 
     @Test
     fun `open mode still accepts optional invite code`() {
-        val ds = DatabaseConfig.createDataSource("jdbc:sqlite::memory:")
-        DatabaseConfig.runMigrations(ds)
-        val dsl = DatabaseConfig.createDSLContext(ds)
+        val dsl = TestDatabase.createDsl()
 
         val userService = UserService(dsl)
         val invitationService = InvitationService(dsl)

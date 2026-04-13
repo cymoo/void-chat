@@ -1,7 +1,6 @@
 package service
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import config.DatabaseConfig
 import io.github.cymoo.colleen.ws.WsConnection
 import io.mockk.*
 import model.User
@@ -15,11 +14,7 @@ import repository.UserRepository
 class ChatServiceTest {
 
     private val objectMapper = jacksonObjectMapper()
-    private val dsl = run {
-        val ds = DatabaseConfig.createDataSource("jdbc:sqlite::memory:")
-        DatabaseConfig.runMigrations(ds)
-        DatabaseConfig.createDSLContext(ds)
-    }
+    private val dsl = TestDatabase.createDsl()
     private val chatService = ChatService(dsl, objectMapper)
     private val userRepo = UserRepository(dsl)
     private val roomRepo = RoomRepository(dsl)

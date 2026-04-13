@@ -1,10 +1,12 @@
 package repository
 
 import chatroom.jooq.generated.Tables.USERS
+import com.github.benmanes.caffeine.cache.Caffeine
 import model.User
 import org.jooq.DSLContext
 import org.jooq.Record
 import service.AuthorizationService
+import java.time.Duration
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
@@ -20,6 +22,11 @@ class UserRepository(private val dsl: DSLContext) {
         USERS.CREATED_AT, USERS.LAST_SEEN, USERS.BIO, USERS.STATUS, USERS.ROLE,
         USERS.IS_DISABLED, USERS.DISABLED_REASON, USERS.MUTED_UNTIL, USERS.MUTE_REASON
     )
+
+    private val userCache = Caffeine.newBuilder()
+        .maximumSize(1000)
+        .expireAfterWrite(Duration.ofMinutes(2))
+        .build<Int, User>()
 
     fun findByUsername(username: String): User? = findByUsernameForAuth(username)?.user
 
@@ -40,11 +47,19 @@ class UserRepository(private val dsl: DSLContext) {
     }
 
     fun findById(id: Int): User? {
+        return userCache.getIfPresent(id) ?: doFindById(id)?.also { userCache.put(id, it) }
+    }
+
+    private fun doFindById(id: Int): User? {
         return dsl.select(*userFields)
             .from(USERS)
             .where(USERS.ID.eq(id))
             .fetchOne()
             ?.let(::mapRecordToUser)
+    }
+
+    fun invalidateCache(userId: Int) {
+        userCache.invalidate(userId)
     }
 
     fun listUsers(): List<User> {
@@ -77,7 +92,7 @@ class UserRepository(private val dsl: DSLContext) {
         return dsl.update(USERS)
             .set(USERS.ROLE, role)
             .where(USERS.ID.eq(userId))
-            .execute() > 0
+            .execute().also { if (it > 0) invalidateCache(userId) } > 0
     }
 
     fun countByRole(role: String): Int {
@@ -90,16 +105,16 @@ class UserRepository(private val dsl: DSLContext) {
         return dsl.fetchCount(
             dsl.selectFrom(USERS)
                 .where(USERS.ROLE.eq(role))
-                .and(USERS.IS_DISABLED.eq(0).or(USERS.IS_DISABLED.isNull))
+                .and(USERS.IS_DISABLED.eq(false))
         )
     }
 
     fun updateDisabled(userId: Int, disabled: Boolean, reason: String?): Boolean {
         return dsl.update(USERS)
-            .set(USERS.IS_DISABLED, if (disabled) 1 else 0)
+            .set(USERS.IS_DISABLED, disabled)
             .set(USERS.DISABLED_REASON, if (disabled) reason else null)
             .where(USERS.ID.eq(userId))
-            .execute() > 0
+            .execute().also { if (it > 0) invalidateCache(userId) } > 0
     }
 
     fun updateMute(userId: Int, mutedUntil: LocalDateTime?, reason: String?): Boolean {
@@ -107,7 +122,7 @@ class UserRepository(private val dsl: DSLContext) {
             .set(USERS.MUTED_UNTIL, mutedUntil)
             .set(USERS.MUTE_REASON, reason)
             .where(USERS.ID.eq(userId))
-            .execute() > 0
+            .execute().also { if (it > 0) invalidateCache(userId) } > 0
     }
 
     fun updateLastSeen(userId: Int) {
@@ -132,11 +147,12 @@ class UserRepository(private val dsl: DSLContext) {
         if (bio != null) step = step.set(USERS.BIO, bio)
         if (status != null) step = step.set(USERS.STATUS, status)
         step.where(USERS.ID.eq(userId)).execute()
+        invalidateCache(userId)
     }
 
     private fun mapRecordToUser(record: Record): User {
         val role = authorizationService.normalizePlatformRole(record.get(USERS.ROLE))
-        val isDisabled = (record.get(USERS.IS_DISABLED) ?: 0) != 0
+        val isDisabled = record.get(USERS.IS_DISABLED) ?: false
         val mutedUntil = parseTimestampOrNull(record.get(USERS.MUTED_UNTIL))
         val now = System.currentTimeMillis()
         val isMuted = mutedUntil?.let { it > now } ?: false

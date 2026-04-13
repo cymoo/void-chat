@@ -1,6 +1,6 @@
-import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import config.DatabaseConfig
+import config.RedisConfig
 import controller.ApiController
 import controller.AuthController
 import controller.ChatController
@@ -45,24 +45,28 @@ fun main() {
         ?: System.getProperty("user.dir")
 
     // Setup database
-    val dbUrl = "jdbc:sqlite:${projectRoot}/chat.db"
-    val dataSource = DatabaseConfig.createDataSource(dbUrl)
+    val dbUrl = System.getenv("DATABASE_URL") ?: "jdbc:postgresql://localhost:5432/void_chat"
+    val dbUser = System.getenv("DATABASE_USER") ?: "postgres"
+    val dbPassword = System.getenv("DATABASE_PASSWORD") ?: "postgres"
+    val dataSource = DatabaseConfig.createDataSource(dbUrl, dbUser, dbPassword)
     DatabaseConfig.runMigrations(dataSource)
     val dsl = DatabaseConfig.createDSLContext(dataSource)
 
+    // Setup Redis
+    val redisUrl = System.getenv("REDIS_URL") ?: "redis://localhost:6379"
+    val jedisPool = RedisConfig.createPool(redisUrl)
+
     // Create ObjectMapper
-    val objectMapper = jacksonObjectMapper().apply {
-        enable(SerializationFeature.INDENT_OUTPUT)
-    }
+    val objectMapper = jacksonObjectMapper()
 
     // Create services
     val authorizationService = AuthorizationService()
     val invitationService = InvitationService(dsl)
     val userService = UserService(dsl, authorizationService)
     val roomService = RoomService(dsl, authorizationService)
-    val chatService = ChatService(dsl, objectMapper)
+    val chatService = ChatService(dsl, objectMapper, jedisPool)
     val fileService = FileService("${projectRoot}/uploads")
-    val sessionService = SessionService()
+    val sessionService = SessionService(jedisPool)
 
     // Middleware
     app.use(RequestLogger())
@@ -73,6 +77,9 @@ fun main() {
     app.addController(ApiController(roomService, fileService, userService, invitationService, sessionService, chatService, authorizationService))
     app.addController(FileController(fileService))
     app.addController(ChatController(userService, chatService, roomService, sessionService, objectMapper))
+
+    // Start Redis pub/sub subscriber for cross-instance messaging
+    chatService.startRedisSubscriber()
 
     app.listen(8000)
     logger.info("✅ Chat API Server running on http://localhost:8000")

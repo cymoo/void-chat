@@ -10,7 +10,7 @@ void-chat/
 │   ├── pom.xml
 │   └── src/main/kotlin/
 │       ├── Main.kt
-│       ├── config/         # Database configuration
+│       ├── config/         # Database & Redis configuration
 │       ├── controller/     # REST & WebSocket controllers
 │       ├── model/          # Data models
 │       ├── repository/     # jOOQ database repositories
@@ -29,8 +29,7 @@ void-chat/
 │   └── tests/
 │       ├── unit/           # Vitest unit tests
 │       └── e2e/            # Playwright E2E tests
-├── uploads/                # Uploaded files
-└── chat.db                 # SQLite database (auto-created)
+└── uploads/                # Uploaded files
 ```
 
 ## Features
@@ -58,9 +57,9 @@ void-chat/
 
 | Layer | Tech |
 |-------|------|
-| Backend | Kotlin, Colleen framework, jOOQ, SQLite, Flyway |
+| Backend | Kotlin, Colleen framework, jOOQ, PostgreSQL, Redis, Flyway |
 | Frontend | React, TypeScript, Vite, Zustand, Tailwind CSS |
-| Testing | Vitest (unit), Playwright (E2E) |
+| Testing | JUnit 5 + MockK (backend), Vitest (unit), Playwright (E2E) |
 
 ## Getting Started
 
@@ -68,14 +67,31 @@ void-chat/
 
 - Java 21+, Maven 3.6+
 - Node.js 20+, npm 10+
+- PostgreSQL 15+
+- Redis 7+
+
+### Database Setup
+
+```bash
+# Create the database (adjust credentials as needed)
+createdb -U postgres void_chat
+```
 
 ### Backend
 
 ```bash
 cd backend
-mvn clean compile
-mvn exec:java
-# Server runs on http://localhost:8000
+mvn clean compile       # Also runs Flyway migrations and jOOQ codegen
+mvn exec:java           # Server runs on http://localhost:8000
+```
+
+Environment variables (all optional, shown with defaults):
+
+```bash
+DATABASE_URL=jdbc:postgresql://localhost:5432/void_chat
+DATABASE_USER=postgres
+DATABASE_PASSWORD=postgres
+REDIS_URL=redis://localhost:6379
 ```
 
 ### Frontend
@@ -90,6 +106,11 @@ npm run dev
 ### Testing
 
 ```bash
+# Backend tests (requires local PostgreSQL with void_chat database)
+cd backend
+mvn test
+
+# Frontend tests
 cd frontend
 npm test          # Vitest unit tests
 npm run test:e2e  # Playwright E2E tests (requires backend running)

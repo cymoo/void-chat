@@ -34,11 +34,13 @@ npm run test:e2e                 # Playwright E2E (requires backend running)
 
 **Frontend** — React 19 + TypeScript + Vite. State management via **Zustand** stores. Real-time communication via a custom `useWebSocket` hook with exponential-backoff reconnection. Styling uses **Tailwind CSS** plus a large custom CSS layer in `src/index.css` for the terminal/brutalist aesthetic.
 
-**Database** — SQLite (`chat.db` at project root) accessed through **jOOQ** (type-safe SQL DSL). Schema managed by **Flyway** migrations in `backend/src/main/resources/db/migration/`. After schema changes, regenerate jOOQ sources with `make codegen`.
+**Database** — PostgreSQL accessed through **jOOQ** (type-safe SQL DSL). Schema managed by **Flyway** migrations in `backend/src/main/resources/db/migration/`. After schema changes, regenerate jOOQ sources with `make codegen`. Connection pooling via HikariCP (pool size 10).
 
-**Auth** — Token-based sessions stored in-memory (`SessionService` with `ConcurrentHashMap`, 7-day expiry). Tokens sent as `Authorization: Bearer <token>` headers (REST) or `?token=` query params (WebSocket). The custom `BearerToken` param extractor auto-injects from the header in controller method signatures.
+**Auth** — Token-based sessions stored in **Redis** (`SessionService` with Jedis, 7-day TTL). Tokens sent as `Authorization: Bearer <token>` headers (REST) or `?token=` query params (WebSocket). The custom `BearerToken` param extractor auto-injects from the header in controller method signatures.
 
-**WebSocket** — All real-time chat goes through `ChatController` at `/chat/{roomId}`. Messages are JSON with a `type` discriminator field. `ChatService` manages room connections, broadcasting, presence, and permissions using concurrent collections with fine-grained per-(roomId, userId) locking.
+**WebSocket** — All real-time chat goes through `ChatController` at `/chat/{roomId}`. Messages are JSON with a `type` discriminator field. `ChatService` manages room connections, broadcasting, presence, and permissions using concurrent collections with fine-grained per-(roomId, userId) locking. Broadcasting uses **Redis pub/sub** for multi-instance readiness — each instance publishes to `room:{roomId}` or `user:{userId}` channels and subscribes to deliver to local connections.
+
+**Caching** — `UserRepository` uses a **Caffeine** local cache (1000 entries, 2-minute TTL) for `findById()` lookups. This eliminates redundant DB queries on the per-message `roomMessageBlockReason()` hot path. Cache is invalidated on role, disable, mute, and profile updates.
 
 ## Key Conventions
 
@@ -52,7 +54,7 @@ npm run test:e2e                 # Playwright E2E (requires backend running)
 - **Soft deletes** for messages (`is_deleted` flag). Never physically delete messages.
 - **Error handling**: Throw `BadRequest`, `Unauthorized`, `NotFound` (Colleen exceptions) in controllers. Services throw `IllegalArgumentException` for business rule violations.
 - **Thread safety**: `ConcurrentHashMap`, `CopyOnWriteArraySet`, per-user locks in `ChatService`. Broadcasts run on a dedicated `ExecutorService`.
-- **Tests** use JUnit 5 + MockK. Test DB is in-memory SQLite (`:memory:`) with Flyway migrations auto-applied. WebSocket connections are mocked. Use `awaitBroadcasts()` helper to wait for async broadcast delivery.
+- **Tests** use JUnit 5 + MockK. Test DB is local PostgreSQL (`void_chat` database, Flyway clean + migrate per test via `TestDatabase.createDsl()`). A shared HikariCP pool is reused across tests with table truncation between runs. WebSocket connections are mocked. Use `awaitBroadcasts()` helper to wait for async broadcast delivery.
 
 ### Frontend (TypeScript / React)
 

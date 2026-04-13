@@ -1,6 +1,5 @@
 package repository
 
-import config.DatabaseConfig
 import org.jooq.DSLContext
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
@@ -16,9 +15,7 @@ class MessageRepositoryTest {
 
     @BeforeEach
     fun setUp() {
-        val ds = DatabaseConfig.createDataSource("jdbc:sqlite::memory:")
-        DatabaseConfig.runMigrations(ds)
-        dsl = DatabaseConfig.createDSLContext(ds)
+        dsl = TestDatabase.createDsl()
         messageRepo = MessageRepository(dsl)
         userRepo = UserRepository(dsl)
 

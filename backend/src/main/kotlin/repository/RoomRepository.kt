@@ -43,7 +43,7 @@ class RoomRepository(private val dsl: DSLContext) {
         val id = dsl.insertInto(ROOMS)
             .set(ROOMS.NAME, name)
             .set(ROOMS.DESCRIPTION, description)
-            .set(ROOMS.IS_PRIVATE, if (isPrivate) 1 else 0)
+            .set(ROOMS.IS_PRIVATE, isPrivate)
             .set(ROOMS.PASSWORD_HASH, passwordHash)
             .set(ROOMS.CREATOR_ID, creatorId)
             .set(ROOMS.MAX_USERS, maxUsers)
@@ -74,7 +74,7 @@ class RoomRepository(private val dsl: DSLContext) {
         return dsl.update(ROOMS)
             .set(ROOMS.NAME, name)
             .set(ROOMS.DESCRIPTION, description)
-            .set(ROOMS.IS_PRIVATE, if (isPrivate) 1 else 0)
+            .set(ROOMS.IS_PRIVATE, isPrivate)
             .set(ROOMS.PASSWORD_HASH, passwordHash)
             .set(ROOMS.MAX_USERS, maxUsers)
             .where(ROOMS.ID.eq(roomId))
@@ -95,7 +95,7 @@ class RoomRepository(private val dsl: DSLContext) {
             id = this.id!!,
             name = this.name!!,
             description = this.description,
-            isPrivate = (this.isPrivate ?: 0) != 0,
+            isPrivate = this.isPrivate ?: false,
             creatorId = this.creatorId,
             createdAt = parseTimestamp(this.createdAt),
             maxUsers = this.maxUsers ?: 100

@@ -1,6 +1,5 @@
 package service
 
-import config.DatabaseConfig
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -17,9 +16,7 @@ class RoomServiceTest {
 
     @BeforeEach
     fun setUp() {
-        val ds = DatabaseConfig.createDataSource("jdbc:sqlite::memory:")
-        DatabaseConfig.runMigrations(ds)
-        dsl = DatabaseConfig.createDSLContext(ds)
+        dsl = TestDatabase.createDsl()
         roomService = RoomService(dsl)
 
         val userRepo = UserRepository(dsl)

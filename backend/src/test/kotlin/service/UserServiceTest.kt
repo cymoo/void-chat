@@ -1,6 +1,5 @@
 package service
 
-import config.DatabaseConfig
 import model.User
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
@@ -13,9 +12,7 @@ class UserServiceTest {
 
     @BeforeEach
     fun setUp() {
-        val ds = DatabaseConfig.createDataSource("jdbc:sqlite::memory:")
-        DatabaseConfig.runMigrations(ds)
-        val dsl = DatabaseConfig.createDSLContext(ds)
+        val dsl = TestDatabase.createDsl()
         userService = UserService(dsl)
     }
 
