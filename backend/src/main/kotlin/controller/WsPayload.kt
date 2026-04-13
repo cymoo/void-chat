@@ -1,0 +1,26 @@
+package controller
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class WsPayload(
+    val type: String,
+    val content: String? = null,
+    val imageUrl: String? = null,
+    val thumbnailUrl: String? = null,
+    val fileName: String? = null,
+    val fileUrl: String? = null,
+    val mimeType: String? = null,
+    val messageId: Int? = null,
+    val targetUserId: Int? = null,
+    val replyToId: Int? = null,
+    val beforeId: Int? = null,
+    val query: String? = null,
+    val role: String? = null,
+    val username: String? = null,
+    val avatarUrl: String? = null,
+    val bio: String? = null,
+    val status: String? = null,
+    val fileSize: Long? = null,
+    val isTyping: Boolean? = null,
+)

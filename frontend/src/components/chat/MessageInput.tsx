@@ -4,13 +4,10 @@ import {
   useEffect,
   useCallback,
   type KeyboardEvent,
-  type ChangeEvent,
-  type ClipboardEvent,
 } from "react";
 import { useChatStore, getMessageContent } from "@/stores/chatStore";
-import { useUiStore } from "@/stores/uiStore";
-import * as api from "@/api/client";
 import { COMMON_EMOJIS } from "@/lib/emojis";
+import { useMessageComposer } from "@/hooks/useMessageComposer";
 import type { User, WsSendPayload } from "@/api/types";
 
 interface MessageInputProps {
@@ -19,62 +16,21 @@ interface MessageInputProps {
 }
 
 export function MessageInput({ send, currentUser }: MessageInputProps) {
-  const [text, setText] = useState("");
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const typingTimerRef = useRef<number | null>(null);
-  const typingStateRef = useRef(false);
   const editingMessageId = useChatStore((s) => s.editingMessageId);
   const replyingTo = useChatStore((s) => s.replyingTo);
   const setEditingMessage = useChatStore((s) => s.setEditingMessage);
   const setReplyingTo = useChatStore((s) => s.setReplyingTo);
   const messages = useChatStore((s) => s.messages);
   const users = useChatStore((s) => s.users);
-  const addToast = useUiStore((s) => s.addToast);
-  const canSend = text.trim().length > 0;
-  const [emojiOpen, setEmojiOpen] = useState(false);
-  const emojiPickerRef = useRef<HTMLDivElement>(null);
 
-  // Mention dropdown
+  // Typing indicator refs
+  const typingTimerRef = useRef<number | null>(null);
+  const typingStateRef = useRef(false);
+
+  // Mention dropdown state
   const [, setMentionQuery] = useState<string | null>(null);
   const [mentionResults, setMentionResults] = useState<typeof users>([]);
   const [mentionIndex, setMentionIndex] = useState(0);
-
-  // Populate edit text
-  useEffect(() => {
-    if (editingMessageId) {
-      const msg = messages.find((m) => m.id === editingMessageId);
-      if (msg) {
-        setText(getMessageContent(msg));
-        textareaRef.current?.focus();
-      }
-    }
-  }, [editingMessageId, messages]);
-
-  // Auto-resize textarea
-  const autoResize = useCallback(() => {
-    const el = textareaRef.current;
-    if (el) {
-      el.style.height = "auto";
-      el.style.height = Math.min(el.scrollHeight, 200) + "px";
-    }
-  }, []);
-
-  useEffect(() => {
-    autoResize();
-  }, [text, autoResize]);
-
-  useEffect(() => {
-    if (!emojiOpen) return;
-    const handlePointerDown = (event: MouseEvent) => {
-      const target = event.target as Node | null;
-      if (!target) return;
-      if (!emojiPickerRef.current?.contains(target)) {
-        setEmojiOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handlePointerDown);
-    return () => document.removeEventListener("mousedown", handlePointerDown);
-  }, [emojiOpen]);
 
   const sendTyping = useCallback(
     (isTyping: boolean) => {
@@ -95,6 +51,114 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
     }, 1500);
   }, [sendTyping]);
 
+  // Stable ref for replyingTo so the onSubmit/onImageUploaded closures read the latest value
+  const replyingToRef = useRef(replyingTo);
+  replyingToRef.current = replyingTo;
+
+  const onSubmit = useCallback(
+    (text: string) => {
+      if (editingMessageId) {
+        send({ type: "edit", messageId: editingMessageId, content: text });
+        setEditingMessage(null);
+      } else {
+        const payload: WsSendPayload = { type: "text", content: text };
+        if (replyingToRef.current) {
+          payload.replyToId = replyingToRef.current.id;
+        }
+        send(payload);
+        setReplyingTo(null);
+      }
+      if (typingTimerRef.current !== null) {
+        window.clearTimeout(typingTimerRef.current);
+        typingTimerRef.current = null;
+      }
+      sendTyping(false);
+    },
+    [editingMessageId, send, sendTyping, setEditingMessage, setReplyingTo],
+  );
+
+  const onImageUploaded = useCallback(
+    (url: string, thumbnailUrl?: string) => {
+      const payload: WsSendPayload = { type: "image", imageUrl: url, thumbnailUrl };
+      if (replyingToRef.current) {
+        payload.replyToId = replyingToRef.current.id;
+      }
+      send(payload);
+      if (replyingToRef.current) {
+        setReplyingTo(null);
+      }
+    },
+    [send, setReplyingTo],
+  );
+
+  const onFileUploaded = useCallback(
+    (fileName: string, fileUrl: string, fileSize: number, mimeType: string) => {
+      const payload: WsSendPayload = { type: "file", fileName, fileUrl, fileSize, mimeType };
+      if (replyingToRef.current) {
+        payload.replyToId = replyingToRef.current.id;
+      }
+      send(payload);
+      if (replyingToRef.current) {
+        setReplyingTo(null);
+      }
+    },
+    [send, setReplyingTo],
+  );
+
+  const onTextChange = useCallback(
+    (val: string, textarea: HTMLTextAreaElement | null) => {
+      // Typing indicator
+      if (val.trim().length > 0) {
+        sendTyping(true);
+        scheduleStopTyping();
+      } else {
+        if (typingTimerRef.current !== null) {
+          window.clearTimeout(typingTimerRef.current);
+          typingTimerRef.current = null;
+        }
+        sendTyping(false);
+      }
+
+      // Mention detection
+      const cursorPos = textarea?.selectionStart ?? val.length;
+      const textBeforeCursor = val.slice(0, cursorPos);
+      const mentionMatch = textBeforeCursor.match(/@(\w*)$/);
+
+      if (mentionMatch) {
+        const query = mentionMatch[1]!.toLowerCase();
+        setMentionQuery(query);
+        const filtered = users
+          .filter((u) => u.id !== currentUser.id && u.username.toLowerCase().includes(query))
+          .slice(0, 5);
+        setMentionResults(filtered);
+        setMentionIndex(0);
+      } else {
+        setMentionQuery(null);
+        setMentionResults([]);
+      }
+    },
+    [currentUser.id, scheduleStopTyping, sendTyping, users],
+  );
+
+  const composer = useMessageComposer({
+    onSubmit,
+    onImageUploaded,
+    onFileUploaded,
+    onTextChange,
+  });
+
+  // Populate edit text
+  useEffect(() => {
+    if (editingMessageId) {
+      const msg = messages.find((m) => m.id === editingMessageId);
+      if (msg) {
+        composer.setText(getMessageContent(msg));
+        composer.textareaRef.current?.focus();
+      }
+    }
+  }, [editingMessageId, messages, composer]);
+
+  // Cleanup typing on unmount
   useEffect(
     () => () => {
       if (typingTimerRef.current !== null) {
@@ -105,128 +169,21 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
     [sendTyping],
   );
 
-  const handleChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
-    const val = e.target.value;
-    setText(val);
-    if (val.trim().length > 0) {
-      sendTyping(true);
-      scheduleStopTyping();
-    } else {
-      if (typingTimerRef.current !== null) {
-        window.clearTimeout(typingTimerRef.current);
-        typingTimerRef.current = null;
-      }
-      sendTyping(false);
-    }
-
-    // Check for @mention
-    const cursorPos = e.target.selectionStart;
-    const textBeforeCursor = val.slice(0, cursorPos);
-    const mentionMatch = textBeforeCursor.match(/@(\w*)$/);
-
-    if (mentionMatch) {
-      const query = mentionMatch[1]!.toLowerCase();
-      setMentionQuery(query);
-      const filtered = users
-        .filter((u) => u.id !== currentUser.id && u.username.toLowerCase().includes(query))
-        .slice(0, 5);
-      setMentionResults(filtered);
-      setMentionIndex(0);
-    } else {
-      setMentionQuery(null);
-      setMentionResults([]);
-    }
-  };
-
   const insertMention = (username: string) => {
-    const el = textareaRef.current;
+    const el = composer.textareaRef.current;
     if (!el) return;
     const cursorPos = el.selectionStart;
-    const textBefore = text.slice(0, cursorPos);
-    const textAfter = text.slice(cursorPos);
+    const textBefore = composer.text.slice(0, cursorPos);
+    const textAfter = composer.text.slice(cursorPos);
     const newTextBefore = textBefore.replace(/@\w*$/, `@${username} `);
-    setText(newTextBefore + textAfter);
+    composer.setText(newTextBefore + textAfter);
     setMentionQuery(null);
     setMentionResults([]);
     el.focus();
   };
 
-  const insertAtCursor = useCallback(
-    (content: string) => {
-      const el = textareaRef.current;
-      if (!el) {
-        setText((prev) => prev + content);
-        return;
-      }
-      const start = el.selectionStart;
-      const end = el.selectionEnd;
-      const nextValue = `${text.slice(0, start)}${content}${text.slice(end)}`;
-      setText(nextValue);
-      requestAnimationFrame(() => {
-        const caret = start + content.length;
-        el.focus();
-        el.setSelectionRange(caret, caret);
-      });
-    },
-    [text],
-  );
-
-  const handleSelectEmoji = (emoji: string) => {
-    insertAtCursor(emoji);
-    setEmojiOpen(false);
-  };
-
-  const sendImageMessage = useCallback(
-    async (file: File) => {
-      try {
-        const result = await api.uploadImage(file);
-        if (result.url) {
-          const payload: WsSendPayload = {
-            type: "image",
-            imageUrl: result.url,
-            thumbnailUrl: result.thumbnail ?? undefined,
-          };
-          if (replyingTo) {
-            payload.replyToId = replyingTo.id;
-          }
-          send(payload);
-          if (replyingTo) {
-            setReplyingTo(null);
-          }
-        }
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : "图片上传失败";
-        addToast(msg, "error");
-      }
-    },
-    [addToast, replyingTo, send, setReplyingTo],
-  );
-
-  const handleSend = () => {
-    const trimmed = text.trim();
-    if (!trimmed) return;
-
-    if (editingMessageId) {
-      send({ type: "edit", messageId: editingMessageId, content: trimmed });
-      setEditingMessage(null);
-    } else {
-      const payload: WsSendPayload = { type: "text", content: trimmed };
-      if (replyingTo) {
-        payload.replyToId = replyingTo.id;
-      }
-      send(payload);
-      setReplyingTo(null);
-    }
-    if (typingTimerRef.current !== null) {
-      window.clearTimeout(typingTimerRef.current);
-      typingTimerRef.current = null;
-    }
-    sendTyping(false);
-    setText("");
-  };
-
+  // Wrap the base handleKeyDown to intercept mention navigation
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    // Mention navigation
     if (mentionResults.length > 0) {
       if (e.key === "ArrowDown") {
         e.preventDefault();
@@ -249,60 +206,13 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
         return;
       }
     }
-
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
-
-  const handleAttach = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.type.startsWith("image/")) {
-      await sendImageMessage(file);
-    } else {
-      try {
-        const result = await api.uploadFile(file);
-        if (result.url) {
-          const payload: WsSendPayload = {
-            type: "file",
-            fileName: result.fileName ?? file.name,
-            fileUrl: result.url,
-            fileSize: result.fileSize ?? file.size,
-            mimeType: file.type,
-          };
-          if (replyingTo) {
-            payload.replyToId = replyingTo.id;
-          }
-          send(payload);
-          if (replyingTo) {
-            setReplyingTo(null);
-          }
-        }
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : "File upload failed";
-        addToast(msg, "error");
-      }
-    }
-    e.target.value = "";
+    composer.handleKeyDown(e);
   };
 
   const cancelIndicator = () => {
     setEditingMessage(null);
     setReplyingTo(null);
-    setText("");
-  };
-
-  const handlePaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
-    const imageItem = Array.from(e.clipboardData.items).find((item) =>
-      item.type.startsWith("image/"),
-    );
-    if (!imageItem) return;
-    const file = imageItem.getAsFile();
-    if (!file) return;
-    e.preventDefault();
-    void sendImageMessage(file);
+    composer.setText("");
   };
 
   return (
@@ -340,29 +250,29 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
       <div className="input-panel">
         <div className="input-wrapper">
           <textarea
-            ref={textareaRef}
+            ref={composer.textareaRef}
             className="message-input"
             placeholder="Message..."
             autoComplete="off"
             rows={1}
-            value={text}
-            onChange={handleChange}
+            value={composer.text}
+            onChange={composer.handleChange}
             onKeyDown={handleKeyDown}
-            onPaste={handlePaste}
+            onPaste={composer.handlePaste}
             onBlur={() => sendTyping(false)}
           />
           <div className="input-actions">
-            <div className="emoji-picker-wrapper" ref={emojiPickerRef}>
+            <div className="emoji-picker-wrapper" ref={composer.emojiPickerRef}>
               <button
                 type="button"
-                className={`icon-btn emoji-toggle-btn${emojiOpen ? " active" : ""}`}
+                className={`icon-btn emoji-toggle-btn${composer.emojiOpen ? " active" : ""}`}
                 title="Insert Emoji"
                 aria-label="Insert emoji"
-                onClick={() => setEmojiOpen((open) => !open)}
+                onClick={() => composer.setEmojiOpen(!composer.emojiOpen)}
               >
                 🙂
               </button>
-              {emojiOpen && (
+              {composer.emojiOpen && (
                 <div className="emoji-picker" role="menu" aria-label="Emoji picker">
                   <div className="emoji-grid">
                     {COMMON_EMOJIS.map((emoji) => (
@@ -370,7 +280,7 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
                         key={emoji}
                         type="button"
                         className="emoji-btn"
-                        onClick={() => handleSelectEmoji(emoji)}
+                        onClick={() => composer.handleSelectEmoji(emoji)}
                       >
                         {emoji}
                       </button>
@@ -386,15 +296,15 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
               <input
                 type="file"
                 style={{ display: "none" }}
-                onChange={handleAttach}
+                onChange={composer.handleAttach}
               />
             </label>
           </div>
           <button
             type="button"
             className="icon-btn send-btn"
-            onClick={handleSend}
-            disabled={!canSend}
+            onClick={composer.handleSend}
+            disabled={!composer.canSend}
             aria-label="Send message"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

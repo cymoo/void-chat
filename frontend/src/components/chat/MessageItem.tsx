@@ -3,7 +3,8 @@ import { useChatStore } from "@/stores/chatStore";
 import { useUiStore } from "@/stores/uiStore";
 import { renderMarkdown, highlightMentions } from "@/lib/markdown";
 import { requestMessageJump } from "@/lib/messageJump";
-import { formatTime, formatFileSize, getInitials } from "@/lib/utils";
+import { formatTime, getInitials } from "@/lib/utils";
+import { MessageContent } from "@/components/chat/MessageContent";
 import type { ChatMessage, User, WsSendPayload } from "@/api/types";
 
 interface MessageItemProps {
@@ -64,51 +65,33 @@ function MessageItemInner({
   const renderContent = () => {
     if (message.messageType === "text") {
       return (
-        <>
-          <div
-            className="message-text markdown-body"
-            dangerouslySetInnerHTML={{ __html: textHtml ?? "" }}
-          />
-          {message.editedAt && <span className="edited-tag">(edited)</span>}
-        </>
+        <MessageContent
+          type="text"
+          contentHtml={textHtml ?? ""}
+          editedAt={message.editedAt}
+        />
       );
     }
 
     if (message.messageType === "image") {
       return (
-        <>
-          <div className="message-text">shared an image</div>
-            <img
-              src={message.imageUrl}
-              className="message-image"
-              onClick={() => setImageModal(message.imageUrl)}
-              onLoad={onMediaLoad}
-              alt="Shared image"
-            />
-        </>
+        <MessageContent
+          type="image"
+          imageUrl={message.imageUrl}
+          onImageClick={setImageModal}
+          onMediaLoad={onMediaLoad}
+        />
       );
     }
 
     if (message.messageType === "file") {
       return (
-        <>
-          <div className="message-text">shared a file</div>
-          <div className="message-file">
-            <div className="file-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
-                <polyline points="13 2 13 9 20 9" />
-              </svg>
-            </div>
-            <div className="file-info">
-              <div className="file-name">{message.fileName}</div>
-              <div className="file-size">{formatFileSize(message.fileSize)}</div>
-            </div>
-            <a href={message.fileUrl} download className="file-download">
-              DOWNLOAD
-            </a>
-          </div>
-        </>
+        <MessageContent
+          type="file"
+          fileName={message.fileName}
+          fileUrl={message.fileUrl}
+          fileSize={message.fileSize}
+        />
       );
     }
 

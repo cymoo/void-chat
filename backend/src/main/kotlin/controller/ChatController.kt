@@ -1,5 +1,6 @@
 package controller
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.readValue
 import io.github.cymoo.colleen.Context
 import io.github.cymoo.colleen.Controller
 import io.github.cymoo.colleen.Next
@@ -118,39 +119,13 @@ class ChatController(
         // Handle incoming messages
         conn.onMessage { msg ->
             try {
-                val latestUser = userService.getUserById(currentUser.id)
-                if (latestUser == null || latestUser.isDisabled) {
-                    conn.send(chatService.serializeEvent(WsEvent.Error("Account is disabled")))
-                    conn.close()
-                    return@onMessage
-                }
-                currentUser = latestUser
+                currentUser = validateCurrentUser(conn, currentUser) ?: return@onMessage
+                val p = objectMapper.readValue<WsPayload>(msg)
 
-                val payload = objectMapper.readTree(msg)
-                val type = payload.path("type").asText("")
-                val content = payload.path("content").takeIf { !it.isMissingNode && !it.isNull }?.asText()
-                val imageUrl = payload.path("imageUrl").takeIf { !it.isMissingNode && !it.isNull }?.asText()
-                val thumbnailUrl = payload.path("thumbnailUrl").takeIf { !it.isMissingNode && !it.isNull }?.asText()
-                val fileName = payload.path("fileName").takeIf { !it.isMissingNode && !it.isNull }?.asText()
-                val fileUrl = payload.path("fileUrl").takeIf { !it.isMissingNode && !it.isNull }?.asText()
-                val mimeType = payload.path("mimeType").takeIf { !it.isMissingNode && !it.isNull }?.asText()
-                val messageId = payload.path("messageId").takeIf { !it.isMissingNode && !it.isNull }?.asInt()
-                val targetUserId = payload.path("targetUserId").takeIf { !it.isMissingNode && !it.isNull }?.asInt()
-                val replyToId = payload.path("replyToId").takeIf { !it.isMissingNode && !it.isNull }?.asInt()
-                val beforeId = payload.path("beforeId").takeIf { !it.isMissingNode && !it.isNull }?.asInt()
-                val query = payload.path("query").takeIf { !it.isMissingNode && !it.isNull }?.asText()
-                val role = payload.path("role").takeIf { !it.isMissingNode && !it.isNull }?.asText()
-                val username = payload.path("username").takeIf { !it.isMissingNode && !it.isNull }?.asText()
-                val avatarUrl = payload.path("avatarUrl").takeIf { !it.isMissingNode && !it.isNull }?.asText()
-                val bio = payload.path("bio").takeIf { !it.isMissingNode && !it.isNull }?.asText()
-                val status = payload.path("status").takeIf { !it.isMissingNode && !it.isNull }?.asText()
-                val fileSize = payload.path("fileSize").takeIf { !it.isMissingNode && !it.isNull }?.asLong()
-                val isTyping = payload.path("isTyping").takeIf { !it.isMissingNode && !it.isNull }?.asBoolean()
-
-                when (type) {
+                when (p.type) {
                     "text" -> {
-                        content?.let { text ->
-                            val sent = chatService.sendTextMessage(roomId, currentUser, text, replyToId)
+                        p.content?.let { text ->
+                            val sent = chatService.sendTextMessage(roomId, currentUser, text, p.replyToId)
                             if (!sent) {
                                 conn.send(chatService.serializeEvent(WsEvent.Error(
                                     chatService.roomMessageBlockReason(currentUser.id)
@@ -160,8 +135,8 @@ class ChatController(
                         }
                     }
                     "image" -> {
-                        imageUrl?.let { image ->
-                            val sent = chatService.sendImageMessage(roomId, currentUser, image, thumbnailUrl, replyToId)
+                        p.imageUrl?.let { image ->
+                            val sent = chatService.sendImageMessage(roomId, currentUser, image, p.thumbnailUrl, p.replyToId)
                             if (!sent) {
                                 conn.send(chatService.serializeEvent(WsEvent.Error(
                                     chatService.roomMessageBlockReason(currentUser.id)
@@ -171,11 +146,11 @@ class ChatController(
                         }
                     }
                     "file" -> {
-                        if (fileName != null && fileUrl != null &&
-                            fileSize != null && mimeType != null) {
+                        if (p.fileName != null && p.fileUrl != null &&
+                            p.fileSize != null && p.mimeType != null) {
                             val sent = chatService.sendFileMessage(
-                                roomId, currentUser, fileName, fileUrl,
-                                fileSize, mimeType, replyToId
+                                roomId, currentUser, p.fileName, p.fileUrl,
+                                p.fileSize, p.mimeType, p.replyToId
                             )
                             if (!sent) {
                                 conn.send(chatService.serializeEvent(WsEvent.Error(
@@ -186,17 +161,17 @@ class ChatController(
                         }
                     }
                     "edit" -> {
-                        if (messageId != null && content != null) {
-                            chatService.editMessage(roomId, currentUser, messageId, content)
+                        if (p.messageId != null && p.content != null) {
+                            chatService.editMessage(roomId, currentUser, p.messageId, p.content)
                         }
                     }
                     "delete" -> {
-                        messageId?.let { id ->
+                        p.messageId?.let { id ->
                             chatService.deleteMessage(roomId, currentUser, id)
                         }
                     }
                     "load_history" -> {
-                        beforeId?.let { id ->
+                        p.beforeId?.let { id ->
                             val (messages, hasMore) = chatService.getOlderMessages(roomId, id)
                             conn.send(chatService.serializeEvent(
                                 WsEvent.History(messages, hasMore)
@@ -204,7 +179,7 @@ class ChatController(
                         }
                     }
                     "search" -> {
-                        query?.let { q ->
+                        p.query?.let { q ->
                             if (q.isNotBlank()) {
                                 val results = chatService.searchMessages(roomId, q)
                                 conn.send(chatService.serializeEvent(
@@ -214,67 +189,23 @@ class ChatController(
                         }
                     }
                     "typing" -> {
-                        isTyping?.let { typing ->
+                        p.isTyping?.let { typing ->
                             chatService.sendTypingStatus(roomId, currentUser, typing)
                         }
                     }
-                    "private_message" -> {
-                        if (targetUserId != null) {
-                            when {
-                                content != null -> {
-                                    chatService.sendPrivateMessage(
-                                        sender = currentUser,
-                                        receiverId = targetUserId,
-                                        messageType = "text",
-                                        content = content
-                                    )
-                                }
-                                imageUrl != null -> {
-                                    chatService.sendPrivateMessage(
-                                        sender = currentUser,
-                                        receiverId = targetUserId,
-                                        messageType = "image",
-                                        fileUrl = imageUrl,
-                                        thumbnailUrl = thumbnailUrl
-                                    )
-                                }
-                                fileUrl != null && fileName != null && fileSize != null && mimeType != null -> {
-                                    chatService.sendPrivateMessage(
-                                        sender = currentUser,
-                                        receiverId = targetUserId,
-                                        messageType = "file",
-                                        fileUrl = fileUrl,
-                                        fileName = fileName,
-                                        fileSize = fileSize,
-                                        mimeType = mimeType
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    "private_history" -> {
-                        targetUserId?.let { userId ->
-                            val (messages, hasMore) = chatService.getPrivateHistory(currentUser.id, userId, beforeId)
-                            conn.send(chatService.serializeEvent(
-                                WsEvent.PrivateHistory(messages, hasMore)
-                            ))
-                        }
-                    }
-                    "mark_read" -> {
-                        targetUserId?.let { userId ->
-                            chatService.markPrivateMessagesRead(currentUser.id, userId)
-                        }
-                    }
+                    "private_message" -> handlePrivateMessage(conn, currentUser, p)
+                    "private_history" -> handlePrivateHistory(conn, currentUser, p)
+                    "mark_read" -> handleMarkRead(currentUser, p)
                     "set_role" -> {
-                        if (targetUserId != null && role != null) {
-                            val ok = chatService.setUserRole(roomId, currentUser, targetUserId, role)
+                        if (p.targetUserId != null && p.role != null) {
+                            val ok = chatService.setUserRole(roomId, currentUser, p.targetUserId, p.role)
                             if (!ok) {
                                 conn.send(chatService.serializeEvent(WsEvent.Error("Permission denied for role change")))
                             }
                         }
                     }
                     "kick" -> {
-                        targetUserId?.let { userId ->
+                        p.targetUserId?.let { userId ->
                             val ok = chatService.kickUser(roomId, currentUser, userId)
                             if (!ok) {
                                 conn.send(chatService.serializeEvent(WsEvent.Error("Permission denied for kick action")))
@@ -287,17 +218,7 @@ class ChatController(
                         }
                     }
                     "update_profile" -> {
-                        val updated = userService.updateProfile(
-                            userId = currentUser.id,
-                            username = username,
-                            avatarUrl = avatarUrl,
-                            bio = bio,
-                            status = status
-                        )
-                        if (updated != null) {
-                            currentUser = updated
-                            chatService.broadcastUserUpdate(updated)
-                        }
+                        currentUser = handleUpdateProfile(currentUser, p) ?: currentUser
                     }
                 }
             } catch (e: Exception) {
@@ -334,88 +255,15 @@ class ChatController(
 
         conn.onMessage { msg ->
             try {
-                val latestUser = userService.getUserById(currentUser.id)
-                if (latestUser == null || latestUser.isDisabled) {
-                    conn.send(chatService.serializeEvent(WsEvent.Error("Account is disabled")))
-                    conn.close()
-                    return@onMessage
-                }
-                currentUser = latestUser
+                currentUser = validateCurrentUser(conn, currentUser) ?: return@onMessage
+                val p = objectMapper.readValue<WsPayload>(msg)
 
-                val payload = objectMapper.readTree(msg)
-                val type = payload.path("type").asText("")
-                val content = payload.path("content").takeIf { !it.isMissingNode && !it.isNull }?.asText()
-                val imageUrl = payload.path("imageUrl").takeIf { !it.isMissingNode && !it.isNull }?.asText()
-                val thumbnailUrl = payload.path("thumbnailUrl").takeIf { !it.isMissingNode && !it.isNull }?.asText()
-                val fileName = payload.path("fileName").takeIf { !it.isMissingNode && !it.isNull }?.asText()
-                val fileUrl = payload.path("fileUrl").takeIf { !it.isMissingNode && !it.isNull }?.asText()
-                val mimeType = payload.path("mimeType").takeIf { !it.isMissingNode && !it.isNull }?.asText()
-                val targetUserId = payload.path("targetUserId").takeIf { !it.isMissingNode && !it.isNull }?.asInt()
-                val beforeId = payload.path("beforeId").takeIf { !it.isMissingNode && !it.isNull }?.asInt()
-                val username = payload.path("username").takeIf { !it.isMissingNode && !it.isNull }?.asText()
-                val avatarUrl = payload.path("avatarUrl").takeIf { !it.isMissingNode && !it.isNull }?.asText()
-                val bio = payload.path("bio").takeIf { !it.isMissingNode && !it.isNull }?.asText()
-                val status = payload.path("status").takeIf { !it.isMissingNode && !it.isNull }?.asText()
-                val fileSize = payload.path("fileSize").takeIf { !it.isMissingNode && !it.isNull }?.asLong()
-
-                when (type) {
-                    "private_message" -> {
-                        if (targetUserId != null) {
-                            when {
-                                content != null -> {
-                                    chatService.sendPrivateMessage(
-                                        sender = currentUser,
-                                        receiverId = targetUserId,
-                                        messageType = "text",
-                                        content = content
-                                    )
-                                }
-                                imageUrl != null -> {
-                                    chatService.sendPrivateMessage(
-                                        sender = currentUser,
-                                        receiverId = targetUserId,
-                                        messageType = "image",
-                                        fileUrl = imageUrl,
-                                        thumbnailUrl = thumbnailUrl
-                                    )
-                                }
-                                fileUrl != null && fileName != null && fileSize != null && mimeType != null -> {
-                                    chatService.sendPrivateMessage(
-                                        sender = currentUser,
-                                        receiverId = targetUserId,
-                                        messageType = "file",
-                                        fileUrl = fileUrl,
-                                        fileName = fileName,
-                                        fileSize = fileSize,
-                                        mimeType = mimeType
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    "private_history" -> {
-                        targetUserId?.let { userId ->
-                            val (messages, hasMore) = chatService.getPrivateHistory(currentUser.id, userId, beforeId)
-                            conn.send(chatService.serializeEvent(WsEvent.PrivateHistory(messages, hasMore)))
-                        }
-                    }
-                    "mark_read" -> {
-                        targetUserId?.let { userId ->
-                            chatService.markPrivateMessagesRead(currentUser.id, userId)
-                        }
-                    }
+                when (p.type) {
+                    "private_message" -> handlePrivateMessage(conn, currentUser, p)
+                    "private_history" -> handlePrivateHistory(conn, currentUser, p)
+                    "mark_read" -> handleMarkRead(currentUser, p)
                     "update_profile" -> {
-                        val updated = userService.updateProfile(
-                            userId = currentUser.id,
-                            username = username,
-                            avatarUrl = avatarUrl,
-                            bio = bio,
-                            status = status
-                        )
-                        if (updated != null) {
-                            currentUser = updated
-                            chatService.broadcastUserUpdate(updated)
-                        }
+                        currentUser = handleUpdateProfile(currentUser, p) ?: currentUser
                     }
                 }
             } catch (e: Exception) {
@@ -433,5 +281,76 @@ class ChatController(
         conn.onError { error ->
             println("WebSocket DM error for user ${currentUser.username}: ${error.message}")
         }
+    }
+
+    /** Re-fetches user from DB; closes connection and returns null if disabled/deleted. */
+    private fun validateCurrentUser(conn: WsConnection, currentUser: User): User? {
+        val latest = userService.getUserById(currentUser.id)
+        if (latest == null || latest.isDisabled) {
+            conn.send(chatService.serializeEvent(WsEvent.Error("Account is disabled")))
+            conn.close()
+            return null
+        }
+        return latest
+    }
+
+    private fun handlePrivateMessage(conn: WsConnection, sender: User, p: WsPayload) {
+        val targetUserId = p.targetUserId ?: return
+        when {
+            p.content != null -> {
+                chatService.sendPrivateMessage(
+                    sender = sender,
+                    receiverId = targetUserId,
+                    messageType = "text",
+                    content = p.content
+                )
+            }
+            p.imageUrl != null -> {
+                chatService.sendPrivateMessage(
+                    sender = sender,
+                    receiverId = targetUserId,
+                    messageType = "image",
+                    fileUrl = p.imageUrl,
+                    thumbnailUrl = p.thumbnailUrl
+                )
+            }
+            p.fileUrl != null && p.fileName != null && p.fileSize != null && p.mimeType != null -> {
+                chatService.sendPrivateMessage(
+                    sender = sender,
+                    receiverId = targetUserId,
+                    messageType = "file",
+                    fileUrl = p.fileUrl,
+                    fileName = p.fileName,
+                    fileSize = p.fileSize,
+                    mimeType = p.mimeType
+                )
+            }
+        }
+    }
+
+    private fun handlePrivateHistory(conn: WsConnection, currentUser: User, p: WsPayload) {
+        val userId = p.targetUserId ?: return
+        val (messages, hasMore) = chatService.getPrivateHistory(currentUser.id, userId, p.beforeId)
+        conn.send(chatService.serializeEvent(WsEvent.PrivateHistory(messages, hasMore)))
+    }
+
+    private fun handleMarkRead(currentUser: User, p: WsPayload) {
+        val userId = p.targetUserId ?: return
+        chatService.markPrivateMessagesRead(currentUser.id, userId)
+    }
+
+    /** Returns updated user, or null if nothing changed. */
+    private fun handleUpdateProfile(currentUser: User, p: WsPayload): User? {
+        val updated = userService.updateProfile(
+            userId = currentUser.id,
+            username = p.username,
+            avatarUrl = p.avatarUrl,
+            bio = p.bio,
+            status = p.status
+        )
+        if (updated != null) {
+            chatService.broadcastUserUpdate(updated)
+        }
+        return updated
     }
 }
