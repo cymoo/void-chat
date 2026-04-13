@@ -2,7 +2,7 @@ package repository
 
 import chatroom.jooq.generated.Tables.SYSTEM_SETTINGS
 import org.jooq.DSLContext
-import java.time.LocalDateTime
+import java.time.OffsetDateTime
 import java.time.ZoneOffset
 
 class SystemSettingRepository(private val dsl: DSLContext) {
@@ -18,11 +18,11 @@ class SystemSettingRepository(private val dsl: DSLContext) {
         dsl.insertInto(SYSTEM_SETTINGS)
             .set(SYSTEM_SETTINGS.KEY, key)
             .set(SYSTEM_SETTINGS.VALUE, value)
-            .set(SYSTEM_SETTINGS.UPDATED_AT, LocalDateTime.now(ZoneOffset.UTC))
+            .set(SYSTEM_SETTINGS.UPDATED_AT, OffsetDateTime.now(ZoneOffset.UTC))
             .onConflict(SYSTEM_SETTINGS.KEY)
             .doUpdate()
             .set(SYSTEM_SETTINGS.VALUE, value)
-            .set(SYSTEM_SETTINGS.UPDATED_AT, LocalDateTime.now(ZoneOffset.UTC))
+            .set(SYSTEM_SETTINGS.UPDATED_AT, OffsetDateTime.now(ZoneOffset.UTC))
             .execute()
     }
 }

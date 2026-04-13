@@ -7,7 +7,7 @@ import model.ReplyInfo
 import org.jooq.DSLContext
 import org.jooq.Record
 import java.time.Instant
-import java.time.LocalDateTime
+import java.time.OffsetDateTime
 import java.time.ZoneOffset
 
 class MessageRepository(private val dsl: DSLContext) {
@@ -106,7 +106,7 @@ class MessageRepository(private val dsl: DSLContext) {
     fun updateMessage(messageId: Int, userId: Int, content: String): Boolean {
         val updated = dsl.update(MESSAGES)
             .set(MESSAGES.CONTENT, content)
-            .set(MESSAGES.EDITED_AT, LocalDateTime.now(ZoneOffset.UTC))
+            .set(MESSAGES.EDITED_AT, OffsetDateTime.now(ZoneOffset.UTC))
             .where(MESSAGES.ID.eq(messageId))
             .and(MESSAGES.USER_ID.eq(userId))
             .and(MESSAGES.MESSAGE_TYPE.eq("text"))
@@ -286,8 +286,8 @@ class MessageRepository(private val dsl: DSLContext) {
         }
     }
 
-    private fun parseTimestamp(timestamp: LocalDateTime?): Long {
-        return timestamp?.toInstant(ZoneOffset.UTC)?.toEpochMilli()
+    private fun parseTimestamp(timestamp: OffsetDateTime?): Long {
+        return timestamp?.toInstant()?.toEpochMilli()
             ?: Instant.now().toEpochMilli()
     }
 }

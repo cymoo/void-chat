@@ -5,8 +5,7 @@ import chatroom.jooq.generated.Tables.USERS
 import model.User
 import org.jooq.DSLContext
 import java.time.Instant
-import java.time.LocalDateTime
-import java.time.ZoneOffset
+import java.time.OffsetDateTime
 
 class RoomMemberRepository(private val dsl: DSLContext) {
 
@@ -66,8 +65,8 @@ class RoomMemberRepository(private val dsl: DSLContext) {
             .execute()
     }
 
-    private fun parseTimestamp(timestamp: LocalDateTime?): Long {
-        return timestamp?.toInstant(ZoneOffset.UTC)?.toEpochMilli()
+    private fun parseTimestamp(timestamp: OffsetDateTime?): Long {
+        return timestamp?.toInstant()?.toEpochMilli()
             ?: Instant.now().toEpochMilli()
     }
 }

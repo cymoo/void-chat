@@ -9,7 +9,7 @@ import repository.SystemSettingRepository
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.security.SecureRandom
-import java.time.LocalDateTime
+import java.time.OffsetDateTime
 import java.time.ZoneOffset
 import java.util.Base64
 
@@ -49,7 +49,7 @@ class InvitationService(dsl: DSLContext) {
             throw IllegalArgumentException("expiresInHours must be greater than 0")
         }
 
-        val now = LocalDateTime.now(ZoneOffset.UTC)
+        val now = OffsetDateTime.now(ZoneOffset.UTC)
         val expiresAt = when {
             expiresInHours != null -> now.plusHours(expiresInHours.toLong())
             else -> now.plusHours(DEFAULT_INVITE_EXPIRY_HOURS.toLong())
@@ -80,7 +80,7 @@ class InvitationService(dsl: DSLContext) {
     fun listInvites(): List<InviteLink> = inviteRepo.listInvites()
 
     fun revokeInvite(inviteId: Int): InviteLink? {
-        val updated = inviteRepo.revoke(inviteId, LocalDateTime.now(ZoneOffset.UTC))
+        val updated = inviteRepo.revoke(inviteId, OffsetDateTime.now(ZoneOffset.UTC))
         if (!updated) return null
         return inviteRepo.findById(inviteId)
     }
@@ -97,7 +97,7 @@ class InvitationService(dsl: DSLContext) {
 
         val consumed = inviteRepo.consumeByHash(
             codeHash = sha256(normalizedCode),
-            nowUtc = LocalDateTime.now(ZoneOffset.UTC)
+            nowUtc = OffsetDateTime.now(ZoneOffset.UTC)
         )
         if (!consumed) {
             throw IllegalArgumentException("Invite code is invalid or expired")

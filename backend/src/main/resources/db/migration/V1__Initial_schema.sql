@@ -8,10 +8,10 @@ CREATE TABLE users (
     role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('super_admin', 'platform_admin', 'user')),
     is_disabled BOOLEAN NOT NULL DEFAULT FALSE,
     disabled_reason TEXT,
-    muted_until TIMESTAMP,
+    muted_until TIMESTAMPTZ,
     mute_reason TEXT,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    last_seen TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_seen TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_users_role ON users(role);
@@ -26,7 +26,7 @@ CREATE TABLE rooms (
     password_hash TEXT,
     creator_id INTEGER REFERENCES users(id),
     max_users INTEGER NOT NULL DEFAULT 100,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE messages (
@@ -40,17 +40,17 @@ CREATE TABLE messages (
     file_size BIGINT,
     mime_type TEXT,
     thumbnail_url TEXT,
-    edited_at TIMESTAMP,
+    edited_at TIMESTAMPTZ,
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     reply_to_id INTEGER REFERENCES messages(id),
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE room_members (
     room_id INTEGER NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     role TEXT NOT NULL DEFAULT 'member',
-    joined_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    joined_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (room_id, user_id)
 );
 
@@ -66,13 +66,13 @@ CREATE TABLE private_messages (
     mime_type TEXT,
     thumbnail_url TEXT,
     is_read BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE system_settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE invite_links (
@@ -82,9 +82,9 @@ CREATE TABLE invite_links (
     created_by INTEGER NOT NULL REFERENCES users(id),
     max_uses INTEGER CHECK (max_uses > 0),
     used_count INTEGER NOT NULL DEFAULT 0 CHECK (used_count >= 0),
-    expires_at TIMESTAMP,
-    revoked_at TIMESTAMP,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMPTZ,
+    revoked_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CHECK (max_uses IS NULL OR used_count <= max_uses)
 );
 

@@ -8,7 +8,7 @@ import org.jooq.Record
 import service.AuthorizationService
 import java.time.Duration
 import java.time.Instant
-import java.time.LocalDateTime
+import java.time.OffsetDateTime
 import java.time.ZoneOffset
 
 /** Internal record that includes sensitive auth fields not exposed in the User model. */
@@ -117,7 +117,7 @@ class UserRepository(private val dsl: DSLContext) {
             .execute().also { if (it > 0) invalidateCache(userId) } > 0
     }
 
-    fun updateMute(userId: Int, mutedUntil: LocalDateTime?, reason: String?): Boolean {
+    fun updateMute(userId: Int, mutedUntil: OffsetDateTime?, reason: String?): Boolean {
         return dsl.update(USERS)
             .set(USERS.MUTED_UNTIL, mutedUntil)
             .set(USERS.MUTE_REASON, reason)
@@ -127,7 +127,7 @@ class UserRepository(private val dsl: DSLContext) {
 
     fun updateLastSeen(userId: Int) {
         dsl.update(USERS)
-            .set(USERS.LAST_SEEN, LocalDateTime.now(ZoneOffset.UTC))
+            .set(USERS.LAST_SEEN, OffsetDateTime.now(ZoneOffset.UTC))
             .where(USERS.ID.eq(userId))
             .execute()
     }
@@ -174,12 +174,12 @@ class UserRepository(private val dsl: DSLContext) {
         )
     }
 
-    private fun parseTimestamp(timestamp: LocalDateTime?): Long {
-        return timestamp?.toInstant(ZoneOffset.UTC)?.toEpochMilli()
+    private fun parseTimestamp(timestamp: OffsetDateTime?): Long {
+        return timestamp?.toInstant()?.toEpochMilli()
             ?: Instant.now().toEpochMilli()
     }
 
-    private fun parseTimestampOrNull(timestamp: LocalDateTime?): Long? {
-        return timestamp?.toInstant(ZoneOffset.UTC)?.toEpochMilli()
+    private fun parseTimestampOrNull(timestamp: OffsetDateTime?): Long? {
+        return timestamp?.toInstant()?.toEpochMilli()
     }
 }

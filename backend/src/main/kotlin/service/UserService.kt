@@ -4,7 +4,7 @@ import model.AuthResponse
 import model.User
 import org.jooq.DSLContext
 import repository.UserRepository
-import java.time.LocalDateTime
+import java.time.OffsetDateTime
 import java.time.ZoneOffset
 import util.PasswordUtils
 
@@ -152,7 +152,7 @@ class UserService(
         val mutedUntil = if (muted) {
             val minutes = durationMinutes ?: 60
             require(minutes in 1..(7 * 24 * 60)) { "Mute duration must be between 1 and 10080 minutes" }
-            LocalDateTime.now(ZoneOffset.UTC).plusMinutes(minutes.toLong())
+            OffsetDateTime.now(ZoneOffset.UTC).plusMinutes(minutes.toLong())
         } else {
             null
         }

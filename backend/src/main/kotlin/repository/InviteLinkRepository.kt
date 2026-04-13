@@ -6,7 +6,7 @@ import model.InviteLink
 import org.jooq.DSLContext
 import org.jooq.Record
 import java.time.Instant
-import java.time.LocalDateTime
+import java.time.OffsetDateTime
 import java.time.ZoneOffset
 
 class InviteLinkRepository(private val dsl: DSLContext) {
@@ -18,7 +18,7 @@ class InviteLinkRepository(private val dsl: DSLContext) {
         codePreview: String,
         createdByUserId: Int,
         maxUses: Int?,
-        expiresAt: LocalDateTime?
+        expiresAt: OffsetDateTime?
     ): InviteLink {
         val id = dsl.insertInto(INVITE_LINKS)
             .set(INVITE_LINKS.CODE_HASH, codeHash)
@@ -53,7 +53,7 @@ class InviteLinkRepository(private val dsl: DSLContext) {
             .map(::mapRecordToInvite)
     }
 
-    fun revoke(inviteId: Int, nowUtc: LocalDateTime): Boolean {
+    fun revoke(inviteId: Int, nowUtc: OffsetDateTime): Boolean {
         return dsl.update(INVITE_LINKS)
             .set(INVITE_LINKS.REVOKED_AT, nowUtc)
             .where(INVITE_LINKS.ID.eq(inviteId))
@@ -61,7 +61,7 @@ class InviteLinkRepository(private val dsl: DSLContext) {
             .execute() > 0
     }
 
-    fun consumeByHash(codeHash: String, nowUtc: LocalDateTime): Boolean {
+    fun consumeByHash(codeHash: String, nowUtc: OffsetDateTime): Boolean {
         return dsl.update(INVITE_LINKS)
             .set(INVITE_LINKS.USED_COUNT, INVITE_LINKS.USED_COUNT.plus(1))
             .where(INVITE_LINKS.CODE_HASH.eq(codeHash))
@@ -110,12 +110,12 @@ class InviteLinkRepository(private val dsl: DSLContext) {
         )
     }
 
-    private fun parseTimestamp(timestamp: LocalDateTime?): Long {
-        return timestamp?.toInstant(ZoneOffset.UTC)?.toEpochMilli()
+    private fun parseTimestamp(timestamp: OffsetDateTime?): Long {
+        return timestamp?.toInstant()?.toEpochMilli()
             ?: Instant.now().toEpochMilli()
     }
 
-    private fun parseTimestampOrNull(timestamp: LocalDateTime?): Long? {
-        return timestamp?.toInstant(ZoneOffset.UTC)?.toEpochMilli()
+    private fun parseTimestampOrNull(timestamp: OffsetDateTime?): Long? {
+        return timestamp?.toInstant()?.toEpochMilli()
     }
 }

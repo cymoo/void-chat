@@ -19,6 +19,7 @@ object DatabaseConfig {
             maximumPoolSize = 10
             minimumIdle = 2
             isAutoCommit = true
+            connectionInitSql = "SET TIME ZONE 'UTC'"
         }
         return HikariDataSource(config)
     }
