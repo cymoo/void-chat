@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from "react";
 import { useChatStore } from "@/stores/chatStore";
+import { useUiStore } from "@/stores/uiStore";
 import { onMessageJump } from "@/lib/messageJump";
 import { MessageItem } from "./MessageItem";
 import type { User, WsSendPayload } from "@/api/types";
@@ -13,6 +14,8 @@ export function MessageList({ send, currentUser }: MessageListProps) {
   const messages = useChatStore((s) => s.messages);
   const hasMore = useChatStore((s) => s.hasMore);
   const oldestMessageId = useChatStore((s) => s.oldestMessageId);
+  const users = useChatStore((s) => s.users);
+  const showUserCard = useUiStore((s) => s.showUserCard);
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const isAtBottomRef = useRef(true);
@@ -163,11 +166,29 @@ export function MessageList({ send, currentUser }: MessageListProps) {
     }
   }, [syncToBottom]);
 
+  // Mention click delegation: resolve @username → userId, open profile card
+  const handleContainerClick = useCallback(
+    (e: React.MouseEvent) => {
+      const target = (e.target as HTMLElement).closest<HTMLElement>("[data-mention-user]");
+      if (!target) return;
+      const mentionUsername = target.getAttribute("data-mention-user");
+      if (!mentionUsername) return;
+      const user = users.find(
+        (u) => u.username.toLowerCase() === mentionUsername.toLowerCase(),
+      );
+      if (user) {
+        showUserCard(user.id);
+      }
+    },
+    [users, showUserCard],
+  );
+
   return (
     <div
       ref={containerRef}
       className="messages-container"
       onScroll={handleScroll}
+      onClick={handleContainerClick}
     >
       {hasMore && (
         <div className="history-loader">

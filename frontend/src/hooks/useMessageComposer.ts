@@ -29,6 +29,7 @@ export interface MessageComposerReturn {
   text: string;
   setText: (text: string) => void;
   canSend: boolean;
+  uploading: boolean;
   textareaRef: RefObject<HTMLTextAreaElement | null>;
   emojiPickerRef: RefObject<HTMLDivElement | null>;
   emojiOpen: boolean;
@@ -51,6 +52,7 @@ export function useMessageComposer({
 }: UseMessageComposerOptions): MessageComposerReturn {
   const [text, setText] = useState("");
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const emojiPickerRef = useRef<HTMLDivElement | null>(null);
   const addToast = useUiStore((s) => s.addToast);
@@ -123,6 +125,7 @@ export function useMessageComposer({
   );
 
   const uploadImage = useCallback(async (file: File) => {
+    setUploading(true);
     try {
       const result = await api.uploadImage(file);
       if (result.url) {
@@ -131,6 +134,8 @@ export function useMessageComposer({
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Image upload failed";
       addToast(msg, "error");
+    } finally {
+      setUploading(false);
     }
   }, [addToast]);
 
@@ -181,6 +186,7 @@ export function useMessageComposer({
       if (file.type.startsWith("image/")) {
         await uploadImage(file);
       } else {
+        setUploading(true);
         try {
           const result = await api.uploadFile(file);
           if (result.url) {
@@ -194,6 +200,8 @@ export function useMessageComposer({
         } catch (err) {
           const msg = err instanceof Error ? err.message : "File upload failed";
           addToast(msg, "error");
+        } finally {
+          setUploading(false);
         }
       }
       e.target.value = "";
@@ -205,6 +213,7 @@ export function useMessageComposer({
     text,
     setText,
     canSend,
+    uploading,
     textareaRef,
     emojiPickerRef,
     emojiOpen,

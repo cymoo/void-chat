@@ -28,6 +28,10 @@ function MessageItemInner({
 
   const isOwn = message.messageType !== "system" && message.userId === currentUser.id;
 
+  const EDIT_WINDOW_MS = 5 * 60 * 1000;
+  const withinEditWindow =
+    isOwn && Date.now() - message.timestamp < EDIT_WINDOW_MS;
+
   const handleDelete = useCallback(async () => {
     const confirmed = await confirm({
       title: "DELETE MESSAGE",
@@ -133,7 +137,7 @@ function MessageItemInner({
             >
               ↩
             </button>
-            {isOwn && message.messageType === "text" && (
+            {withinEditWindow && message.messageType === "text" && (
               <button
                 className="msg-action-btn msg-action-edit"
                 onClick={() => setEditingMessage(message.id)}
@@ -142,7 +146,7 @@ function MessageItemInner({
                 ✎
               </button>
             )}
-            {isOwn && (
+            {withinEditWindow && (
               <button
                 className="msg-action-btn msg-action-delete"
                 onClick={handleDelete}

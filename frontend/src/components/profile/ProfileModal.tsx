@@ -14,10 +14,12 @@ export function ProfileModal() {
   const [status, setStatus] = useState(user?.status ?? "");
   const [bio, setBio] = useState(user?.bio ?? "");
   const [saving, setSaving] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
 
   const handleAvatarUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setAvatarUploading(true);
     try {
       const result = await api.uploadImage(file);
       if (result.url) {
@@ -28,6 +30,8 @@ export function ProfileModal() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : "头像上传失败";
       addToast(msg, "error");
+    } finally {
+      setAvatarUploading(false);
     }
     e.target.value = "";
   };
@@ -68,7 +72,7 @@ export function ProfileModal() {
         </div>
         <div className="my-profile-content">
           <div className="my-profile-avatar-section">
-            <label className="profile-avatar-large" title="Click to change avatar" style={{ cursor: "pointer" }}>
+            <label className="profile-avatar-large" title="Click to change avatar" style={{ cursor: "pointer", position: "relative" }}>
               {user?.avatarUrl ? (
                 <img
                   src={user.avatarUrl}
@@ -78,14 +82,20 @@ export function ProfileModal() {
               ) : (
                 getInitials(user?.username ?? "??")
               )}
+              {avatarUploading && (
+                <div className="avatar-upload-overlay">
+                  <span className="upload-spinner" />
+                </div>
+              )}
               <input
                 type="file"
                 accept="image/*"
                 style={{ display: "none" }}
                 onChange={handleAvatarUpload}
+                disabled={avatarUploading}
               />
             </label>
-            <div className="my-profile-avatar-hint">&gt; CLICK AVATAR TO UPLOAD</div>
+            <div className="my-profile-avatar-hint">&gt; {avatarUploading ? "UPLOADING..." : "CLICK AVATAR TO UPLOAD"}</div>
           </div>
           <div className="input-group">
             <label className="input-label">&gt; USERNAME</label>

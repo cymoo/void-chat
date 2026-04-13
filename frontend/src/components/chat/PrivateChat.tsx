@@ -171,6 +171,12 @@ export function PrivateChat({ send, currentUser }: PrivateChatProps) {
           ))}
         </div>
         <div className="private-chat-input">
+          {composer.uploading && (
+            <div className="upload-indicator">
+              <span className="upload-spinner" />
+              <span>Uploading...</span>
+            </div>
+          )}
           <textarea
             ref={composer.textareaRef}
             className="message-input"

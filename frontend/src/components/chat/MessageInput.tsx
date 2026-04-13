@@ -147,16 +147,27 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
     onTextChange,
   });
 
-  // Populate edit text
+  // Populate edit text (use stable refs to avoid re-running when composer identity changes)
+  const setTextRef = useRef(composer.setText);
+  setTextRef.current = composer.setText;
+  const textareaRefStable = composer.textareaRef;
+
   useEffect(() => {
     if (editingMessageId) {
       const msg = messages.find((m) => m.id === editingMessageId);
       if (msg) {
-        composer.setText(getMessageContent(msg));
-        composer.textareaRef.current?.focus();
+        setTextRef.current(getMessageContent(msg));
+        textareaRefStable.current?.focus();
       }
     }
-  }, [editingMessageId, messages, composer]);
+  }, [editingMessageId, messages, textareaRefStable]);
+
+  // Auto-focus input when replying
+  useEffect(() => {
+    if (replyingTo) {
+      textareaRefStable.current?.focus();
+    }
+  }, [replyingTo, textareaRefStable]);
 
   // Cleanup typing on unmount
   useEffect(
@@ -244,6 +255,14 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
               <span className="mention-item-username">@{u.username}</span>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Upload progress indicator */}
+      {composer.uploading && (
+        <div className="upload-indicator">
+          <span className="upload-spinner" />
+          <span>Uploading...</span>
         </div>
       )}
 
