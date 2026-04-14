@@ -13,6 +13,7 @@ interface RoomState {
   currentRoomName: string;
   currentRoomPassword: string;
   loading: boolean;
+  error: string | null;
 
   fetchRooms: () => Promise<void>;
   createRoom: (req: CreateRoomRequest) => Promise<Room>;
@@ -28,14 +29,15 @@ export const useRoomStore = create<RoomState>((set) => ({
   currentRoomName: "",
   currentRoomPassword: "",
   loading: false,
+  error: null,
 
   fetchRooms: async () => {
-    set({ loading: true });
+    set({ loading: true, error: null });
     try {
       const rooms = await api.getRooms();
       set({ rooms, loading: false });
-    } catch {
-      set({ loading: false });
+    } catch (e) {
+      set({ loading: false, error: e instanceof Error ? e.message : "Failed to load rooms" });
     }
   },
 

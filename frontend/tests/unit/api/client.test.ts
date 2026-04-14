@@ -449,6 +449,85 @@ describe("API client", () => {
     });
   });
 
+  describe("getMe", () => {
+    it("fetches current user profile", async () => {
+      localStorage.setItem("authToken", "token");
+      const user = { id: 1, username: "alice", createdAt: 0, lastSeen: 0 };
+      mockFetch.mockResolvedValue(mockResponse({ ok: true, status: 200, json: user }));
+
+      const result = await client.getMe();
+
+      expect(result).toEqual(user);
+      expect(mockFetch).toHaveBeenCalledWith("/api/auth/me", {
+        method: "GET",
+        headers: { Authorization: "Bearer token" },
+        body: undefined,
+      });
+    });
+  });
+
+  describe("uploadImage", () => {
+    it("sends multipart/form-data with file", async () => {
+      localStorage.setItem("authToken", "token");
+      const uploadResp = { success: true, url: "/uploads/test.png" };
+      mockFetch.mockResolvedValue(mockResponse({ ok: true, status: 200, json: uploadResp }));
+
+      const file = new File(["data"], "test.png", { type: "image/png" });
+      const result = await client.uploadImage(file);
+
+      expect(result.url).toBe("/uploads/test.png");
+      const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toBe("/api/upload/image");
+      expect(init.body).toBeInstanceOf(FormData);
+      expect((init.body as FormData).get("image")).toBe(file);
+    });
+  });
+
+  describe("uploadFile", () => {
+    it("sends multipart/form-data with file and returns file metadata", async () => {
+      localStorage.setItem("authToken", "token");
+      const uploadResp = {
+        success: true,
+        url: "/uploads/doc.pdf",
+        fileName: "doc.pdf",
+        fileSize: 1024,
+        mimeType: "application/pdf",
+      };
+      mockFetch.mockResolvedValue(mockResponse({ ok: true, status: 200, json: uploadResp }));
+
+      const file = new File(["content"], "doc.pdf", { type: "application/pdf" });
+      const result = await client.uploadFile(file);
+
+      expect(result.url).toBe("/uploads/doc.pdf");
+      const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toBe("/api/upload/file");
+      expect(init.body).toBeInstanceOf(FormData);
+      expect((init.body as FormData).get("file")).toBe(file);
+    });
+  });
+
+  describe("getUnreadDmSenders", () => {
+    it("returns array of user IDs with unread counts", async () => {
+      localStorage.setItem("authToken", "token");
+      mockFetch.mockResolvedValue(
+        mockResponse({
+          ok: true,
+          status: 200,
+          json: [{ userId: 1, username: "alice", unreadCount: 3 }],
+        }),
+      );
+
+      const result = await client.getUnreadDmSenders();
+
+      expect(result).toEqual([{ senderId: 1, senderUsername: "alice", unreadCount: 3 }]);
+      expect(mockFetch).toHaveBeenCalledWith("/api/dms/unread-senders", {
+        method: "GET",
+        headers: { Authorization: "Bearer token" },
+        body: undefined,
+      });
+    });
+  });
+
   it("should fetch dm inbox entries", async () => {
     localStorage.setItem("authToken", "auth-token");
     mockFetch.mockResolvedValue(

@@ -50,6 +50,9 @@ interface ChatState {
   editingMessageId: number | null;
   replyingTo: ChatMessage | null;
 
+  // WebSocket error
+  wsError: string | null;
+
   // Actions
   handleWsEvent: (event: WsEvent) => void;
   setMessages: (messages: ChatMessage[], hasMore: boolean) => void;
@@ -62,6 +65,7 @@ interface ChatState {
   closePrivateChat: () => void;
   setSearchResults: (messages: ChatMessage[], query: string) => void;
   clearSearch: () => void;
+  clearWsError: () => void;
   reset: () => void;
 }
 
@@ -71,6 +75,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   typingUsers: [],
   hasMore: false,
   oldestMessageId: null,
+  wsError: null,
   privateChatUserId: null,
   privateChatUsername: "",
   privateMessages: [],
@@ -287,7 +292,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         break;
 
       case "error":
-        // Handled by toast notification in component
+        set({ wsError: event.message ?? "WebSocket error" });
         break;
     }
   },
@@ -345,6 +350,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   clearSearch: () => set({ searchResults: [], searchQuery: "" }),
 
+  clearWsError: () => set({ wsError: null }),
+
   reset: () =>
     set({
       messages: [],
@@ -352,6 +359,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       typingUsers: [],
       hasMore: false,
       oldestMessageId: null,
+      wsError: null,
       privateChatUserId: null,
       privateChatUsername: "",
       privateMessages: [],
@@ -368,4 +376,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
 export function getMessageContent(msg: ChatMessage): string {
   if (msg.messageType === "text") return (msg as TextMessage).content;
   return "";
+}
+
+export function getOldestMessageId(messages: ChatMessage[]): number | null {
+  return messages.length > 0 ? messages[0]!.id : null;
 }

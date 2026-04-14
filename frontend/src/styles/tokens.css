@@ -1,0 +1,53 @@
+/* Design tokens — colors, fonts, spacing, and shared variables */
+
+:root {
+  --color-bg: #0a0e14;
+  --color-surface: #0f141c;
+  --color-surface-light: #15202b;
+  --color-border: #1f2937;
+  --color-border-bright: #2ecc71;
+  --color-text: #00ff41;
+  --color-text-dim: #4a9d5f;
+  --color-text-muted: #2d5f3a;
+  --color-accent: #00ff41;
+  --color-accent-2: #39ff14;
+  --color-warning: #ff4444;
+  --color-info: #00d9ff;
+
+  --font-mono: "IBM Plex Mono", "Courier New", monospace;
+  --font-display: "Bebas Neue", "Impact", sans-serif;
+
+  --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 40px;
+
+  /* Border radius */
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
+
+  /* Shadows */
+  --shadow-glow-sm: 0 0 10px rgba(0, 255, 65, 0.3);
+  --shadow-glow-md: 0 0 20px rgba(0, 255, 65, 0.3);
+  --shadow-glow-lg: 0 0 30px rgba(0, 255, 65, 0.3);
+  --shadow-border-glow: 0 0 10px rgba(46, 204, 113, 0.3);
+  --shadow-panel: 0 0 30px rgba(46, 204, 113, 0.15);
+
+  /* Z-index scale */
+  --z-base: 1;
+  --z-dropdown: 100;
+  --z-sticky: 1000;
+  --z-fixed: 1020;
+  --z-modal-backdrop: 1040;
+  --z-modal: 1050;
+  --z-popover: 1060;
+  --z-toast: 1100;
+}

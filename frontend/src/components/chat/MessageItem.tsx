@@ -3,7 +3,8 @@ import { useChatStore } from "@/stores/chatStore";
 import { useUiStore } from "@/stores/uiStore";
 import { renderMarkdown, highlightMentions } from "@/lib/markdown";
 import { requestMessageJump } from "@/lib/messageJump";
-import { formatTime, getInitials } from "@/lib/utils";
+import { formatTime, formatRelativeTime, getInitials } from "@/lib/utils";
+import { useCurrentMinute } from "@/hooks/useCurrentTime";
 import { MessageContent } from "@/components/chat/MessageContent";
 import type { ChatMessage, WsSendPayload } from "@/api/types";
 
@@ -27,6 +28,9 @@ function MessageItemInner({
   const confirm = useUiStore((s) => s.confirm);
   const showUserCard = useUiStore((s) => s.showUserCard);
   const setImageModal = useUiStore((s) => s.setImageModal);
+
+  // Re-render every minute so relative timestamps stay current
+  useCurrentMinute();
 
   const isOwn = message.messageType !== "system" && message.userId === currentUserId;
 
@@ -129,7 +133,9 @@ function MessageItemInner({
         )}
         <div className="message-header">
           <div className="message-author">{message.username}</div>
-          <div className="message-time">{formatTime(message.timestamp)}</div>
+          <div className="message-time" title={formatTime(message.timestamp)}>
+            {formatRelativeTime(message.timestamp)}
+          </div>
           <div className="message-actions">
             <button
               className="msg-action-btn msg-action-reply"

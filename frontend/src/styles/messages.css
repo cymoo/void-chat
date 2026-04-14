@@ -55,9 +55,6 @@
   overflow-x: hidden;
   min-height: 0;
   padding: 30px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
   background: rgba(10, 14, 20, 0.24);
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -71,7 +68,7 @@
   display: flex;
   gap: 15px;
   padding: 6px 10px;
-  margin: 0 -10px;
+  margin: 0 -10px 12px;
   border-radius: 4px;
   transition: background var(--transition-fast);
 }

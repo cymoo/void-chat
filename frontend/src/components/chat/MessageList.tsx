@@ -1,15 +1,29 @@
-import { useEffect, useRef, useCallback, useState } from "react";
-import { useVirtualizer } from "@tanstack/react-virtual";
+import { useEffect, useRef, useCallback, useState, memo } from "react";
+import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { useChatStore, getOldestMessageId } from "@/stores/chatStore";
 import { useUiStore } from "@/stores/uiStore";
 import { onMessageJump } from "@/lib/messageJump";
 import { MessageItem } from "./MessageItem";
-import type { User, WsSendPayload } from "@/api/types";
+import type { ChatMessage, User, WsSendPayload } from "@/api/types";
+
+// Large starting index so prepending history never goes below 0
+const START_INDEX = 100_000;
 
 interface MessageListProps {
   send: (payload: WsSendPayload) => void;
   currentUser: User;
 }
+
+// Stable Header component — only renders the loading indicator
+const Header = memo(
+  ({ context }: { context?: { hasMore: boolean } }) =>
+    context?.hasMore ? (
+      <div className="history-loader">
+        <span className="loader-text">Loading history...</span>
+      </div>
+    ) : null,
+);
+Header.displayName = "VirtuosoHeader";
 
 export function MessageList({ send, currentUser }: MessageListProps) {
   const messages = useChatStore((s) => s.messages);
@@ -17,23 +31,21 @@ export function MessageList({ send, currentUser }: MessageListProps) {
   const oldestMessageId = getOldestMessageId(messages);
   const users = useChatStore((s) => s.users);
   const showUserCard = useUiStore((s) => s.showUserCard);
-  const parentRef = useRef<HTMLDivElement>(null);
+
+  const virtuosoRef = useRef<VirtuosoHandle>(null);
   const isAtBottomRef = useRef(true);
   const loadingRef = useRef(false);
   const pendingJumpIdRef = useRef<number | null>(null);
   const jumpLoadRequestedRef = useRef(false);
-  const prevMessageCountRef = useRef(0);
   const [unreadCount, setUnreadCount] = useState(0);
-  const prevMsgLengthRef = useRef(0);
 
-  const virtualizer = useVirtualizer({
-    count: messages.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 60,
-    overscan: 10,
-  });
+  // firstItemIndex shifts down each time history is prepended so Virtuoso
+  // can preserve scroll position without any manual offset calculation.
+  const [firstItemIndex, setFirstItemIndex] = useState(START_INDEX);
+  const prevFirstMsgIdRef = useRef<number | null>(null);
+  const lastKnownMsgIdRef = useRef<number | null>(null);
 
-  // Build message-id → index lookup for jump-to-message
+  // Build message-id → array-index lookup for jump-to-message
   const messageIndexMap = useRef<Map<number, number>>(new Map());
   useEffect(() => {
     const map = new Map<number, number>();
@@ -43,87 +55,77 @@ export function MessageList({ send, currentUser }: MessageListProps) {
     messageIndexMap.current = map;
   }, [messages]);
 
-  // Scroll to bottom helper
-  const scrollToBottom = useCallback(() => {
-    if (messages.length === 0) return;
-    virtualizer.scrollToIndex(messages.length - 1, { align: "end" });
-    // Double-RAF to ensure measurement settles before final scroll
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        virtualizer.scrollToIndex(messages.length - 1, { align: "end" });
-      });
-    });
-  }, [messages.length, virtualizer]);
-
-  // Auto-scroll to bottom when new messages arrive
+  // When history is prepended, decrease firstItemIndex by the actual prepend count
+  // so existing items keep their virtual index and scroll position is preserved.
   useEffect(() => {
-    if (pendingJumpIdRef.current !== null) return;
-    if (isAtBottomRef.current) {
-      setUnreadCount(0);
-      if (messages.length > 0) scrollToBottom();
-    } else {
-      const newCount = messages.length - prevMsgLengthRef.current;
-      if (newCount > 0) {
-        setUnreadCount((c) => c + newCount);
-      }
-    }
-    prevMsgLengthRef.current = messages.length;
-  }, [messages, scrollToBottom]);
+    const currentFirstId = messages.length > 0 ? messages[0]!.id : null;
+    const prevFirstId = prevFirstMsgIdRef.current;
+    prevFirstMsgIdRef.current = currentFirstId;
 
-  // Preserve scroll position when history is prepended
-  useEffect(() => {
-    const prevCount = prevMessageCountRef.current;
-    const currentCount = messages.length;
-    if (prevCount > 0 && currentCount > prevCount && !isAtBottomRef.current) {
-      const prepended = currentCount - prevCount;
-      // If the first message changed, history was prepended — shift scroll offset
-      if (prepended > 0 && pendingJumpIdRef.current === null) {
-        const el = parentRef.current;
-        if (el) {
-          // Use scrollToIndex to maintain the same visual position
-          virtualizer.scrollToIndex(prepended, { align: "start" });
+    if (
+      prevFirstId !== null &&
+      currentFirstId !== null &&
+      currentFirstId !== prevFirstId
+    ) {
+      // Find where the old first message now sits to count actual prepends
+      let prependCount = 0;
+      for (let i = 0; i < messages.length; i++) {
+        if (messages[i]!.id === prevFirstId) {
+          prependCount = i;
+          break;
         }
       }
-    }
-    prevMessageCountRef.current = currentCount;
-  }, [messages, virtualizer]);
-
-  // Initial scroll to bottom
-  useEffect(() => {
-    scrollToBottom();
-  }, [scrollToBottom]);
-
-  // Track scroll position for auto-scroll and history loading
-  const handleScroll = useCallback(() => {
-    const el = parentRef.current;
-    if (!el) return;
-
-    const threshold = 100;
-    isAtBottomRef.current =
-      el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
-
-    if (isAtBottomRef.current) {
-      setUnreadCount(0);
-    }
-
-    // Load more history when scrolled near top
-    if (
-      el.scrollTop < 200 &&
-      hasMore &&
-      !loadingRef.current &&
-      oldestMessageId
-    ) {
-      loadingRef.current = true;
-      send({ type: "load_history", beforeId: oldestMessageId });
-    }
-  }, [hasMore, oldestMessageId, send]);
-
-  // Reset loading flag when messages change (history arrived)
-  useEffect(() => {
-    if (loadingRef.current) {
+      if (prependCount > 0 && !isAtBottomRef.current) {
+        setFirstItemIndex((idx) => idx - prependCount);
+      }
       loadingRef.current = false;
     }
   }, [messages]);
+
+  // Unread counter: only count genuinely new (appended) messages by tracking IDs
+  useEffect(() => {
+    if (pendingJumpIdRef.current !== null) return;
+    if (messages.length === 0) return;
+
+    const currentLastId = messages[messages.length - 1]!.id;
+    const prevLastId = lastKnownMsgIdRef.current;
+    lastKnownMsgIdRef.current = currentLastId;
+
+    // Initial load or no new messages appended at the end
+    if (prevLastId === null || currentLastId <= prevLastId) return;
+
+    // Collect genuinely new messages (appended after prevLastId)
+    const newMessages: ChatMessage[] = [];
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i]!.id <= prevLastId) break;
+      newMessages.unshift(messages[i]!);
+    }
+    if (newMessages.length === 0) return;
+
+    const ownNew = newMessages.filter(
+      (m) => "userId" in m && m.userId === currentUser.id,
+    );
+    const othersNew = newMessages.filter(
+      (m) => !("userId" in m) || m.userId !== currentUser.id,
+    );
+
+    if (!isAtBottomRef.current) {
+      // Auto-scroll for own sent messages regardless of scroll position
+      if (ownNew.length > 0) {
+        isAtBottomRef.current = true;
+        setUnreadCount(0);
+        virtuosoRef.current?.scrollToIndex({ index: "LAST", behavior: "smooth" });
+      }
+      // Only count others' messages as unread
+      if (othersNew.length > 0) {
+        setUnreadCount((c) => c + othersNew.length);
+      }
+    }
+  }, [messages, currentUser.id]);
+
+  const scrollToBottom = useCallback(() => {
+    virtuosoRef.current?.scrollToIndex({ index: "LAST", behavior: "smooth" });
+  }, []);
 
   // --- Jump-to-message ---
   const clearHighlightTimerRef = useRef<number | null>(null);
@@ -145,25 +147,19 @@ export function MessageList({ send, currentUser }: MessageListProps) {
     (messageId: number) => {
       const index = messageIndexMap.current.get(messageId);
       if (index !== undefined) {
-        // Scroll to the target index, then highlight once rendered
-        virtualizer.scrollToIndex(index, { align: "center" });
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            const container = parentRef.current;
-            if (!container) return;
-            const target = container.querySelector<HTMLElement>(
-              `[data-message-id="${messageId}"]`,
-            );
-            if (target) {
-              highlightMessage(target);
-            }
-          });
-        });
+        // Use "auto" (instant) so the item is in DOM before we try to highlight
+        virtuosoRef.current?.scrollToIndex({ index, align: "center", behavior: "auto" });
+        setTimeout(() => {
+          const target = document.querySelector<HTMLElement>(
+            `[data-message-id="${messageId}"]`,
+          );
+          if (target) highlightMessage(target);
+        }, 80);
         pendingJumpIdRef.current = null;
         return true;
       }
 
-      // Message not in array yet — load more history if possible
+      // Message not loaded yet — request more history
       const shouldLoadMore =
         hasMore &&
         oldestMessageId !== null &&
@@ -179,7 +175,7 @@ export function MessageList({ send, currentUser }: MessageListProps) {
       pendingJumpIdRef.current = null;
       return true;
     },
-    [hasMore, highlightMessage, oldestMessageId, send, virtualizer],
+    [hasMore, highlightMessage, oldestMessageId, send],
   );
 
   useEffect(() => {
@@ -190,16 +186,13 @@ export function MessageList({ send, currentUser }: MessageListProps) {
     });
   }, [tryJumpToMessage]);
 
-  // Retry jump after history loads
+  // Retry jump after each history batch arrives
   useEffect(() => {
     if (jumpLoadRequestedRef.current) {
-      loadingRef.current = false;
       jumpLoadRequestedRef.current = false;
     }
     const pendingId = pendingJumpIdRef.current;
-    if (pendingId !== null) {
-      tryJumpToMessage(pendingId);
-    }
+    if (pendingId !== null) tryJumpToMessage(pendingId);
   }, [messages, tryJumpToMessage]);
 
   useEffect(
@@ -211,17 +204,7 @@ export function MessageList({ send, currentUser }: MessageListProps) {
     [],
   );
 
-  // Re-measure virtualizer when media (images) load
-  const handleMediaLoad = useCallback(() => {
-    virtualizer.measure();
-    if (isAtBottomRef.current) {
-      requestAnimationFrame(() => {
-        scrollToBottom();
-      });
-    }
-  }, [virtualizer, scrollToBottom]);
-
-  // Mention click delegation
+  // Mention click delegation — single listener on the wrapper
   const handleContainerClick = useCallback(
     (e: React.MouseEvent) => {
       const target = (e.target as HTMLElement).closest<HTMLElement>(
@@ -233,62 +216,49 @@ export function MessageList({ send, currentUser }: MessageListProps) {
       const user = users.find(
         (u) => u.username.toLowerCase() === mentionUsername.toLowerCase(),
       );
-      if (user) {
-        showUserCard(user.id);
-      }
+      if (user) showUserCard(user.id);
     },
     [users, showUserCard],
   );
 
-  const virtualItems = virtualizer.getVirtualItems();
+  const handleMediaLoad = useCallback(() => {
+    if (isAtBottomRef.current) scrollToBottom();
+  }, [scrollToBottom]);
+
+  const context = { hasMore };
 
   return (
-    <div className="messages-wrapper">
-      <div
-        ref={parentRef}
+    <div className="messages-wrapper" onClick={handleContainerClick}>
+      <Virtuoso
+        ref={virtuosoRef}
         className="messages-container"
-        onScroll={handleScroll}
-        onClick={handleContainerClick}
-      >
-        <div
-          style={{
-            height: virtualizer.getTotalSize(),
-            width: "100%",
-            position: "relative",
-          }}
-        >
-          {hasMore && (
-            <div className="history-loader">
-              <span className="loader-text">Loading history...</span>
-            </div>
-          )}
-          {virtualItems.map((virtualRow) => {
-            const msg = messages[virtualRow.index]!;
-            return (
-              <div
-                key={msg.id}
-                data-index={virtualRow.index}
-                ref={virtualizer.measureElement}
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  width: "100%",
-                  transform: `translateY(${virtualRow.start}px)`,
-                }}
-              >
-                <MessageItem
-                  message={msg}
-                  currentUserId={currentUser.id}
-                  currentUsername={currentUser.username}
-                  send={send}
-                  onMediaLoad={handleMediaLoad}
-                />
-              </div>
-            );
-          })}
-        </div>
-      </div>
+        data={messages}
+        firstItemIndex={firstItemIndex}
+        initialTopMostItemIndex={messages.length > 0 ? messages.length - 1 : 0}
+        followOutput={(isAtBottom) => (isAtBottom ? "smooth" : false)}
+        atBottomStateChange={(atBottom) => {
+          isAtBottomRef.current = atBottom;
+          if (atBottom) setUnreadCount(0);
+        }}
+        atBottomThreshold={50}
+        startReached={() => {
+          if (hasMore && !loadingRef.current && oldestMessageId) {
+            loadingRef.current = true;
+            send({ type: "load_history", beforeId: oldestMessageId });
+          }
+        }}
+        context={context}
+        components={{ Header }}
+        itemContent={(_index, msg) => (
+          <MessageItem
+            message={msg}
+            currentUserId={currentUser.id}
+            currentUsername={currentUser.username}
+            send={send}
+            onMediaLoad={handleMediaLoad}
+          />
+        )}
+      />
       {unreadCount > 0 && (
         <button
           className="new-messages-btn"

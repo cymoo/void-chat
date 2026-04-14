@@ -1,0 +1,184 @@
+/* Animation keyframes and effect classes (glitch, scanlines, pulse, etc.) */
+
+@keyframes noise {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  10% {
+    transform: translate(-5%, -5%);
+  }
+  20% {
+    transform: translate(-10%, 5%);
+  }
+  30% {
+    transform: translate(5%, -10%);
+  }
+  40% {
+    transform: translate(-5%, 15%);
+  }
+  50% {
+    transform: translate(-10%, 5%);
+  }
+  60% {
+    transform: translate(15%, 0);
+  }
+  70% {
+    transform: translate(0, 10%);
+  }
+  80% {
+    transform: translate(-15%, 0);
+  }
+  90% {
+    transform: translate(10%, 5%);
+  }
+}
+
+@keyframes scanline {
+  0% {
+    box-shadow:
+      0 0 0 1px rgba(46, 204, 113, 0.1),
+      inset 0 -100% 60px rgba(0, 255, 65, 0.05);
+  }
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(46, 204, 113, 0.1),
+      inset 0 100% 60px rgba(0, 255, 65, 0.05);
+  }
+}
+
+.glitch {
+  animation: glitch 3s infinite;
+}
+
+@keyframes glitch {
+  0%,
+  90%,
+  100% {
+    transform: translate(0);
+  }
+  92% {
+    transform: translate(-2px, 2px);
+  }
+  94% {
+    transform: translate(2px, -2px);
+  }
+  96% {
+    transform: translate(-2px, -2px);
+  }
+  98% {
+    transform: translate(2px, 2px);
+  }
+}
+
+.glitch::before,
+.glitch::after {
+  content: attr(data-text);
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.glitch::before {
+  animation: glitch-before 3s infinite;
+  clip: rect(0, 900px, 0, 0);
+  text-shadow: 2px 0 var(--color-warning);
+}
+
+.glitch::after {
+  animation: glitch-after 3s infinite;
+  clip: rect(0, 900px, 0, 0);
+  text-shadow: -2px 0 var(--color-info);
+}
+
+@keyframes glitch-before {
+  0%,
+  90%,
+  100% {
+    clip: rect(0, 900px, 0, 0);
+    transform: translate(0);
+  }
+  92% {
+    clip: rect(10px, 900px, 60px, 0);
+    transform: translate(-2px, 0);
+  }
+}
+
+@keyframes glitch-after {
+  0%,
+  90%,
+  100% {
+    clip: rect(0, 900px, 0, 0);
+    transform: translate(0);
+  }
+  94% {
+    clip: rect(30px, 900px, 80px, 0);
+    transform: translate(2px, 0);
+  }
+}
+
+@keyframes scan {
+  to {
+    left: 100%;
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 5px var(--color-accent);
+  }
+  50% {
+    opacity: 0.5;
+    box-shadow: 0 0 10px var(--color-accent);
+  }
+}
+
+@keyframes headerPulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes messageSlide {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes toastSlide {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes highlightFlash {
+  0% {
+    background: rgba(0, 255, 65, 0.3);
+  }
+  100% {
+    background: rgba(0, 255, 65, 0.02);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

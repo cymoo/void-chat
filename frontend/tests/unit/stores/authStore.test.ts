@@ -150,4 +150,21 @@ describe("authStore", () => {
     expect(state.token).toBeNull();
     expect(state.user).toBeNull();
   });
+
+  it("clearError resets error to null", () => {
+    useAuthStore.setState({ error: "some error" });
+    useAuthStore.getState().clearError();
+    expect(useAuthStore.getState().error).toBeNull();
+  });
+
+  it("updateUser patches current user fields", () => {
+    const originalUser = { id: 1, username: "oldname", createdAt: 0, lastSeen: 0 };
+    useAuthStore.setState({ user: originalUser });
+
+    const updatedUser = { id: 1, username: "newname", createdAt: 0, lastSeen: 0 };
+    useAuthStore.getState().updateUser(updatedUser);
+
+    expect(useAuthStore.getState().user?.username).toBe("newname");
+    expect(localStorage.getItem("currentUser")).toBe(JSON.stringify(updatedUser));
+  });
 });

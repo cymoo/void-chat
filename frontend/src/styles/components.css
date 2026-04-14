@@ -1,0 +1,283 @@
+/* Shared component styles — forms, buttons, toasts, confirm dialog, avatars, uploads */
+
+/* ============================================
+   SHARED FORM STYLES
+   ============================================ */
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.input-label {
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--color-text-dim);
+  font-weight: 600;
+}
+
+.terminal-input,
+.terminal-select {
+  background: var(--color-bg);
+  border: 2px solid var(--color-border);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  padding: 12px 16px;
+  outline: none;
+  transition: all var(--transition-fast);
+  width: 100%;
+}
+
+.terminal-input:focus,
+.terminal-select:focus {
+  border-color: var(--color-border-bright);
+  box-shadow: 0 0 10px rgba(46, 204, 113, 0.3);
+}
+
+.terminal-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.terminal-select {
+  cursor: pointer;
+}
+
+.terminal-textarea {
+  resize: vertical;
+  min-height: 80px;
+  line-height: 1.5;
+}
+
+.connect-btn {
+  margin-top: 16px;
+  background: transparent;
+  border: 2px solid var(--color-border-bright);
+  color: var(--color-accent);
+  font-family: var(--font-display);
+  font-size: 24px;
+  letter-spacing: 4px;
+  padding: 16px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all var(--transition-normal);
+  width: 100%;
+  display: block;
+}
+
+.connect-btn:hover {
+  background: var(--color-accent);
+  color: var(--color-bg);
+  box-shadow:
+    0 0 20px var(--color-accent),
+    inset 0 0 20px rgba(0, 0, 0, 0.2);
+}
+
+.btn-text {
+  position: relative;
+  z-index: 1;
+}
+
+.btn-scan {
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(0, 255, 65, 0.2),
+    transparent
+  );
+  animation: scan 2s linear infinite;
+}
+
+.icon-btn {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-dim);
+  padding: 8px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 1px;
+}
+
+.icon-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
+}
+
+.icon-btn:focus-visible,
+.message-input:focus-visible,
+.search-input:focus-visible {
+  outline: 2px solid var(--color-info);
+  outline-offset: 2px;
+}
+
+kbd {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  padding: 2px 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-text-dim);
+}
+
+/* ============================================
+   CONFIRMATION DIALOG
+   ============================================ */
+
+.confirm-dialog {
+  position: relative;
+  z-index: 1;
+  width: min(460px, 100%);
+  background: var(--color-surface);
+  border: 2px solid var(--color-border-bright);
+  box-shadow: 0 0 24px rgba(46, 204, 113, 0.22);
+}
+
+.confirm-body {
+  padding: 20px;
+}
+
+.confirm-message {
+  color: var(--color-text-dim);
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.confirm-btn {
+  padding: 8px 14px;
+}
+
+.confirm-btn-primary {
+  border-color: var(--color-border-bright);
+  color: var(--color-accent);
+}
+
+.confirm-btn-danger {
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
+.confirm-btn-danger:hover {
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+  box-shadow: 0 0 10px rgba(255, 68, 68, 0.35);
+}
+
+/* ============================================
+   TOAST NOTIFICATIONS
+   ============================================ */
+
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.toast {
+  background: var(--color-bg);
+  border: 2px solid var(--color-border-bright);
+  padding: 16px 20px;
+  min-width: 300px;
+  font-size: 13px;
+  animation: toastSlide 0.3s ease-out;
+  box-shadow: 0 0 20px rgba(46, 204, 113, 0.3);
+}
+
+.toast.error {
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
+.toast.success {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+/* ============================================
+   AVATAR IMAGE
+   ============================================ */
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 2px;
+}
+
+.avatar-img-large {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.loading-text {
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  padding: 20px;
+}
+
+/* ============================================
+   UPLOAD INDICATOR
+   ============================================ */
+
+.upload-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 30px;
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  font-size: 12px;
+  color: var(--color-info);
+}
+
+.upload-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-info);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+.avatar-upload-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 2px;
+}
+
+.avatar-upload-overlay .upload-spinner {
+  width: 24px;
+  height: 24px;
+  border-width: 3px;
+}

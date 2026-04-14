@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { useChatStore } from "@/stores/chatStore";
+import { useChatStore, getOldestMessageId } from "@/stores/chatStore";
 import type { ChatMessage, User } from "@/api/types";
 
 describe("chatStore", () => {
@@ -384,5 +384,129 @@ describe("chatStore", () => {
     const state = useChatStore.getState();
     expect(state.users).toHaveLength(1);
     expect(state.users[0]!.id).toBe(userA.id);
+  });
+
+  it("wsError is set when error event is received", () => {
+    const store = useChatStore.getState();
+    store.handleWsEvent({ type: "error", message: "not authorized" });
+    expect(useChatStore.getState().wsError).toBe("not authorized");
+  });
+
+  it("clearWsError resets wsError to null", () => {
+    useChatStore.setState({ wsError: "some error" });
+    useChatStore.getState().clearWsError();
+    expect(useChatStore.getState().wsError).toBeNull();
+  });
+
+  it("getOldestMessageId returns null for empty messages", () => {
+    expect(getOldestMessageId([])).toBeNull();
+  });
+
+  it("getOldestMessageId returns first message id", () => {
+    const msgs = [
+      { id: 5, messageType: "text" } as unknown as ChatMessage,
+      { id: 10, messageType: "text" } as unknown as ChatMessage,
+    ];
+    expect(getOldestMessageId(msgs)).toBe(5);
+  });
+
+  it("setMessages replaces messages and sets hasMore", () => {
+    useChatStore.setState({ messages: [{ id: 99, messageType: "system", content: "old", timestamp: 0 }], hasMore: true });
+    const newMessages: ChatMessage[] = [
+      { id: 1, messageType: "text", userId: 1, username: "alice", content: "a", timestamp: 100 },
+      { id: 2, messageType: "text", userId: 1, username: "alice", content: "b", timestamp: 200 },
+    ];
+    useChatStore.getState().setMessages(newMessages, false);
+    const state = useChatStore.getState();
+    expect(state.messages).toEqual(newMessages);
+    expect(state.hasMore).toBe(false);
+    expect(state.oldestMessageId).toBe(1);
+  });
+
+  it("addMessage appends to messages list", () => {
+    const existing: ChatMessage = { id: 1, messageType: "text", userId: 1, username: "alice", content: "first", timestamp: 100 };
+    useChatStore.setState({ messages: [existing] });
+    const newMsg: ChatMessage = { id: 2, messageType: "text", userId: 2, username: "bob", content: "second", timestamp: 200 };
+    useChatStore.getState().addMessage(newMsg);
+    const msgs = useChatStore.getState().messages;
+    expect(msgs).toHaveLength(2);
+    expect(msgs[1]!.id).toBe(2);
+  });
+
+  it("setUsers replaces user list", () => {
+    useChatStore.setState({ users: [{ id: 1, username: "old", createdAt: 0, lastSeen: 0 }] });
+    const newUsers: User[] = [
+      { id: 2, username: "new1", createdAt: 0, lastSeen: 0 },
+      { id: 3, username: "new2", createdAt: 0, lastSeen: 0 },
+    ];
+    useChatStore.getState().setUsers(newUsers);
+    expect(useChatStore.getState().users).toEqual(newUsers);
+  });
+
+  it("setEditingMessage sets editingMessageId", () => {
+    useChatStore.setState({
+      messages: [{ id: 7, messageType: "text", userId: 1, username: "alice", content: "edit me", timestamp: 0 }],
+    });
+    useChatStore.getState().setEditingMessage(7);
+    expect(useChatStore.getState().editingMessageId).toBe(7);
+    expect(useChatStore.getState().replyingTo).toBeNull();
+  });
+
+  it("setReplyingTo sets replyingTo message", () => {
+    const msg: ChatMessage = { id: 3, messageType: "text", userId: 1, username: "alice", content: "reply to me", timestamp: 0 };
+    useChatStore.getState().setReplyingTo(msg);
+    expect(useChatStore.getState().replyingTo).toEqual(msg);
+    expect(useChatStore.getState().editingMessageId).toBeNull();
+  });
+
+  it("openPrivateChat sets privateChatUserId and username", () => {
+    useChatStore.getState().openPrivateChat(5, "charlie");
+    const state = useChatStore.getState();
+    expect(state.privateChatUserId).toBe(5);
+    expect(state.privateChatUsername).toBe("charlie");
+    expect(state.privateMessages).toEqual([]);
+  });
+
+  it("closePrivateChat clears private chat state", () => {
+    useChatStore.setState({ privateChatUserId: 5, privateChatUsername: "charlie" });
+    useChatStore.getState().closePrivateChat();
+    const state = useChatStore.getState();
+    expect(state.privateChatUserId).toBeNull();
+    expect(state.privateChatUsername).toBe("");
+  });
+
+  it("clearSearch clears searchResults and searchQuery", () => {
+    useChatStore.setState({
+      searchResults: [{ id: 1, messageType: "system", content: "x", timestamp: 0 }],
+      searchQuery: "x",
+    });
+    useChatStore.getState().clearSearch();
+    expect(useChatStore.getState().searchResults).toEqual([]);
+    expect(useChatStore.getState().searchQuery).toBe("");
+  });
+
+  it("typing_start adds user to typingUsers", () => {
+    useChatStore.getState().handleWsEvent({ type: "typing", userId: 10, username: "diana", isTyping: true });
+    const typing = useChatStore.getState().typingUsers;
+    expect(typing).toHaveLength(1);
+    expect(typing[0]).toEqual({ userId: 10, username: "diana" });
+  });
+
+  it("typing_stop removes user from typingUsers", () => {
+    useChatStore.setState({ typingUsers: [{ userId: 10, username: "diana" }] });
+    useChatStore.getState().handleWsEvent({ type: "typing", userId: 10, username: "diana", isTyping: false });
+    expect(useChatStore.getState().typingUsers).toHaveLength(0);
+  });
+
+  it("typing_start does not duplicate same user", () => {
+    useChatStore.getState().handleWsEvent({ type: "typing", userId: 10, username: "diana", isTyping: true });
+    useChatStore.getState().handleWsEvent({ type: "typing", userId: 10, username: "diana", isTyping: true });
+    expect(useChatStore.getState().typingUsers).toHaveLength(1);
+  });
+
+  it("unread_counts event updates unreadDmCount", () => {
+    useChatStore.setState({ unreadDmCount: 0 });
+    useChatStore.getState().handleWsEvent({ type: "unread_counts", unreadDms: 12 });
+    expect(useChatStore.getState().unreadDmCount).toBe(12);
   });
 });
