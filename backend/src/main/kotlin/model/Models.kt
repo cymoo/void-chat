@@ -91,6 +91,8 @@ sealed class ChatMessage {
         val avatarUrl: String?,
         val imageUrl: String,
         val thumbnailUrl: String?,
+        val width: Int? = null,
+        val height: Int? = null,
         override val timestamp: Long,
         override val replyTo: ReplyInfo? = null
     ) : ChatMessage()
@@ -127,7 +129,10 @@ data class ReplyInfo(
 )
 
 /**
- * Private message model
+ * Private message model.
+ *
+ * Content fields (content, fileUrl, fileName, fileSize, mimeType, thumbnailUrl)
+ * are extracted from the JSONB `content` column in the database.
  */
 data class PrivateMessage(
     val id: Int,
@@ -143,6 +148,8 @@ data class PrivateMessage(
     val fileSize: Long? = null,
     val mimeType: String? = null,
     val thumbnailUrl: String? = null,
+    val width: Int? = null,
+    val height: Int? = null,
     val isRead: Boolean = false,
     val timestamp: Long
 )
@@ -179,33 +186,31 @@ data class DmInboxEntry(
 )
 
 /**
- * WebSocket message payloads
+ * WebSocket event types sent to clients.
+ *
+ * Jackson annotations produce `{"type": "...", ...fields}` on serialization,
+ * allowing `objectMapper.writeValueAsString(event)` with no manual mapping.
  */
-data class WsMessagePayload(
-    val type: String,
-    val content: String? = null,
-    val imageUrl: String? = null,
-    val thumbnailUrl: String? = null,
-    val fileName: String? = null,
-    val fileUrl: String? = null,
-    val fileSize: Long? = null,
-    val mimeType: String? = null,
-    val messageId: Int? = null,
-    val targetUserId: Int? = null,
-    val replyToId: Int? = null,
-    val beforeId: Int? = null,
-    val query: String? = null,
-    val role: String? = null,
-    val duration: Int? = null,
-    val isTyping: Boolean? = null,
-    val bio: String? = null,
-    val status: String? = null,
-    val avatarUrl: String? = null
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
+@JsonSubTypes(
+    JsonSubTypes.Type(value = WsEvent.History::class, name = "history"),
+    JsonSubTypes.Type(value = WsEvent.Users::class, name = "users"),
+    JsonSubTypes.Type(value = WsEvent.Message::class, name = "message"),
+    JsonSubTypes.Type(value = WsEvent.UserJoined::class, name = "user_joined"),
+    JsonSubTypes.Type(value = WsEvent.UserLeft::class, name = "user_left"),
+    JsonSubTypes.Type(value = WsEvent.Error::class, name = "error"),
+    JsonSubTypes.Type(value = WsEvent.MessageEdited::class, name = "message_edited"),
+    JsonSubTypes.Type(value = WsEvent.MessageDeleted::class, name = "message_deleted"),
+    JsonSubTypes.Type(value = WsEvent.PrivateMessageEvent::class, name = "private_message"),
+    JsonSubTypes.Type(value = WsEvent.PrivateHistory::class, name = "private_history"),
+    JsonSubTypes.Type(value = WsEvent.Mention::class, name = "mention"),
+    JsonSubTypes.Type(value = WsEvent.UserUpdated::class, name = "user_updated"),
+    JsonSubTypes.Type(value = WsEvent.Kicked::class, name = "kicked"),
+    JsonSubTypes.Type(value = WsEvent.RoleChanged::class, name = "role_changed"),
+    JsonSubTypes.Type(value = WsEvent.SearchResults::class, name = "search_results"),
+    JsonSubTypes.Type(value = WsEvent.UnreadCounts::class, name = "unread_counts"),
+    JsonSubTypes.Type(value = WsEvent.Typing::class, name = "typing")
 )
-
-/**
- * WebSocket event types sent to clients
- */
 sealed class WsEvent {
     data class History(val messages: List<ChatMessage>, val hasMore: Boolean = false) : WsEvent()
     data class Users(val users: List<User>) : WsEvent()

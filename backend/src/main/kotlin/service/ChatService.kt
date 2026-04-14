@@ -1,6 +1,5 @@
 package service
 
-import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.github.cymoo.colleen.ws.WsConnection
 import model.*
@@ -66,6 +65,13 @@ class ChatService(
         }
     }
 
+    /**
+     * Register a user's WebSocket connection into a chat room.
+     * Handles room capacity enforcement, connection counting (for multi-tab),
+     * and first-occupant broadcasts (system message, user list update).
+     *
+     * @return true if the connection was added; false if room is full.
+     */
     fun joinRoom(roomId: Int, connection: WsConnection, user: User): Boolean {
         // Serialise join/leave for the same user+room so the count check and the
         // DB write + broadcast happen atomically relative to each other.
@@ -138,6 +144,7 @@ class ChatService(
         return true
     }
 
+    /** Register a user's direct-message WebSocket connection. */
     fun attachDirectConnection(userId: Int, connection: WsConnection) {
         userConnections[userId] = connection
     }
@@ -148,6 +155,10 @@ class ChatService(
         }
     }
 
+    /**
+     * Remove a WebSocket connection from a room. If this was the user's last
+     * connection in the room, broadcasts a leave system message.
+     */
     fun leaveRoom(roomId: Int, user: User, connection: WsConnection) {
         // Guard: if the connection was already removed, this is a duplicate call.
         val wasPresent = roomConnections[roomId]?.remove(connection) ?: false
@@ -201,6 +212,7 @@ class ChatService(
         }
     }
 
+    /** Send a text message to a room. Returns false if user is muted/disabled. */
     fun sendTextMessage(roomId: Int, user: User, content: String, replyToId: Int? = null): Boolean {
         if (roomMessageBlockReason(user.id) != null) return false
         val messageId = messageRepo.saveTextMessage(roomId, user.id, content, replyToId)
@@ -324,7 +336,10 @@ class ChatService(
     /** Exposed for testing: returns the broadcast executor so tests can await pending tasks. */
     internal fun broadcastExecutorForTest(): ExecutorService = broadcastExecutor
 
-    // Private messaging
+    /**
+     * Send a private message between two users.
+     * Both sender and receiver get the event for real-time sync.
+     */
     fun sendPrivateMessage(
         sender: User,
         receiverId: Int,
@@ -336,17 +351,14 @@ class ChatService(
         mimeType: String? = null,
         thumbnailUrl: String? = null
     ) {
-        val messageId = privateMessageRepo.saveMessage(
-            senderId = sender.id,
-            receiverId = receiverId,
-            messageType = messageType,
-            content = content,
-            fileUrl = fileUrl,
-            fileName = fileName,
-            fileSize = fileSize,
-            mimeType = mimeType,
-            thumbnailUrl = thumbnailUrl
-        )
+        val messageId = when (messageType) {
+            "text" -> privateMessageRepo.saveTextMessage(sender.id, receiverId, content ?: "")
+            "image" -> privateMessageRepo.saveImageMessage(sender.id, receiverId, fileUrl ?: "", thumbnailUrl)
+            "file" -> privateMessageRepo.saveFileMessage(
+                sender.id, receiverId, fileName ?: "", fileUrl ?: "", fileSize ?: 0L, mimeType ?: ""
+            )
+            else -> throw IllegalArgumentException("Unsupported DM type: $messageType")
+        }
         val receiver = userRepo.findById(receiverId) ?: return
 
         val pm = PrivateMessage(
@@ -398,6 +410,10 @@ class ChatService(
         broadcastToRoom(roomId, WsEvent.Typing(user.id, user.username, isTyping))
     }
 
+    /**
+     * Checks whether the user is allowed to send room messages.
+     * @return a human-readable reason string if blocked, or null if allowed.
+     */
     fun roomMessageBlockReason(userId: Int): String? {
         val latestUser = userRepo.findById(userId) ?: return "User not found"
         if (latestUser.isDisabled) return "Account is disabled"
@@ -405,16 +421,16 @@ class ChatService(
         return null
     }
 
-    // Room permissions
+    /** Assign a room-level role (admin/moderator/member) to a user. */
     fun setUserRole(roomId: Int, actorUser: User, targetUserId: Int, role: String): Boolean {
         val actorRoomRole = roomMemberRepo.getMemberRole(roomId, actorUser.id)
         if (!authorizationService.canManageRoomRoles(actorUser, actorRoomRole)) return false
 
         val desiredRole = role.trim().lowercase()
-        if (!authorizationService.isValidAssignableRoomRole(desiredRole)) return false
+        if (!AuthorizationService.isValidAssignableRoomRole(desiredRole)) return false
 
         val targetCurrentRole = roomMemberRepo.getMemberRole(roomId, targetUserId) ?: return false
-        if (authorizationService.normalizeRoomRole(targetCurrentRole) == AuthorizationService.ROOM_ROLE_OWNER &&
+        if (AuthorizationService.normalizeRoomRole(targetCurrentRole) == AuthorizationService.ROOM_ROLE_OWNER &&
             !authorizationService.isPlatformAdmin(actorUser)
         ) {
             return false
@@ -430,7 +446,7 @@ class ChatService(
         if (!authorizationService.canKickUsers(actorUser, actorRoomRole)) return false
 
         val targetRole = roomMemberRepo.getMemberRole(roomId, targetUserId)
-        if (authorizationService.normalizeRoomRole(targetRole) == AuthorizationService.ROOM_ROLE_OWNER &&
+        if (AuthorizationService.normalizeRoomRole(targetRole) == AuthorizationService.ROOM_ROLE_OWNER &&
             !authorizationService.isPlatformAdmin(actorUser)
         ) {
             return false
@@ -477,12 +493,14 @@ class ChatService(
         return messageRepo.getReplyInfo(messageId)
     }
 
+    /** Broadcast a [WsEvent] to all connections in a room (local + Redis pub/sub). */
     fun broadcastToRoom(roomId: Int, event: WsEvent) {
         val eventJson = serializeEvent(event)
         deliverToLocalRoom(roomId, eventJson)
         publishToRedis("room:$roomId", eventJson)
     }
 
+    /** Send a [WsEvent] to a specific user (local + Redis pub/sub). */
     fun sendToUser(userId: Int, event: WsEvent) {
         val eventJson = serializeEvent(event)
         deliverToLocalUser(userId, eventJson)
@@ -554,88 +572,6 @@ class ChatService(
         log.info("Redis pub/sub subscriber started (instance={})", instanceId.take(8))
     }
 
-    fun serializeEvent(event: WsEvent): String {
-        val payload = when (event) {
-            is WsEvent.History -> mapOf(
-                "type" to "history",
-                "messages" to event.messages.map { objectMapper.valueToTree<JsonNode>(it) },
-                "hasMore" to event.hasMore
-            )
-            is WsEvent.Users -> mapOf(
-                "type" to "users",
-                "users" to event.users
-            )
-            is WsEvent.Message -> mapOf(
-                "type" to "message",
-                "message" to objectMapper.valueToTree<JsonNode>(event.message)
-            )
-            is WsEvent.UserJoined -> mapOf(
-                "type" to "user_joined",
-                "user" to event.user
-            )
-            is WsEvent.UserLeft -> mapOf(
-                "type" to "user_left",
-                "userId" to event.userId,
-                "username" to event.username
-            )
-            is WsEvent.Error -> mapOf(
-                "type" to "error",
-                "message" to event.message
-            )
-            is WsEvent.MessageEdited -> mapOf(
-                "type" to "message_edited",
-                "messageId" to event.messageId,
-                "content" to event.content,
-                "editedAt" to event.editedAt
-            )
-            is WsEvent.MessageDeleted -> mapOf(
-                "type" to "message_deleted",
-                "messageId" to event.messageId
-            )
-            is WsEvent.PrivateMessageEvent -> mapOf(
-                "type" to "private_message",
-                "message" to objectMapper.valueToTree<JsonNode>(event.message)
-            )
-            is WsEvent.PrivateHistory -> mapOf(
-                "type" to "private_history",
-                "messages" to event.messages.map { objectMapper.valueToTree<JsonNode>(it) },
-                "hasMore" to event.hasMore
-            )
-            is WsEvent.Mention -> mapOf(
-                "type" to "mention",
-                "messageId" to event.messageId,
-                "mentionedBy" to event.mentionedBy,
-                "content" to event.content
-            )
-            is WsEvent.UserUpdated -> mapOf(
-                "type" to "user_updated",
-                "user" to event.user
-            )
-            is WsEvent.Kicked -> mapOf(
-                "type" to "kicked",
-                "reason" to event.reason
-            )
-            is WsEvent.RoleChanged -> mapOf(
-                "type" to "role_changed",
-                "userId" to event.userId,
-                "role" to event.role
-            )
-            is WsEvent.SearchResults -> mapOf(
-                "type" to "search_results",
-                "messages" to event.messages.map { objectMapper.valueToTree<JsonNode>(it) },
-                "query" to event.query
-            )
-            is WsEvent.UnreadCounts -> mapOf(
-                "type" to "unread_counts",
-                "unreadDms" to event.unreadDms
-            )
-            is WsEvent.Typing -> mapOf(
-                "type" to "typing",
-                "userId" to event.userId,
-                "username" to event.username,
-                "isTyping" to event.isTyping
-            )
-        }
-        return objectMapper.writeValueAsString(payload)
-    }
+    /** Serialize a [WsEvent] to JSON via Jackson type annotations. */
+    fun serializeEvent(event: WsEvent): String = objectMapper.writeValueAsString(event)
 }

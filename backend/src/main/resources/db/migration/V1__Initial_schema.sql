@@ -29,17 +29,17 @@ CREATE TABLE rooms (
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Messages use a JSONB `content` column whose shape depends on message_type:
+--   text:   {"text": "..."}
+--   image:  {"url": "...", "thumbnail": "...", "width": N, "height": N}
+--   file:   {"url": "...", "name": "...", "size": N, "mime": "..."}
+--   system: {"text": "..."}
 CREATE TABLE messages (
     id SERIAL PRIMARY KEY,
     room_id INTEGER NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     message_type TEXT NOT NULL CHECK(message_type IN ('text', 'image', 'file', 'system')),
-    content TEXT,
-    file_url TEXT,
-    file_name TEXT,
-    file_size BIGINT,
-    mime_type TEXT,
-    thumbnail_url TEXT,
+    content JSONB NOT NULL DEFAULT '{}',
     edited_at TIMESTAMPTZ,
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     reply_to_id INTEGER REFERENCES messages(id),
@@ -54,17 +54,13 @@ CREATE TABLE room_members (
     PRIMARY KEY (room_id, user_id)
 );
 
+-- Private messages use the same JSONB content convention as room messages.
 CREATE TABLE private_messages (
     id SERIAL PRIMARY KEY,
     sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     receiver_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     message_type TEXT NOT NULL CHECK(message_type IN ('text', 'image', 'file')),
-    content TEXT,
-    file_url TEXT,
-    file_name TEXT,
-    file_size BIGINT,
-    mime_type TEXT,
-    thumbnail_url TEXT,
+    content JSONB NOT NULL DEFAULT '{}',
     is_read BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -91,10 +87,9 @@ CREATE TABLE invite_links (
 -- Indexes
 CREATE INDEX idx_messages_room_id_id ON messages(room_id, id DESC);
 CREATE INDEX idx_messages_reply_to ON messages(reply_to_id);
+CREATE INDEX idx_messages_content_text ON messages ((content->>'text')) WHERE message_type IN ('text', 'system');
 CREATE INDEX idx_room_members_user_id ON room_members(user_id);
 CREATE INDEX idx_private_messages_participants ON private_messages(sender_id, receiver_id, created_at);
 CREATE INDEX idx_private_messages_receiver ON private_messages(receiver_id, is_read);
 CREATE INDEX idx_invite_links_code_hash ON invite_links(code_hash);
 CREATE INDEX idx_invite_links_created_by ON invite_links(created_by);
-
-

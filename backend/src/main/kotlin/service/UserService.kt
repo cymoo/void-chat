@@ -9,39 +9,46 @@ import java.time.ZoneOffset
 import util.PasswordUtils
 
 /**
- * User service with registration and login support
+ * User lifecycle service: registration, login, profile management, and admin operations.
  */
 class UserService(
-    dsl: DSLContext,
+    private val dsl: DSLContext,
     private val authorizationService: AuthorizationService = AuthorizationService()
 ) {
 
     private val userRepo = UserRepository(dsl)
 
+    /**
+     * Register a new user or claim a legacy (passwordless) account.
+     * The first registered user is auto-promoted to super_admin when none exists.
+     * Wrapped in a transaction for atomicity.
+     */
     fun register(username: String, password: String): AuthResponse {
         require(username.isNotBlank()) { "Username is required" }
         require(password.length >= 6) { "Password must be at least 6 characters" }
 
-        val existing = userRepo.findByUsernameForAuth(username)
-        val passwordHash = PasswordUtils.hashPassword(password)
+        return dsl.transactionResult { cfg ->
+            val txRepo = UserRepository(cfg.dsl())
+            val existing = txRepo.findByUsernameForAuth(username)
+            val passwordHash = PasswordUtils.hashPassword(password)
 
-        var user = if (existing != null) {
-            // Legacy account (no password) can claim ownership by registering
-            require(existing.passwordHash == null) { "Username already taken" }
-            require(!existing.user.isDisabled) { "Account is disabled" }
-            userRepo.setPasswordHash(existing.user.id, passwordHash)
-            existing.user
-        } else {
-            userRepo.createUser(username, passwordHash)
+            var user = if (existing != null) {
+                require(existing.passwordHash == null) { "Username already taken" }
+                require(!existing.user.isDisabled) { "Account is disabled" }
+                txRepo.setPasswordHash(existing.user.id, passwordHash)
+                existing.user
+            } else {
+                txRepo.createUser(username, passwordHash)
+            }
+
+            // Bootstrap: first registered user becomes super_admin if none exists
+            if (txRepo.countByRole(AuthorizationService.ROLE_SUPER_ADMIN) == 0) {
+                txRepo.updateRole(user.id, AuthorizationService.ROLE_SUPER_ADMIN)
+                user = txRepo.findById(user.id) ?: user.copy(role = AuthorizationService.ROLE_SUPER_ADMIN)
+            }
+
+            AuthResponse(token = "", user = user)
         }
-
-        // Bootstrap rule: if there is no super admin yet, first registered account becomes super admin.
-        if (userRepo.countByRole(AuthorizationService.ROLE_SUPER_ADMIN) == 0) {
-            userRepo.updateRole(user.id, AuthorizationService.ROLE_SUPER_ADMIN)
-            user = userRepo.findById(user.id) ?: user.copy(role = AuthorizationService.ROLE_SUPER_ADMIN)
-        }
-
-        return AuthResponse(token = "", user = user)
     }
 
     fun login(username: String, password: String): User? {
@@ -73,7 +80,7 @@ class UserService(
 
     fun updateUserRole(actorUser: User, targetUserId: Int, role: String): User? {
         val desiredRole = role.trim().lowercase()
-        if (!authorizationService.isValidPlatformRole(desiredRole)) {
+        if (!AuthorizationService.isValidPlatformRole(desiredRole)) {
             throw IllegalArgumentException("Invalid platform role")
         }
 
@@ -86,7 +93,7 @@ class UserService(
         }
 
         val targetUser = userRepo.findById(targetUserId) ?: return null
-        val targetCurrentRole = authorizationService.normalizePlatformRole(targetUser.role)
+        val targetCurrentRole = AuthorizationService.normalizePlatformRole(targetUser.role)
 
         if (!authorizationService.canAssignPlatformRole(actorUser, targetCurrentRole, desiredRole)) {
             throw IllegalArgumentException("Role assignment is not allowed")
@@ -115,7 +122,7 @@ class UserService(
             throw IllegalArgumentException("Target user is protected")
         }
 
-        val targetRole = authorizationService.normalizePlatformRole(targetUser.role)
+        val targetRole = AuthorizationService.normalizePlatformRole(targetUser.role)
         if (disabled && targetRole == AuthorizationService.ROLE_SUPER_ADMIN &&
             userRepo.countActiveByRole(AuthorizationService.ROLE_SUPER_ADMIN) <= 1
         ) {
@@ -184,5 +191,21 @@ class UserService(
 
         userRepo.updateProfile(userId, normalizedUsername, avatarUrl, bio, status)
         return userRepo.findById(userId)
+    }
+
+    /**
+     * Ensure the given user exists as super_admin.
+     * Used for INIT_ADMIN bootstrapping at startup.
+     */
+    fun ensureAdmin(username: String, password: String) {
+        val existing = userRepo.findByUsernameForAuth(username)
+        val passwordHash = PasswordUtils.hashPassword(password)
+        val user = if (existing != null) {
+            userRepo.setPasswordHash(existing.user.id, passwordHash)
+            existing.user
+        } else {
+            userRepo.createUser(username, passwordHash)
+        }
+        userRepo.updateRole(user.id, AuthorizationService.ROLE_SUPER_ADMIN)
     }
 }

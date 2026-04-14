@@ -1,5 +1,6 @@
 package service
 
+import model.User
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -11,8 +12,8 @@ class RoomServiceTest {
 
     private lateinit var roomService: RoomService
     private lateinit var dsl: DSLContext
-    private var ownerId = 0
-    private var otherId = 0
+    private lateinit var owner: User
+    private lateinit var other: User
 
     @BeforeEach
     fun setUp() {
@@ -20,8 +21,8 @@ class RoomServiceTest {
         roomService = RoomService(dsl)
 
         val userRepo = UserRepository(dsl)
-        ownerId = userRepo.createUser("owner", "hash").id
-        otherId = userRepo.createUser("other", "hash").id
+        owner = userRepo.createUser("owner", "hash")
+        other = userRepo.createUser("other", "hash")
     }
 
     @Test
@@ -36,7 +37,7 @@ class RoomServiceTest {
 
     @Test
     fun `createRoom creates and returns new room`() {
-        val room = roomService.createRoom("test-room", "A test room", creatorId = ownerId)
+        val room = roomService.createRoom("test-room", "A test room", creatorId = owner.id)
         assertEquals("test-room", room.name)
         assertEquals("A test room", room.description)
         assertFalse(room.isPrivate)
@@ -44,7 +45,7 @@ class RoomServiceTest {
 
     @Test
     fun `createRoom applies custom max users`() {
-        val room = roomService.createRoom("capacity-room", "A room with limit", creatorId = ownerId, maxUsers = 42)
+        val room = roomService.createRoom("capacity-room", "A room with limit", creatorId = owner.id, maxUsers = 42)
         assertEquals(42, room.maxUsers)
     }
 
@@ -65,19 +66,19 @@ class RoomServiceTest {
     @Test
     fun `createRoom with invalid max users throws`() {
         assertThrows<IllegalArgumentException> {
-            roomService.createRoom("invalid-capacity", "desc", creatorId = ownerId, maxUsers = 0)
+            roomService.createRoom("invalid-capacity", "desc", creatorId = owner.id, maxUsers = 0)
         }
     }
 
     @Test
     fun `createRoom private with password succeeds`() {
-        val room = roomService.createRoom("private-room", "desc", isPrivate = true, password = "secret123", creatorId = ownerId)
+        val room = roomService.createRoom("private-room", "desc", isPrivate = true, password = "secret123", creatorId = owner.id)
         assertTrue(room.isPrivate)
     }
 
     @Test
     fun `getRoomById returns room`() {
-        val room = roomService.createRoom("findme", "desc", creatorId = ownerId)
+        val room = roomService.createRoom("findme", "desc", creatorId = owner.id)
         val found = roomService.getRoomById(room.id)
         assertNotNull(found)
         assertEquals("findme", found!!.name)
@@ -90,7 +91,7 @@ class RoomServiceTest {
 
     @Test
     fun `getRoomByName returns room`() {
-        roomService.createRoom("byname", "desc", creatorId = ownerId)
+        roomService.createRoom("byname", "desc", creatorId = owner.id)
         val found = roomService.getRoomByName("byname")
         assertNotNull(found)
         assertEquals("byname", found!!.name)
@@ -98,13 +99,13 @@ class RoomServiceTest {
 
     @Test
     fun `verifyRoomPassword returns true for public room`() {
-        val room = roomService.createRoom("pub", "desc", creatorId = ownerId)
+        val room = roomService.createRoom("pub", "desc", creatorId = owner.id)
         assertTrue(roomService.verifyRoomPassword(room.id, null))
     }
 
     @Test
     fun `verifyRoomPassword validates correct password`() {
-        val room = roomService.createRoom("priv", "desc", isPrivate = true, password = "secret", creatorId = ownerId)
+        val room = roomService.createRoom("priv", "desc", isPrivate = true, password = "secret", creatorId = owner.id)
         assertTrue(roomService.verifyRoomPassword(room.id, "secret"))
         assertFalse(roomService.verifyRoomPassword(room.id, "wrong"))
         assertFalse(roomService.verifyRoomPassword(room.id, null))
@@ -112,25 +113,26 @@ class RoomServiceTest {
 
     @Test
     fun `deleteRoom succeeds for owner`() {
-        val room = roomService.createRoom("deleteme", "desc", creatorId = ownerId)
-        assertTrue(roomService.deleteRoom(room.id, ownerId))
+        val room = roomService.createRoom("deleteme", "desc", creatorId = owner.id)
+        // Owner (as creator) can delete — RoomService.deleteRoom(actorUser) checks canManageRoom
+        assertTrue(roomService.deleteRoom(room.id, owner))
         assertNull(roomService.getRoomById(room.id))
     }
 
     @Test
     fun `deleteRoom fails for non-owner`() {
-        val room = roomService.createRoom("protected", "desc", creatorId = ownerId)
-        assertFalse(roomService.deleteRoom(room.id, otherId))
+        val room = roomService.createRoom("protected", "desc", creatorId = owner.id)
+        assertFalse(roomService.deleteRoom(room.id, other))
         assertNotNull(roomService.getRoomById(room.id))
     }
 
     @Test
     fun `updateRoom updates room metadata for owner`() {
-        val room = roomService.createRoom("editable", "before", creatorId = ownerId)
+        val room = roomService.createRoom("editable", "before", creatorId = owner.id)
 
         val updated = roomService.updateRoom(
             roomId = room.id,
-            userId = ownerId,
+            actorUser = owner,
             name = "edited-room",
             description = "after",
             isPrivate = true,
@@ -151,12 +153,12 @@ class RoomServiceTest {
             "desc",
             isPrivate = true,
             password = "old-secret",
-            creatorId = ownerId
+            creatorId = owner.id
         )
 
         val updated = roomService.updateRoom(
             roomId = room.id,
-            userId = ownerId,
+            actorUser = owner,
             name = "private-edited",
             description = "updated-desc",
             isPrivate = true,
@@ -171,10 +173,10 @@ class RoomServiceTest {
 
     @Test
     fun `updateRoom updates room capacity for owner`() {
-        val room = roomService.createRoom("capacity-edit", "desc", creatorId = ownerId, maxUsers = 100)
+        val room = roomService.createRoom("capacity-edit", "desc", creatorId = owner.id, maxUsers = 100)
         val updated = roomService.updateRoom(
             roomId = room.id,
-            userId = ownerId,
+            actorUser = owner,
             name = room.name,
             description = room.description,
             isPrivate = room.isPrivate,
@@ -188,12 +190,12 @@ class RoomServiceTest {
 
     @Test
     fun `updateRoom public to private without password throws`() {
-        val room = roomService.createRoom("public-edit", "desc", creatorId = ownerId)
+        val room = roomService.createRoom("public-edit", "desc", creatorId = owner.id)
 
         assertThrows<IllegalArgumentException> {
             roomService.updateRoom(
                 roomId = room.id,
-                userId = ownerId,
+                actorUser = owner,
                 name = "public-edit",
                 description = "desc",
                 isPrivate = true,
@@ -204,11 +206,11 @@ class RoomServiceTest {
 
     @Test
     fun `updateRoom fails for non-owner`() {
-        val room = roomService.createRoom("owner-only", "desc", creatorId = ownerId)
+        val room = roomService.createRoom("owner-only", "desc", creatorId = owner.id)
 
         val updated = roomService.updateRoom(
             roomId = room.id,
-            userId = otherId,
+            actorUser = other,
             name = "hacked",
             description = "hacked-desc",
             isPrivate = false,

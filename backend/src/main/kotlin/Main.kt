@@ -1,5 +1,6 @@
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import config.DatabaseConfig
+import config.Env
 import config.RedisConfig
 import controller.ApiController
 import controller.AuthController
@@ -22,51 +23,58 @@ import java.nio.file.Paths
 val logger: Logger = LoggerFactory.getLogger("App")
 
 fun main() {
+    Env.load()
+
     val app = Colleen()
     app.openApi()
 
     app.config {
-        // Configure server
         server {
-            maxRequestSize = 30 * 1024 * 1024  // 30MB for file uploads
+            maxRequestSize = Env["MAX_REQUEST_SIZE"]?.toLongOrNull() ?: (30L * 1024 * 1024)
         }
-        // Configure WebSocket
         ws {
-            idleTimeoutMs = 600_000            // 10 minutes
-            maxMessageSizeBytes = 256 * 1024   // 256 KB
-            pingIntervalMs = 30_000            // 30 seconds
-            pingTimeoutMs = 10_000             // 10 seconds
-            maxConnections = 500               // Max 500 connections
+            idleTimeoutMs = Env["WS_IDLE_TIMEOUT_MS"]?.toLongOrNull() ?: 600_000
+            maxMessageSizeBytes = Env["WS_MAX_MESSAGE_SIZE"]?.toLongOrNull() ?: (256L * 1024)
+            pingIntervalMs = Env["WS_PING_INTERVAL_MS"]?.toLongOrNull() ?: 30_000
+            pingTimeoutMs = Env["WS_PING_TIMEOUT_MS"]?.toLongOrNull() ?: 10_000
+            maxConnections = Env["WS_MAX_CONNECTIONS"]?.toIntOrNull() ?: 500
         }
     }
 
-    // Resolve project root (parent of backend/)
+    // Resolve upload directory (default: <project-root>/uploads)
     val projectRoot = Paths.get(System.getProperty("user.dir")).parent?.toString()
         ?: System.getProperty("user.dir")
+    val uploadDir = Env["UPLOAD_DIR"] ?: "${projectRoot}/uploads"
 
-    // Setup database
-    val dbUrl = System.getenv("DATABASE_URL") ?: "jdbc:postgresql://localhost:5432/void_chat"
-    val dbUser = System.getenv("DATABASE_USER") ?: "postgres"
-    val dbPassword = System.getenv("DATABASE_PASSWORD") ?: "postgres"
+    // Database
+    val dbUrl = Env["DATABASE_URL"] ?: "jdbc:postgresql://localhost:5432/void_chat"
+    val dbUser = Env["DATABASE_USER"] ?: "postgres"
+    val dbPassword = Env["DATABASE_PASSWORD"] ?: "postgres"
     val dataSource = DatabaseConfig.createDataSource(dbUrl, dbUser, dbPassword)
     DatabaseConfig.runMigrations(dataSource)
     val dsl = DatabaseConfig.createDSLContext(dataSource)
 
-    // Setup Redis
-    val redisUrl = System.getenv("REDIS_URL") ?: "redis://localhost:6379"
+    // Redis
+    val redisUrl = Env["REDIS_URL"] ?: "redis://localhost:6379"
     val jedisPool = RedisConfig.createPool(redisUrl)
 
-    // Create ObjectMapper
     val objectMapper = jacksonObjectMapper()
 
-    // Create services
+    // Services
+    val maxImageSize = Env["MAX_IMAGE_SIZE"]?.toLongOrNull() ?: (5L * 1024 * 1024)
+    val maxFileSize = Env["MAX_FILE_SIZE"]?.toLongOrNull() ?: (20L * 1024 * 1024)
+    val sessionTtlDays = Env["SESSION_TTL_DAYS"]?.toLongOrNull() ?: 7L
+
     val authorizationService = AuthorizationService()
     val invitationService = InvitationService(dsl)
     val userService = UserService(dsl, authorizationService)
     val roomService = RoomService(dsl, authorizationService)
     val chatService = ChatService(dsl, objectMapper, jedisPool)
-    val fileService = FileService("${projectRoot}/uploads")
-    val sessionService = SessionService(jedisPool)
+    val fileService = FileService(uploadDir, maxImageSize, maxFileSize)
+    val sessionService = SessionService(jedisPool, sessionTtlDays)
+
+    // Bootstrap initial admin from environment (optional)
+    bootstrapInitAdmin(userService)
 
     // Middleware
     app.use(RequestLogger())
@@ -81,6 +89,22 @@ fun main() {
     // Start Redis pub/sub subscriber for cross-instance messaging
     chatService.startRedisSubscriber()
 
-    app.listen(8000)
-    logger.info("✅ Chat API Server running on http://localhost:8000")
+    val port = Env["SERVER_PORT"]?.toIntOrNull() ?: 8000
+    app.listen(port)
+    logger.info("✅ Chat API Server running on http://localhost:$port")
+}
+
+/**
+ * If INIT_ADMIN_USERNAME and INIT_ADMIN_PASSWORD are set, ensure the user
+ * exists and is promoted to super_admin. Runs once at startup.
+ */
+private fun bootstrapInitAdmin(userService: UserService) {
+    val username = Env["INIT_ADMIN_USERNAME"]?.takeIf { it.isNotBlank() } ?: return
+    val password = Env["INIT_ADMIN_PASSWORD"]?.takeIf { it.isNotBlank() } ?: return
+    try {
+        userService.ensureAdmin(username, password)
+        logger.info("Initial admin '$username' bootstrapped from env")
+    } catch (e: Exception) {
+        logger.warn("Failed to bootstrap initial admin: ${e.message}")
+    }
 }

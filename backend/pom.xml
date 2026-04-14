@@ -24,6 +24,7 @@
         <flyway.version>12.0.3</flyway.version>
         <jedis.version>5.2.0</jedis.version>
         <caffeine.version>3.2.0</caffeine.version>
+        <dotenv.version>6.5.1</dotenv.version>
 
         <!-- Build configuration -->
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -36,10 +37,28 @@
         <maven-shade-plugin.version>3.5.1</maven-shade-plugin.version>
         <exec-maven-plugin.version>3.6.3</exec-maven-plugin.version>
 
-        <db.url>jdbc:postgresql://localhost:5432/void_chat</db.url>
-        <db.user>postgres</db.user>
-        <db.password>postgres</db.password>
+        <!-- DB defaults for Flyway/jOOQ plugins; override via -Ddb.url=... or env vars -->
+        <db.url>${env.DATABASE_URL}</db.url>
+        <db.user>${env.DATABASE_USER}</db.user>
+        <db.password>${env.DATABASE_PASSWORD}</db.password>
     </properties>
+
+    <profiles>
+        <!-- Fallback profile activated when DATABASE_URL env var is absent -->
+        <profile>
+            <id>local-defaults</id>
+            <activation>
+                <property>
+                    <name>!env.DATABASE_URL</name>
+                </property>
+            </activation>
+            <properties>
+                <db.url>jdbc:postgresql://localhost:5432/void_chat</db.url>
+                <db.user>postgres</db.user>
+                <db.password>postgres</db.password>
+            </properties>
+        </profile>
+    </profiles>
 
     <dependencies>
         <!-- Kotlin Standard Library -->
@@ -111,6 +130,13 @@
             <version>${caffeine.version}</version>
         </dependency>
 
+        <!-- Dotenv -->
+        <dependency>
+            <groupId>io.github.cdimascio</groupId>
+            <artifactId>dotenv-kotlin</artifactId>
+            <version>${dotenv.version}</version>
+        </dependency>
+
         <!-- Test Dependencies -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -144,14 +170,18 @@
                 <executions>
                     <execution>
                         <id>compile</id>
-                        <phase>process-sources</phase>
                         <goals>
                             <goal>compile</goal>
                         </goals>
+                        <configuration>
+                            <sourceDirs>
+                                <sourceDir>src/main/kotlin</sourceDir>
+                                <sourceDir>target/generated-sources/jooq</sourceDir>
+                            </sourceDirs>
+                        </configuration>
                     </execution>
                     <execution>
                         <id>test-compile</id>
-                        <phase>test-compile</phase>
                         <goals>
                             <goal>test-compile</goal>
                         </goals>

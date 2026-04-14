@@ -6,17 +6,23 @@ import model.User
 import org.jooq.DSLContext
 import org.jooq.Record
 import service.AuthorizationService
+import util.toEpochMillis
+import util.toEpochMillisOrNull
 import java.time.Duration
-import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
 
 /** Internal record that includes sensitive auth fields not exposed in the User model. */
 data class AuthUser(val user: User, val passwordHash: String?)
 
+/**
+ * Repository for user persistence.
+ *
+ * Uses a Caffeine local cache (1000 entries, 2-min TTL) to avoid redundant
+ * DB lookups on hot paths (e.g., per-message auth checks).
+ */
 class UserRepository(private val dsl: DSLContext) {
 
-    private val authorizationService = AuthorizationService()
     private val userFields = arrayOf(
         USERS.ID, USERS.USERNAME, USERS.AVATAR_URL,
         USERS.CREATED_AT, USERS.LAST_SEEN, USERS.BIO, USERS.STATUS, USERS.ROLE,
@@ -31,18 +37,12 @@ class UserRepository(private val dsl: DSLContext) {
     fun findByUsername(username: String): User? = findByUsernameForAuth(username)?.user
 
     fun findByUsernameForAuth(username: String): AuthUser? {
-        return dsl.select(
-            *userFields,
-            USERS.PASSWORD_HASH
-        )
+        return dsl.select(*userFields, USERS.PASSWORD_HASH)
             .from(USERS)
             .where(USERS.USERNAME.eq(username))
             .fetchOne()
             ?.let { record ->
-                AuthUser(
-                    user = mapRecordToUser(record),
-                    passwordHash = record.get(USERS.PASSWORD_HASH)
-                )
+                AuthUser(mapRecordToUser(record), record.get(USERS.PASSWORD_HASH))
             }
     }
 
@@ -132,13 +132,7 @@ class UserRepository(private val dsl: DSLContext) {
             .execute()
     }
 
-    fun updateProfile(
-        userId: Int,
-        username: String?,
-        avatarUrl: String?,
-        bio: String?,
-        status: String?
-    ) {
+    fun updateProfile(userId: Int, username: String?, avatarUrl: String?, bio: String?, status: String?) {
         if (username == null && avatarUrl == null && bio == null && status == null) return
 
         var step = dsl.update(USERS).set(USERS.LAST_SEEN, USERS.LAST_SEEN)
@@ -150,10 +144,16 @@ class UserRepository(private val dsl: DSLContext) {
         invalidateCache(userId)
     }
 
+    /**
+     * Map a jOOQ record to a [User] model.
+     *
+     * Capabilities are derived from the platform role at mapping time so that
+     * the repository remains free of service-layer dependencies.
+     */
     private fun mapRecordToUser(record: Record): User {
-        val role = authorizationService.normalizePlatformRole(record.get(USERS.ROLE))
+        val role = AuthorizationService.normalizePlatformRole(record.get(USERS.ROLE))
         val isDisabled = record.get(USERS.IS_DISABLED) ?: false
-        val mutedUntil = parseTimestampOrNull(record.get(USERS.MUTED_UNTIL))
+        val mutedUntil = record.get(USERS.MUTED_UNTIL).toEpochMillisOrNull()
         val now = System.currentTimeMillis()
         val isMuted = mutedUntil?.let { it > now } ?: false
         return User(
@@ -163,23 +163,14 @@ class UserRepository(private val dsl: DSLContext) {
             bio = record.get(USERS.BIO),
             status = record.get(USERS.STATUS),
             role = role,
-            capabilities = authorizationService.capabilitiesForPlatformRole(role),
+            capabilities = AuthorizationService.capabilitiesForPlatformRole(role),
             isDisabled = isDisabled,
             disabledReason = record.get(USERS.DISABLED_REASON),
             mutedUntil = mutedUntil,
             muteReason = record.get(USERS.MUTE_REASON),
             isMuted = isMuted,
-            createdAt = parseTimestamp(record.get(USERS.CREATED_AT)),
-            lastSeen = parseTimestamp(record.get(USERS.LAST_SEEN))
+            createdAt = record.get(USERS.CREATED_AT).toEpochMillis(),
+            lastSeen = record.get(USERS.LAST_SEEN).toEpochMillis()
         )
-    }
-
-    private fun parseTimestamp(timestamp: OffsetDateTime?): Long {
-        return timestamp?.toInstant()?.toEpochMilli()
-            ?: Instant.now().toEpochMilli()
-    }
-
-    private fun parseTimestampOrNull(timestamp: OffsetDateTime?): Long? {
-        return timestamp?.toInstant()?.toEpochMilli()
     }
 }

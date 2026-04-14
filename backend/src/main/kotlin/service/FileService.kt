@@ -9,13 +9,19 @@ import java.nio.file.Paths
 import java.util.*
 
 /**
- * File management service
+ * File management service for uploaded images and files.
+ *
+ * @param uploadDir  Local directory for storing uploads.
+ * @param maxImageSize  Maximum allowed image size in bytes.
+ * @param maxFileSize   Maximum allowed file size in bytes.
  */
-class FileService(uploadDir: String) {
+class FileService(
+    uploadDir: String,
+    private val maxImageSize: Long = 5L * 1024 * 1024,
+    private val maxFileSize: Long = 20L * 1024 * 1024
+) {
 
     private val uploadPath: Path = Paths.get(uploadDir)
-    private val maxImageSize: Long = 5 * 1024 * 1024  // 5MB
-    private val maxFileSize: Long = 20 * 1024 * 1024  // 20MB
 
     init {
         Files.createDirectories(uploadPath)
@@ -62,7 +68,7 @@ class FileService(uploadDir: String) {
 
     private fun validateImageSize(size: Long) {
         if (size > maxImageSize) {
-            throw IllegalArgumentException("Image too large. Maximum: 5MB")
+            throw IllegalArgumentException("Image too large. Maximum: ${maxImageSize / 1024 / 1024}MB")
         }
     }
 
@@ -75,7 +81,7 @@ class FileService(uploadDir: String) {
 
     private fun validateFileSize(size: Long) {
         if (size > maxFileSize) {
-            throw IllegalArgumentException("File too large. Maximum: 20MB")
+            throw IllegalArgumentException("File too large. Maximum: ${maxFileSize / 1024 / 1024}MB")
         }
     }
 

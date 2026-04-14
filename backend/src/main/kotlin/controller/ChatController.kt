@@ -26,6 +26,7 @@ class ChatController(
     private val sessionService: SessionService,
     private val objectMapper: ObjectMapper
 ) {
+    private val log = org.slf4j.LoggerFactory.getLogger(ChatController::class.java)
 
     @WsUse
     fun validateUser(ctx: Context, next: Next) {
@@ -237,7 +238,7 @@ class ChatController(
         }
 
         conn.onError { error ->
-            println("WebSocket error for user ${currentUser.username}: ${error.message}")
+            log.warn("WebSocket error for user {}: {}", currentUser.username, error.message)
         }
     }
 
@@ -279,7 +280,7 @@ class ChatController(
         }
 
         conn.onError { error ->
-            println("WebSocket DM error for user ${currentUser.username}: ${error.message}")
+            log.warn("WebSocket DM error for user {}: {}", currentUser.username, error.message)
         }
     }
 

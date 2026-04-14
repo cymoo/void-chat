@@ -4,8 +4,7 @@ import chatroom.jooq.generated.Tables.ROOM_MEMBERS
 import chatroom.jooq.generated.Tables.USERS
 import model.User
 import org.jooq.DSLContext
-import java.time.Instant
-import java.time.OffsetDateTime
+import util.toEpochMillis
 
 class RoomMemberRepository(private val dsl: DSLContext) {
 
@@ -43,8 +42,8 @@ class RoomMemberRepository(private val dsl: DSLContext) {
                     bio = record.get(USERS.BIO),
                     status = record.get(USERS.STATUS),
                     role = record.get(ROOM_MEMBERS.ROLE) ?: "member",
-                    createdAt = parseTimestamp(record.get(USERS.CREATED_AT)),
-                    lastSeen = parseTimestamp(record.get(USERS.LAST_SEEN))
+                    createdAt = record.get(USERS.CREATED_AT).toEpochMillis(),
+                    lastSeen = record.get(USERS.LAST_SEEN).toEpochMillis()
                 )
             }
     }
@@ -63,10 +62,5 @@ class RoomMemberRepository(private val dsl: DSLContext) {
             .where(ROOM_MEMBERS.ROOM_ID.eq(roomId))
             .and(ROOM_MEMBERS.USER_ID.eq(userId))
             .execute()
-    }
-
-    private fun parseTimestamp(timestamp: OffsetDateTime?): Long {
-        return timestamp?.toInstant()?.toEpochMilli()
-            ?: Instant.now().toEpochMilli()
     }
 }

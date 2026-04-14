@@ -46,10 +46,10 @@ class AuthorizationServiceTest {
 
     @Test
     fun `room role assignment validates allowed roles`() {
-        assertTrue(authorizationService.isValidAssignableRoomRole("admin"))
-        assertTrue(authorizationService.isValidAssignableRoomRole("moderator"))
-        assertTrue(authorizationService.isValidAssignableRoomRole("member"))
-        assertFalse(authorizationService.isValidAssignableRoomRole("owner"))
-        assertFalse(authorizationService.isValidAssignableRoomRole("unknown"))
+        assertTrue(AuthorizationService.isValidAssignableRoomRole("admin"))
+        assertTrue(AuthorizationService.isValidAssignableRoomRole("moderator"))
+        assertTrue(AuthorizationService.isValidAssignableRoomRole("member"))
+        assertFalse(AuthorizationService.isValidAssignableRoomRole("owner"))
+        assertFalse(AuthorizationService.isValidAssignableRoomRole("unknown"))
     }
 }

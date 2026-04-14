@@ -1,13 +1,10 @@
 package repository
 
-import chatroom.jooq.generated.Tables.MESSAGES
 import chatroom.jooq.generated.Tables.ROOMS
-import chatroom.jooq.generated.Tables.ROOM_MEMBERS
 import chatroom.jooq.generated.tables.records.RoomsRecord
 import model.Room
 import org.jooq.DSLContext
-import java.time.Instant
-import java.time.OffsetDateTime
+import util.toEpochMillis
 
 class RoomRepository(private val dsl: DSLContext) {
 
@@ -80,13 +77,9 @@ class RoomRepository(private val dsl: DSLContext) {
             .execute() > 0
     }
 
+    /** Delete a room — ON DELETE CASCADE handles messages and memberships. */
     fun delete(roomId: Int) {
-        dsl.transaction { config ->
-            val tx = config.dsl()
-            tx.deleteFrom(MESSAGES).where(MESSAGES.ROOM_ID.eq(roomId)).execute()
-            tx.deleteFrom(ROOM_MEMBERS).where(ROOM_MEMBERS.ROOM_ID.eq(roomId)).execute()
-            tx.deleteFrom(ROOMS).where(ROOMS.ID.eq(roomId)).execute()
-        }
+        dsl.deleteFrom(ROOMS).where(ROOMS.ID.eq(roomId)).execute()
     }
 
     private fun RoomsRecord.toModel(): Room {
@@ -96,13 +89,8 @@ class RoomRepository(private val dsl: DSLContext) {
             description = this.description,
             isPrivate = this.isPrivate ?: false,
             creatorId = this.creatorId,
-            createdAt = parseTimestamp(this.createdAt),
+            createdAt = this.createdAt.toEpochMillis(),
             maxUsers = this.maxUsers ?: 100
         )
-    }
-
-    private fun parseTimestamp(timestamp: OffsetDateTime?): Long {
-        return timestamp?.toInstant()?.toEpochMilli()
-            ?: Instant.now().toEpochMilli()
     }
 }
