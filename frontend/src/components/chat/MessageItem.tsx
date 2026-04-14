@@ -5,18 +5,20 @@ import { renderMarkdown, highlightMentions } from "@/lib/markdown";
 import { requestMessageJump } from "@/lib/messageJump";
 import { formatTime, getInitials } from "@/lib/utils";
 import { MessageContent } from "@/components/chat/MessageContent";
-import type { ChatMessage, User, WsSendPayload } from "@/api/types";
+import type { ChatMessage, WsSendPayload } from "@/api/types";
 
 interface MessageItemProps {
   message: ChatMessage;
-  currentUser: User;
+  currentUserId: number;
+  currentUsername: string;
   send: (payload: WsSendPayload) => void;
   onMediaLoad?: () => void;
 }
 
 function MessageItemInner({
   message,
-  currentUser,
+  currentUserId,
+  currentUsername,
   send,
   onMediaLoad,
 }: MessageItemProps) {
@@ -26,7 +28,7 @@ function MessageItemInner({
   const showUserCard = useUiStore((s) => s.showUserCard);
   const setImageModal = useUiStore((s) => s.setImageModal);
 
-  const isOwn = message.messageType !== "system" && message.userId === currentUser.id;
+  const isOwn = message.messageType !== "system" && message.userId === currentUserId;
 
   const EDIT_WINDOW_MS = 5 * 60 * 1000;
   const withinEditWindow =
@@ -53,8 +55,8 @@ function MessageItemInner({
 
   const textHtml = useMemo(() => {
     if (message.messageType !== "text") return null;
-    return highlightMentions(renderMarkdown(message.content), currentUser.username);
-  }, [message, currentUser.username]);
+    return highlightMentions(renderMarkdown(message.content), currentUsername);
+  }, [message, currentUsername]);
 
   if (message.messageType === "system") {
     return (
@@ -106,14 +108,13 @@ function MessageItemInner({
     <div className={`message${isOwn ? " message-self" : ""}`} data-message-id={message.id}>
       <div
         className="message-avatar"
-        style={{ cursor: "pointer" }}
         onClick={() => showUserCard(message.userId)}
       >
         {message.avatarUrl ? (
           <img
             src={message.avatarUrl}
             alt={message.username}
-            style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "2px" }}
+            loading="lazy"
           />
         ) : (
           getInitials(message.username)
@@ -134,6 +135,7 @@ function MessageItemInner({
               className="msg-action-btn msg-action-reply"
               onClick={() => setReplyingTo(message)}
               title="Reply"
+              aria-label="Reply to message"
             >
               ↩
             </button>
@@ -142,6 +144,7 @@ function MessageItemInner({
                 className="msg-action-btn msg-action-edit"
                 onClick={() => setEditingMessage(message.id)}
                 title="Edit"
+                aria-label="Edit message"
               >
                 ✎
               </button>
@@ -151,6 +154,7 @@ function MessageItemInner({
                 className="msg-action-btn msg-action-delete"
                 onClick={handleDelete}
                 title="Delete"
+                aria-label="Delete message"
               >
                 ✕
               </button>
@@ -163,12 +167,4 @@ function MessageItemInner({
   );
 }
 
-export const MessageItem = memo(
-  MessageItemInner,
-  (prev, next) =>
-    prev.message === next.message &&
-    prev.currentUser.id === next.currentUser.id &&
-    prev.currentUser.username === next.currentUser.username &&
-    prev.send === next.send &&
-    prev.onMediaLoad === next.onMediaLoad,
-);
+export const MessageItem = memo(MessageItemInner);

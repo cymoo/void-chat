@@ -156,7 +156,7 @@ export function EditRoomModal({ room, onClose }: EditRoomModalProps) {
               )}
             </div>
           )}
-          <button className="connect-btn" type="submit" style={{ marginTop: 0 }} disabled={saving}>
+          <button className="connect-btn" type="submit" disabled={saving}>
             <span className="btn-text">{saving ? "SAVING..." : "SAVE CHANGES >>"}</span>
             <span className="btn-scan" />
           </button>

@@ -55,7 +55,7 @@ export function ProfileModal() {
   };
 
   return (
-    <div className="modal active">
+    <div className="modal active" role="dialog" aria-modal="true" aria-label="Edit profile">
       <div className="modal-backdrop" onClick={() => setProfileOpen(false)} />
       <div className="my-profile-panel">
         <div className="panel-header">
@@ -72,11 +72,12 @@ export function ProfileModal() {
         </div>
         <div className="my-profile-content">
           <div className="my-profile-avatar-section">
-            <label className="profile-avatar-large" title="Click to change avatar" style={{ cursor: "pointer", position: "relative" }}>
+            <label className="profile-avatar-large" title="Click to change avatar">
               {user?.avatarUrl ? (
                 <img
                   src={user.avatarUrl}
                   alt={user.username}
+                  loading="lazy"
                   className="avatar-img-large"
                 />
               ) : (
@@ -129,7 +130,6 @@ export function ProfileModal() {
           </div>
           <button
             className="connect-btn"
-            style={{ marginTop: 0 }}
             onClick={handleSave}
             disabled={saving}
           >

@@ -7,7 +7,7 @@ export function ImageModal() {
   if (!imageModalUrl) return null;
 
   return (
-    <div className="modal active">
+    <div className="modal active" role="dialog" aria-modal="true" aria-label="Image preview">
       <div className="modal-backdrop" onClick={() => setImageModal(null)} />
       <div className="modal-content">
         <button className="modal-close" onClick={() => setImageModal(null)}>
@@ -19,12 +19,7 @@ export function ImageModal() {
         <img
           src={imageModalUrl}
           alt="Full size"
-          style={{
-            maxWidth: "100%",
-            maxHeight: "90vh",
-            border: "2px solid var(--color-accent)",
-            boxShadow: "0 0 30px var(--color-accent)",
-          }}
+          id="modal-image"
         />
       </div>
     </div>

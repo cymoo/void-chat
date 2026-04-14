@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from "react";
-import { useChatStore } from "@/stores/chatStore";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { useChatStore, getOldestMessageId } from "@/stores/chatStore";
 import { useUiStore } from "@/stores/uiStore";
 import { onMessageJump } from "@/lib/messageJump";
 import { MessageItem } from "./MessageItem";
@@ -13,51 +14,109 @@ interface MessageListProps {
 export function MessageList({ send, currentUser }: MessageListProps) {
   const messages = useChatStore((s) => s.messages);
   const hasMore = useChatStore((s) => s.hasMore);
-  const oldestMessageId = useChatStore((s) => s.oldestMessageId);
+  const oldestMessageId = getOldestMessageId(messages);
   const users = useChatStore((s) => s.users);
   const showUserCard = useUiStore((s) => s.showUserCard);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const parentRef = useRef<HTMLDivElement>(null);
   const isAtBottomRef = useRef(true);
   const loadingRef = useRef(false);
-  const scrollingRef = useRef(false);
   const pendingJumpIdRef = useRef<number | null>(null);
   const jumpLoadRequestedRef = useRef(false);
+  const prevMessageCountRef = useRef(0);
 
-  const syncToBottom = useCallback(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    el.scrollTop = el.scrollHeight;
+  const virtualizer = useVirtualizer({
+    count: messages.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 60,
+    overscan: 10,
+  });
+
+  // Build message-id → index lookup for jump-to-message
+  const messageIndexMap = useRef<Map<number, number>>(new Map());
+  useEffect(() => {
+    const map = new Map<number, number>();
+    for (let i = 0; i < messages.length; i++) {
+      map.set(messages[i]!.id, i);
+    }
+    messageIndexMap.current = map;
+  }, [messages]);
+
+  // Scroll to bottom helper
+  const scrollToBottom = useCallback(() => {
+    if (messages.length === 0) return;
+    virtualizer.scrollToIndex(messages.length - 1, { align: "end" });
+    // Double-RAF to ensure measurement settles before final scroll
     requestAnimationFrame(() => {
-      el.scrollTop = el.scrollHeight;
       requestAnimationFrame(() => {
-        el.scrollTop = el.scrollHeight;
+        virtualizer.scrollToIndex(messages.length - 1, { align: "end" });
       });
     });
-  }, []);
+  }, [messages.length, virtualizer]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    if (pendingJumpIdRef.current === null && isAtBottomRef.current) {
-      syncToBottom();
+    if (pendingJumpIdRef.current !== null) return;
+    if (isAtBottomRef.current && messages.length > 0) {
+      scrollToBottom();
     }
-  }, [messages, syncToBottom]);
+  }, [messages, scrollToBottom]);
 
+  // Preserve scroll position when history is prepended
+  useEffect(() => {
+    const prevCount = prevMessageCountRef.current;
+    const currentCount = messages.length;
+    if (prevCount > 0 && currentCount > prevCount && !isAtBottomRef.current) {
+      const prepended = currentCount - prevCount;
+      // If the first message changed, history was prepended — shift scroll offset
+      if (prepended > 0 && pendingJumpIdRef.current === null) {
+        const el = parentRef.current;
+        if (el) {
+          // Use scrollToIndex to maintain the same visual position
+          virtualizer.scrollToIndex(prepended, { align: "start" });
+        }
+      }
+    }
+    prevMessageCountRef.current = currentCount;
+  }, [messages, virtualizer]);
+
+  // Initial scroll to bottom
+  useEffect(() => {
+    scrollToBottom();
+  }, [scrollToBottom]);
+
+  // Track scroll position for auto-scroll and history loading
+  const handleScroll = useCallback(() => {
+    const el = parentRef.current;
+    if (!el) return;
+
+    const threshold = 100;
+    isAtBottomRef.current =
+      el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
+
+    // Load more history when scrolled near top
+    if (
+      el.scrollTop < 200 &&
+      hasMore &&
+      !loadingRef.current &&
+      oldestMessageId
+    ) {
+      loadingRef.current = true;
+      send({ type: "load_history", beforeId: oldestMessageId });
+    }
+  }, [hasMore, oldestMessageId, send]);
+
+  // Reset loading flag when messages change (history arrived)
+  useEffect(() => {
+    if (loadingRef.current) {
+      loadingRef.current = false;
+    }
+  }, [messages]);
+
+  // --- Jump-to-message ---
   const clearHighlightTimerRef = useRef<number | null>(null);
-
-  const centerMessageInView = useCallback((target: HTMLElement) => {
-    const container = containerRef.current;
-    if (!container) return;
-    const containerRect = container.getBoundingClientRect();
-    const targetRect = target.getBoundingClientRect();
-    const offset = targetRect.top - containerRect.top;
-    const centeredTop = container.scrollTop + offset - (container.clientHeight - target.clientHeight) / 2;
-    container.scrollTo({ top: centeredTop, behavior: "smooth" });
-  }, []);
 
   const highlightMessage = useCallback((target: HTMLElement) => {
     target.classList.remove("message-highlight");
-    // Force reflow so repeated jumps retrigger highlight animation.
     void target.getBoundingClientRect();
     target.classList.add("message-highlight");
     if (clearHighlightTimerRef.current !== null) {
@@ -69,33 +128,46 @@ export function MessageList({ send, currentUser }: MessageListProps) {
     }, 1600);
   }, []);
 
-  const tryJumpToMessage = useCallback((messageId: number) => {
-    const container = containerRef.current;
-    if (!container) return true;
+  const tryJumpToMessage = useCallback(
+    (messageId: number) => {
+      const index = messageIndexMap.current.get(messageId);
+      if (index !== undefined) {
+        // Scroll to the target index, then highlight once rendered
+        virtualizer.scrollToIndex(index, { align: "center" });
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            const container = parentRef.current;
+            if (!container) return;
+            const target = container.querySelector<HTMLElement>(
+              `[data-message-id="${messageId}"]`,
+            );
+            if (target) {
+              highlightMessage(target);
+            }
+          });
+        });
+        pendingJumpIdRef.current = null;
+        return true;
+      }
 
-    const target = container.querySelector<HTMLElement>(`[data-message-id="${messageId}"]`);
-    if (target) {
-      centerMessageInView(target);
-      highlightMessage(target);
+      // Message not in array yet — load more history if possible
+      const shouldLoadMore =
+        hasMore &&
+        oldestMessageId !== null &&
+        messageId < oldestMessageId &&
+        !loadingRef.current;
+      if (shouldLoadMore) {
+        loadingRef.current = true;
+        jumpLoadRequestedRef.current = true;
+        send({ type: "load_history", beforeId: oldestMessageId });
+        return false;
+      }
+
       pendingJumpIdRef.current = null;
       return true;
-    }
-
-    const shouldLoadMore =
-      hasMore &&
-      oldestMessageId !== null &&
-      messageId < oldestMessageId &&
-      !loadingRef.current;
-    if (shouldLoadMore) {
-      loadingRef.current = true;
-      jumpLoadRequestedRef.current = true;
-      send({ type: "load_history", beforeId: oldestMessageId });
-      return false;
-    }
-
-    pendingJumpIdRef.current = null;
-    return true;
-  }, [centerMessageInView, hasMore, highlightMessage, oldestMessageId, send]);
+    },
+    [hasMore, highlightMessage, oldestMessageId, send, virtualizer],
+  );
 
   useEffect(() => {
     return onMessageJump((messageId) => {
@@ -105,6 +177,7 @@ export function MessageList({ send, currentUser }: MessageListProps) {
     });
   }, [tryJumpToMessage]);
 
+  // Retry jump after history loads
   useEffect(() => {
     if (jumpLoadRequestedRef.current) {
       loadingRef.current = false;
@@ -125,51 +198,22 @@ export function MessageList({ send, currentUser }: MessageListProps) {
     [],
   );
 
-  // Track scroll position
-  const handleScroll = useCallback(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    if (scrollingRef.current) return;
-    scrollingRef.current = true;
-
-    requestAnimationFrame(() => {
-      const threshold = 100;
-      isAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
-
-      // Load more history when scrolled to top
-      if (el.scrollTop < 50 && hasMore && !loadingRef.current && oldestMessageId) {
-        loadingRef.current = true;
-        const prevHeight = el.scrollHeight;
-        send({ type: "load_history", beforeId: oldestMessageId });
-        // Restore scroll position after history loads
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            const newHeight = el.scrollHeight;
-            el.scrollTop = newHeight - prevHeight;
-            loadingRef.current = false;
-          });
-        });
-      }
-
-      scrollingRef.current = false;
-    });
-  }, [hasMore, oldestMessageId, send]);
-
-  // Initial scroll to bottom
-  useEffect(() => {
-    syncToBottom();
-  }, [syncToBottom]);
-
+  // Re-measure virtualizer when media (images) load
   const handleMediaLoad = useCallback(() => {
+    virtualizer.measure();
     if (isAtBottomRef.current) {
-      syncToBottom();
+      requestAnimationFrame(() => {
+        scrollToBottom();
+      });
     }
-  }, [syncToBottom]);
+  }, [virtualizer, scrollToBottom]);
 
-  // Mention click delegation: resolve @username → userId, open profile card
+  // Mention click delegation
   const handleContainerClick = useCallback(
     (e: React.MouseEvent) => {
-      const target = (e.target as HTMLElement).closest<HTMLElement>("[data-mention-user]");
+      const target = (e.target as HTMLElement).closest<HTMLElement>(
+        "[data-mention-user]",
+      );
       if (!target) return;
       const mentionUsername = target.getAttribute("data-mention-user");
       if (!mentionUsername) return;
@@ -183,28 +227,53 @@ export function MessageList({ send, currentUser }: MessageListProps) {
     [users, showUserCard],
   );
 
+  const virtualItems = virtualizer.getVirtualItems();
+
   return (
     <div
-      ref={containerRef}
+      ref={parentRef}
       className="messages-container"
       onScroll={handleScroll}
       onClick={handleContainerClick}
     >
-      {hasMore && (
-        <div className="history-loader">
-          <span className="loader-text">Loading history...</span>
-        </div>
-      )}
-      {messages.map((msg) => (
-        <MessageItem
-          key={msg.id}
-          message={msg}
-          currentUser={currentUser}
-          send={send}
-          onMediaLoad={handleMediaLoad}
-        />
-      ))}
-      <div ref={bottomRef} />
+      <div
+        style={{
+          height: virtualizer.getTotalSize(),
+          width: "100%",
+          position: "relative",
+        }}
+      >
+        {hasMore && (
+          <div className="history-loader">
+            <span className="loader-text">Loading history...</span>
+          </div>
+        )}
+        {virtualItems.map((virtualRow) => {
+          const msg = messages[virtualRow.index]!;
+          return (
+            <div
+              key={msg.id}
+              data-index={virtualRow.index}
+              ref={virtualizer.measureElement}
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                transform: `translateY(${virtualRow.start}px)`,
+              }}
+            >
+              <MessageItem
+                message={msg}
+                currentUserId={currentUser.id}
+                currentUsername={currentUser.username}
+                send={send}
+                onMediaLoad={handleMediaLoad}
+              />
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

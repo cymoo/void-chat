@@ -15,7 +15,7 @@ export function RoomPasswordModal({ onJoin, onClose }: RoomPasswordModalProps) {
   };
 
   return (
-    <div className="modal active">
+    <div className="modal active" role="dialog" aria-modal="true" aria-label="Room password required">
       <div className="modal-backdrop" onClick={onClose} />
       <div className="room-password-panel">
         <div className="panel-header">
@@ -47,7 +47,7 @@ export function RoomPasswordModal({ onJoin, onClose }: RoomPasswordModalProps) {
             <button className="icon-btn" type="button" onClick={onClose}>
               CANCEL
             </button>
-            <button className="connect-btn" type="submit" style={{ flex: 1, marginTop: 0 }}>
+            <button className="connect-btn" type="submit">
               <span className="btn-text">JOIN &gt;&gt;</span>
               <span className="btn-scan" />
             </button>

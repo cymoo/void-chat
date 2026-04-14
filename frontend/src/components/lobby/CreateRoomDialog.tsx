@@ -5,8 +5,10 @@ import { useUiStore } from "@/stores/uiStore";
 
 export function CreateRoomModal() {
   const navigate = useNavigate();
-  const { createRoom, joinRoom } = useRoomStore();
-  const { setCreateRoomOpen, addToast } = useUiStore();
+  const createRoom = useRoomStore((s) => s.createRoom);
+  const joinRoom = useRoomStore((s) => s.joinRoom);
+  const setCreateRoomOpen = useUiStore((s) => s.setCreateRoomOpen);
+  const addToast = useUiStore((s) => s.addToast);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [visibility, setVisibility] = useState<"public" | "private">("public");
@@ -123,7 +125,7 @@ export function CreateRoomModal() {
               />
             </div>
           )}
-          <button className="connect-btn" type="submit" style={{ marginTop: 0 }}>
+          <button className="connect-btn" type="submit">
             <span className="btn-text">CREATE ROOM &gt;&gt;</span>
             <span className="btn-scan" />
           </button>

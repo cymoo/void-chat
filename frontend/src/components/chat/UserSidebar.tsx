@@ -48,7 +48,7 @@ export function UserSidebar({ send, currentUser, isOpen, onClose }: UserSidebarP
   };
 
   return (
-    <div className={`users-sidebar${isOpen ? " open" : " collapsed"}`}>
+    <div className={`users-sidebar${isOpen ? " open" : " collapsed"}`} aria-label="Online users">
       <div className="sidebar-header">
         <div className="sidebar-title">USERS ONLINE</div>
         <div className="sidebar-count">{users.length}</div>
@@ -61,7 +61,7 @@ export function UserSidebar({ send, currentUser, isOpen, onClose }: UserSidebarP
           ×
         </button>
       </div>
-      <div className="users-list">
+      <div className="users-list" role="list">
         {users.map((user) => {
           const owner = isOwner(user);
           const canKickUser = canKick && user.id !== currentUser.id && !owner;
@@ -69,7 +69,7 @@ export function UserSidebar({ send, currentUser, isOpen, onClose }: UserSidebarP
             <div
               key={user.id}
               className="user-item"
-              role="button"
+              role="listitem"
               tabIndex={0}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
@@ -84,7 +84,8 @@ export function UserSidebar({ send, currentUser, isOpen, onClose }: UserSidebarP
                   <img
                     src={user.avatarUrl}
                     alt={user.username}
-                    style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "2px" }}
+                    loading="lazy"
+
                   />
                 ) : (
                   getInitials(user.username)

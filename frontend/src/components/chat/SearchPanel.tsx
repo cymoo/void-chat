@@ -50,7 +50,7 @@ export function SearchPanel({ send }: SearchPanelProps) {
   };
 
   return (
-    <div className="search-bar" style={{ display: "block" }}>
+    <div className="search-bar" role="search">
       <div className="search-input-wrapper">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="11" cy="11" r="8" />
@@ -89,11 +89,12 @@ export function SearchPanel({ send }: SearchPanelProps) {
         </div>
       )}
       {searchResults.length > 0 && (
-        <div className="search-results" style={{ display: "block" }}>
+        <div className="search-results" role="list">
           {searchResults.map((msg) => (
             <div
               key={msg.id}
               className="search-result-item"
+              role="listitem"
               onClick={() => handleResultClick(msg.id)}
             >
               <div className="search-result-header">
@@ -124,7 +125,7 @@ export function SearchPanel({ send }: SearchPanelProps) {
         </div>
       )}
       {searchQuery && searchResults.length === 0 && (
-        <div className="search-results" style={{ display: "block" }}>
+        <div className="search-results">
           <div className="search-no-results">No results found</div>
         </div>
       )}
