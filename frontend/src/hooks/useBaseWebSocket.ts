@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import type { WsEvent, WsSendPayload } from "@/api/types";
 import { useChatStore } from "@/stores/chatStore";
 import { useUiStore } from "@/stores/uiStore";
@@ -31,6 +31,7 @@ export function useBaseWebSocket({
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
   const lastSendBlockedAtRef = useRef(0);
+  const [status, setStatus] = useState<"connecting" | "connected" | "reconnecting" | "failed">("connecting");
 
   const handleWsEvent = useChatStore((s) => s.handleWsEvent);
   const addToast = useUiStore((s) => s.addToast);
@@ -73,6 +74,7 @@ export function useBaseWebSocket({
           return;
         }
         attempts = 0;
+        setStatus("connected");
       };
 
       ws.onmessage = (e) => {
@@ -102,8 +104,10 @@ export function useBaseWebSocket({
         if (attempts < 5) {
           const delay = Math.min(1000 * Math.pow(2, attempts), 16000);
           attempts++;
+          setStatus("reconnecting");
           reconnectTimerRef.current = window.setTimeout(connect, delay);
         } else {
+          setStatus("failed");
           addToastRef.current(disconnectMessageRef.current, "error");
         }
       };
@@ -152,5 +156,5 @@ export function useBaseWebSocket({
     }
   }, []);
 
-  return { send };
+  return { send, status };
 }

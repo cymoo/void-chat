@@ -74,6 +74,7 @@ export function useWebSocket({
     ws.send(JSON.stringify({ type: "leave" }));
   }, []);
 
-  return useBaseWebSocket({ url, onEvent, onCleanup });
+  const { send, status } = useBaseWebSocket({ url, onEvent, onCleanup });
+  return { send, status };
 }
 

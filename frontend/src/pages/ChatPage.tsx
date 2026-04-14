@@ -42,7 +42,7 @@ export function ChatPage() {
     [addToast, leaveRoom, navigate],
   );
 
-  const { send } = useWebSocket({
+  const { send, status } = useWebSocket({
     roomId: Number(roomId),
     token: token!,
     roomPassword: currentRoomPassword || undefined,
@@ -96,6 +96,7 @@ export function ChatPage() {
         currentUser={user!}
         onDisconnect={handleDisconnect}
         onOpenMailbox={handleOpenMailbox}
+        wsStatus={status}
       />
       {profileOpen && <ProfileModal />}
       {userCardUserId !== null && <UserCard send={send} />}

@@ -5,6 +5,7 @@ import { MessageList } from "./MessageList";
 import { MessageInput } from "./MessageInput";
 import { UserSidebar } from "./UserSidebar";
 import { SearchPanel } from "./SearchPanel";
+import { TypingIndicator } from "./TypingIndicator";
 import type { User, WsSendPayload } from "@/api/types";
 
 interface ChatViewProps {
@@ -13,6 +14,7 @@ interface ChatViewProps {
   currentUser: User;
   onDisconnect: () => void;
   onOpenMailbox: () => void;
+  wsStatus?: "connecting" | "connected" | "reconnecting" | "failed";
 }
 
 export function ChatView({
@@ -21,19 +23,12 @@ export function ChatView({
   currentUser,
   onDisconnect,
   onOpenMailbox,
+  wsStatus,
 }: ChatViewProps) {
   const users = useChatStore((s) => s.users);
-  const typingUsers = useChatStore((s) => s.typingUsers);
   const unreadDmCount = useChatStore((s) => s.unreadDmCount);
   const [usersPanelOpen, setUsersPanelOpen] = useState(() => window.innerWidth > 768);
   const { searchOpen, toggleSearch, setProfileOpen } = useUiStore();
-  const activeTypingUsers = typingUsers.filter((u) => u.userId !== currentUser.id);
-  const typingText =
-    activeTypingUsers.length === 1
-      ? `${activeTypingUsers[0]!.username} is typing...`
-      : activeTypingUsers.length === 2
-        ? `${activeTypingUsers[0]!.username} and ${activeTypingUsers[1]!.username} are typing...`
-        : `${activeTypingUsers.length} people are typing...`;
 
   return (
     <div className="chat-layout">
@@ -106,6 +101,14 @@ export function ChatView({
         </div>
       </div>
 
+      {/* Connection Status Banner */}
+      {wsStatus === "reconnecting" && (
+        <div className="connection-banner reconnecting">⟳ RECONNECTING...</div>
+      )}
+      {wsStatus === "connecting" && (
+        <div className="connection-banner connecting">CONNECTING...</div>
+      )}
+
       {/* Search Bar */}
       {searchOpen && <SearchPanel send={send} />}
 
@@ -129,9 +132,7 @@ export function ChatView({
       </div>
 
       {/* Input */}
-      {activeTypingUsers.length > 0 && (
-        <div className="typing-indicator">{typingText}</div>
-      )}
+      <TypingIndicator currentUserId={currentUser.id} />
       <MessageInput send={send} currentUser={currentUser} />
     </div>
   );
