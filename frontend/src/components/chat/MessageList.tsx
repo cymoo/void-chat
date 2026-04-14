@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useChatStore, getOldestMessageId } from "@/stores/chatStore";
 import { useUiStore } from "@/stores/uiStore";
@@ -23,6 +23,8 @@ export function MessageList({ send, currentUser }: MessageListProps) {
   const pendingJumpIdRef = useRef<number | null>(null);
   const jumpLoadRequestedRef = useRef(false);
   const prevMessageCountRef = useRef(0);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const prevMsgLengthRef = useRef(0);
 
   const virtualizer = useVirtualizer({
     count: messages.length,
@@ -56,9 +58,16 @@ export function MessageList({ send, currentUser }: MessageListProps) {
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     if (pendingJumpIdRef.current !== null) return;
-    if (isAtBottomRef.current && messages.length > 0) {
-      scrollToBottom();
+    if (isAtBottomRef.current) {
+      setUnreadCount(0);
+      if (messages.length > 0) scrollToBottom();
+    } else {
+      const newCount = messages.length - prevMsgLengthRef.current;
+      if (newCount > 0) {
+        setUnreadCount((c) => c + newCount);
+      }
     }
+    prevMsgLengthRef.current = messages.length;
   }, [messages, scrollToBottom]);
 
   // Preserve scroll position when history is prepended
@@ -92,6 +101,10 @@ export function MessageList({ send, currentUser }: MessageListProps) {
     const threshold = 100;
     isAtBottomRef.current =
       el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
+
+    if (isAtBottomRef.current) {
+      setUnreadCount(0);
+    }
 
     // Load more history when scrolled near top
     if (
@@ -230,50 +243,64 @@ export function MessageList({ send, currentUser }: MessageListProps) {
   const virtualItems = virtualizer.getVirtualItems();
 
   return (
-    <div
-      ref={parentRef}
-      className="messages-container"
-      onScroll={handleScroll}
-      onClick={handleContainerClick}
-    >
+    <div className="messages-wrapper">
       <div
-        style={{
-          height: virtualizer.getTotalSize(),
-          width: "100%",
-          position: "relative",
-        }}
+        ref={parentRef}
+        className="messages-container"
+        onScroll={handleScroll}
+        onClick={handleContainerClick}
       >
-        {hasMore && (
-          <div className="history-loader">
-            <span className="loader-text">Loading history...</span>
-          </div>
-        )}
-        {virtualItems.map((virtualRow) => {
-          const msg = messages[virtualRow.index]!;
-          return (
-            <div
-              key={msg.id}
-              data-index={virtualRow.index}
-              ref={virtualizer.measureElement}
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                width: "100%",
-                transform: `translateY(${virtualRow.start}px)`,
-              }}
-            >
-              <MessageItem
-                message={msg}
-                currentUserId={currentUser.id}
-                currentUsername={currentUser.username}
-                send={send}
-                onMediaLoad={handleMediaLoad}
-              />
+        <div
+          style={{
+            height: virtualizer.getTotalSize(),
+            width: "100%",
+            position: "relative",
+          }}
+        >
+          {hasMore && (
+            <div className="history-loader">
+              <span className="loader-text">Loading history...</span>
             </div>
-          );
-        })}
+          )}
+          {virtualItems.map((virtualRow) => {
+            const msg = messages[virtualRow.index]!;
+            return (
+              <div
+                key={msg.id}
+                data-index={virtualRow.index}
+                ref={virtualizer.measureElement}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
+              >
+                <MessageItem
+                  message={msg}
+                  currentUserId={currentUser.id}
+                  currentUsername={currentUser.username}
+                  send={send}
+                  onMediaLoad={handleMediaLoad}
+                />
+              </div>
+            );
+          })}
+        </div>
       </div>
+      {unreadCount > 0 && (
+        <button
+          className="new-messages-btn"
+          onClick={() => {
+            setUnreadCount(0);
+            isAtBottomRef.current = true;
+            scrollToBottom();
+          }}
+        >
+          ▼ {unreadCount} new message{unreadCount !== 1 ? "s" : ""}
+        </button>
+      )}
     </div>
   );
 }
