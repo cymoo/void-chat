@@ -356,14 +356,14 @@ export async function invitePersona(
   roomId: number,
   req: InvitePersonaRequest,
 ): Promise<InvitePersonaResponse> {
-  return request("POST", `/api/rooms/${roomId}/personas/invite`, req);
+  return request("POST", `/api/personas/rooms/${roomId}/invite`, req);
 }
 
 export async function removePersona(
   roomId: number,
   userId: number,
 ): Promise<void> {
-  return request("DELETE", `/api/rooms/${roomId}/personas/${userId}`);
+  return request("DELETE", `/api/personas/rooms/${roomId}/${userId}`);
 }
 
 export { ApiError };

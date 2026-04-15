@@ -75,7 +75,8 @@ describe("InvitePersonaModal", () => {
   });
 
   it("shows loading state while summoning", async () => {
-    let resolvePromise: (v: unknown) => void;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let resolvePromise: (v: any) => void;
     mockInvitePersona.mockReturnValue(
       new Promise((r) => { resolvePromise = r; }) as ReturnType<typeof invitePersona>,
     );

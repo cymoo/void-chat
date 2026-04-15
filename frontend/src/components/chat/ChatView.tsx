@@ -41,7 +41,9 @@ export function ChatView({
     roomCreatorId === currentUser.id ||
     currentUserRole === "owner" ||
     currentUserRole === "admin" ||
-    currentUserRole === "moderator";
+    currentUserRole === "moderator" ||
+    currentUser.role === "platform_admin" ||
+    currentUser.role === "super_admin";
 
   return (
     <div className="chat-layout">
