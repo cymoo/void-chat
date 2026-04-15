@@ -115,6 +115,9 @@
   font-size: 13px;
   color: var(--color-text);
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .user-item-username {

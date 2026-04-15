@@ -367,6 +367,16 @@
   color: var(--color-bg);
 }
 
+.profile-action-danger {
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
+.profile-action-danger:hover {
+  background: var(--color-warning);
+  color: var(--color-bg);
+}
+
 /* ============================================
    MY PROFILE MODAL
    ============================================ */

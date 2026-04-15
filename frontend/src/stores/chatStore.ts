@@ -53,6 +53,9 @@ interface ChatState {
   // WebSocket error
   wsError: string | null;
 
+  // Initial load tracking
+  initialLoaded: boolean;
+
   // Actions
   handleWsEvent: (event: WsEvent) => void;
   setMessages: (messages: ChatMessage[], hasMore: boolean) => void;
@@ -76,6 +79,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   hasMore: false,
   oldestMessageId: null,
   wsError: null,
+  initialLoaded: false,
   privateChatUserId: null,
   privateChatUsername: "",
   privateMessages: [],
@@ -96,6 +100,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
               messages: incoming,
               hasMore: event.hasMore,
               oldestMessageId: incoming.length > 0 ? incoming[0]!.id : null,
+              initialLoaded: true,
             };
           }
 
@@ -116,6 +121,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
             messages: merged,
             hasMore: event.hasMore,
             oldestMessageId: merged.length > 0 ? merged[0]!.id : null,
+            initialLoaded: true,
           };
         });
         break;
@@ -360,6 +366,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       hasMore: false,
       oldestMessageId: null,
       wsError: null,
+      initialLoaded: false,
       privateChatUserId: null,
       privateChatUsername: "",
       privateMessages: [],

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useChatStore } from "@/stores/chatStore";
+import { useRoomStore } from "@/stores/roomStore";
 import { useUiStore } from "@/stores/uiStore";
+import { useAuthStore } from "@/stores/authStore";
 import * as api from "@/api/client";
 import { getInitials, formatDate } from "@/lib/utils";
 import type { User, WsSendPayload } from "@/api/types";
@@ -12,8 +14,12 @@ interface UserCardProps {
 export function UserCard({ send }: UserCardProps) {
   const userId = useUiStore((s) => s.userCardUserId);
   const hideUserCard = useUiStore((s) => s.hideUserCard);
+  const confirm = useUiStore((s) => s.confirm);
   const users = useChatStore((s) => s.users);
   const openPrivateChat = useChatStore((s) => s.openPrivateChat);
+  const currentUser = useAuthStore((s) => s.user);
+  const currentRoomId = useRoomStore((s) => s.currentRoomId);
+  const rooms = useRoomStore((s) => s.rooms);
   const [profile, setProfile] = useState<User | null>(null);
 
   useEffect(() => {
@@ -28,13 +34,39 @@ export function UserCard({ send }: UserCardProps) {
     }
   }, [userId, users]);
 
-  if (!userId || !profile) return null;
+  if (!userId || !profile || !currentUser) return null;
 
   const isOnline = users.some((u) => u.id === userId);
+
+  // Kick permission logic
+  const roomCreatorId = rooms.find((r) => r.id === currentRoomId)?.creatorId ?? null;
+  const currentUserRoomRole = users.find((u) => u.id === currentUser.id)?.role ?? "member";
+  const isPlatformAdmin = currentUser.role === "super_admin" || currentUser.role === "platform_admin";
+  const currentUserIsOwner = roomCreatorId === currentUser.id || currentUserRoomRole === "owner";
+  const canKick =
+    isPlatformAdmin ||
+    currentUserIsOwner ||
+    currentUserRoomRole === "admin" ||
+    currentUserRoomRole === "moderator";
+  const targetIsOwner = profile.role === "owner" || roomCreatorId === profile.id;
+  const canKickThisUser = canKick && profile.id !== currentUser.id && !targetIsOwner && currentRoomId !== null;
 
   const handleDm = () => {
     openPrivateChat(profile.id, profile.username);
     send({ type: "private_history", targetUserId: profile.id });
+    hideUserCard();
+  };
+
+  const handleKick = async () => {
+    const confirmed = await confirm({
+      title: "KICK USER",
+      message: `Kick ${profile.username} from this room?`,
+      confirmText: "KICK",
+      cancelText: "CANCEL",
+      tone: "danger",
+    });
+    if (!confirmed) return;
+    send({ type: "kick", targetUserId: profile.id });
     hideUserCard();
   };
 
@@ -65,7 +97,7 @@ export function UserCard({ send }: UserCardProps) {
           <div className="profile-joined">Joined: {formatDate(profile.createdAt)}</div>
           <div className="profile-actions">
             <button className="profile-action-btn" onClick={handleDm}>
-              Private Message
+              DM
             </button>
             <button
               className="profile-action-btn"
@@ -86,6 +118,14 @@ export function UserCard({ send }: UserCardProps) {
             >
               @Mention
             </button>
+            {canKickThisUser && (
+              <button
+                className="profile-action-btn profile-action-danger"
+                onClick={() => void handleKick()}
+              >
+                Kick
+              </button>
+            )}
           </div>
         </div>
       </div>

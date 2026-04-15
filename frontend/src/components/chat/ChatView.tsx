@@ -29,6 +29,7 @@ export function ChatView({
 }: ChatViewProps) {
   const users = useChatStore((s) => s.users);
   const unreadDmCount = useChatStore((s) => s.unreadDmCount);
+  const initialLoaded = useChatStore((s) => s.initialLoaded);
   const [usersPanelOpen, setUsersPanelOpen] = useState(() => window.innerWidth > 768);
   const [personaModalOpen, setPersonaModalOpen] = useState(false);
   const { searchOpen, toggleSearch, setProfileOpen } = useUiStore();
@@ -131,11 +132,11 @@ export function ChatView({
         </div>
       </div>
 
-      {/* Connection Status Banner */}
-      {wsStatus === "reconnecting" && (
+      {/* Connection Status Banner — only after initial load to avoid stacking with the channel loader */}
+      {initialLoaded && wsStatus === "reconnecting" && (
         <div className="connection-banner reconnecting">⟳ RECONNECTING...</div>
       )}
-      {wsStatus === "connecting" && (
+      {initialLoaded && wsStatus === "connecting" && (
         <div className="connection-banner connecting">CONNECTING...</div>
       )}
 

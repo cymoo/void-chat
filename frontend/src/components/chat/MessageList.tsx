@@ -28,6 +28,7 @@ Header.displayName = "VirtuosoHeader";
 export function MessageList({ send, currentUser }: MessageListProps) {
   const messages = useChatStore((s) => s.messages);
   const hasMore = useChatStore((s) => s.hasMore);
+  const initialLoaded = useChatStore((s) => s.initialLoaded);
   const oldestMessageId = getOldestMessageId(messages);
   const users = useChatStore((s) => s.users);
   const showUserCard = useUiStore((s) => s.showUserCard);
@@ -114,7 +115,9 @@ export function MessageList({ send, currentUser }: MessageListProps) {
       if (ownNew.length > 0) {
         isAtBottomRef.current = true;
         setUnreadCount(0);
-        virtuosoRef.current?.scrollToIndex({ index: "LAST", behavior: "smooth" });
+        requestAnimationFrame(() => {
+          virtuosoRef.current?.scrollToIndex({ index: "LAST", behavior: "auto" });
+        });
       }
       // Only count others' messages as unread
       if (othersNew.length > 0) {
@@ -124,7 +127,7 @@ export function MessageList({ send, currentUser }: MessageListProps) {
   }, [messages, currentUser.id]);
 
   const scrollToBottom = useCallback(() => {
-    virtuosoRef.current?.scrollToIndex({ index: "LAST", behavior: "smooth" });
+    virtuosoRef.current?.scrollToIndex({ index: "LAST", behavior: "auto" });
   }, []);
 
   // --- Jump-to-message ---
@@ -227,6 +230,19 @@ export function MessageList({ send, currentUser }: MessageListProps) {
 
   const context = { hasMore };
 
+  if (!initialLoaded) {
+    return (
+      <div className="messages-wrapper">
+        <div className="messages-container messages-loading">
+          <div className="matrix-loader">
+            <span className="matrix-loader-text" data-text="DECRYPTING CHANNEL">DECRYPTING CHANNEL</span>
+            <div className="matrix-loader-bar"><div className="matrix-loader-fill" /></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="messages-wrapper" onClick={handleContainerClick}>
       <Virtuoso
@@ -235,7 +251,7 @@ export function MessageList({ send, currentUser }: MessageListProps) {
         data={messages}
         firstItemIndex={firstItemIndex}
         initialTopMostItemIndex={messages.length > 0 ? messages.length - 1 : 0}
-        followOutput={(isAtBottom) => (isAtBottom ? "smooth" : false)}
+        followOutput={(isAtBottom) => (isAtBottom ? "auto" : false)}
         atBottomStateChange={(atBottom) => {
           isAtBottomRef.current = atBottom;
           if (atBottom) setUnreadCount(0);

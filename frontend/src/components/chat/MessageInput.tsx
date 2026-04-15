@@ -6,8 +6,8 @@ import {
   type KeyboardEvent,
 } from "react";
 import { useChatStore, getMessageContent } from "@/stores/chatStore";
-import { COMMON_EMOJIS } from "@/lib/emojis";
-import { useMessageComposer } from "@/hooks/useMessageComposer";
+import { MessageInputBar } from "@/components/shared/MessageInputBar";
+import type { MessageComposerReturn } from "@/hooks/useMessageComposer";
 import type { User, WsSendPayload } from "@/api/types";
 
 interface MessageInputProps {
@@ -31,6 +31,9 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
   const [, setMentionQuery] = useState<string | null>(null);
   const [mentionResults, setMentionResults] = useState<typeof users>([]);
   const [mentionIndex, setMentionIndex] = useState(0);
+
+  // Composer ref to access setText/focus from parent
+  const composerRef = useRef<MessageComposerReturn | null>(null);
 
   const sendTyping = useCallback(
     (isTyping: boolean) => {
@@ -142,34 +145,23 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
     [currentUser.id, scheduleStopTyping, sendTyping, users],
   );
 
-  const composer = useMessageComposer({
-    onSubmit,
-    onImageUploaded,
-    onFileUploaded,
-    onTextChange,
-  });
-
-  // Populate edit text (use stable refs to avoid re-running when composer identity changes)
-  const setTextRef = useRef(composer.setText);
-  setTextRef.current = composer.setText;
-  const textareaRefStable = composer.textareaRef;
-
+  // Populate edit text
   useEffect(() => {
     if (editingMessageId) {
       const msg = messages.find((m) => m.id === editingMessageId);
       if (msg) {
-        setTextRef.current(getMessageContent(msg));
-        textareaRefStable.current?.focus();
+        composerRef.current?.setText(getMessageContent(msg));
+        composerRef.current?.textareaRef.current?.focus();
       }
     }
-  }, [editingMessageId, messages, textareaRefStable]);
+  }, [editingMessageId, messages]);
 
   // Auto-focus input when replying
   useEffect(() => {
     if (replyingTo) {
-      textareaRefStable.current?.focus();
+      composerRef.current?.textareaRef.current?.focus();
     }
-  }, [replyingTo, textareaRefStable]);
+  }, [replyingTo]);
 
   // Cleanup typing on unmount
   useEffect(
@@ -182,53 +174,60 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
     [sendTyping],
   );
 
-  const insertMention = (username: string) => {
-    const el = composer.textareaRef.current;
-    if (!el) return;
-    const cursorPos = el.selectionStart;
-    const textBefore = composer.text.slice(0, cursorPos);
-    const textAfter = composer.text.slice(cursorPos);
-    const newTextBefore = textBefore.replace(/@\w*$/, `@${username} `);
-    composer.setText(newTextBefore + textAfter);
-    setMentionQuery(null);
-    setMentionResults([]);
-    el.focus();
-  };
+  const insertMention = useCallback(
+    (username: string) => {
+      const composer = composerRef.current;
+      if (!composer) return;
+      const el = composer.textareaRef.current;
+      if (!el) return;
+      const cursorPos = el.selectionStart;
+      const textBefore = composer.text.slice(0, cursorPos);
+      const textAfter = composer.text.slice(cursorPos);
+      const newTextBefore = textBefore.replace(/@\w*$/, `@${username} `);
+      composer.setText(newTextBefore + textAfter);
+      setMentionQuery(null);
+      setMentionResults([]);
+      el.focus();
+    },
+    [],
+  );
 
-  // Wrap the base handleKeyDown to intercept mention navigation
-  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (mentionResults.length > 0) {
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setMentionIndex((i) => (i + 1) % mentionResults.length);
-        return;
+  const onKeyDownCapture = useCallback(
+    (e: KeyboardEvent<HTMLTextAreaElement>) => {
+      if (mentionResults.length > 0) {
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          setMentionIndex((i) => (i + 1) % mentionResults.length);
+          return true;
+        }
+        if (e.key === "ArrowUp") {
+          e.preventDefault();
+          setMentionIndex((i) => (i - 1 + mentionResults.length) % mentionResults.length);
+          return true;
+        }
+        if (e.key === "Enter" || e.key === "Tab") {
+          e.preventDefault();
+          insertMention(mentionResults[mentionIndex]!.username);
+          return true;
+        }
+        if (e.key === "Escape") {
+          setMentionQuery(null);
+          setMentionResults([]);
+          return true;
+        }
       }
-      if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setMentionIndex((i) => (i - 1 + mentionResults.length) % mentionResults.length);
-        return;
-      }
-      if (e.key === "Enter" || e.key === "Tab") {
-        e.preventDefault();
-        insertMention(mentionResults[mentionIndex]!.username);
-        return;
-      }
-      if (e.key === "Escape") {
-        setMentionQuery(null);
-        setMentionResults([]);
-        return;
-      }
-    }
-    composer.handleKeyDown(e);
-  };
+      return false;
+    },
+    [mentionResults, mentionIndex, insertMention],
+  );
 
-  const cancelIndicator = () => {
+  const cancelIndicator = useCallback(() => {
     setEditingMessage(null);
     setReplyingTo(null);
-    composer.setText("");
-  };
+    composerRef.current?.setText("");
+  }, [setEditingMessage, setReplyingTo]);
 
-  return (
+  const renderAbove = useCallback(() => (
     <>
       {/* Reply / Edit indicator */}
       {(editingMessageId || replyingTo) && (
@@ -261,85 +260,19 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
           ))}
         </div>
       )}
-
-      {/* Upload progress indicator */}
-      {composer.uploading && (
-        <div className="upload-indicator">
-          <span className="upload-spinner" />
-          <span>Uploading...</span>
-        </div>
-      )}
-
-      <div className="input-panel">
-        <div className="input-wrapper">
-          <textarea
-            ref={composer.textareaRef}
-            className="message-input"
-            placeholder="Message..."
-            autoComplete="off"
-            rows={1}
-            value={composer.text}
-            onChange={composer.handleChange}
-            onKeyDown={handleKeyDown}
-            onPaste={composer.handlePaste}
-            onBlur={() => sendTyping(false)}
-          />
-          <div className="input-actions">
-            <div className="emoji-picker-wrapper" ref={composer.emojiPickerRef}>
-              <button
-                type="button"
-                className={`icon-btn emoji-toggle-btn${composer.emojiOpen ? " active" : ""}`}
-                title="Insert Emoji"
-                aria-label="Insert emoji"
-                onClick={() => composer.setEmojiOpen(!composer.emojiOpen)}
-              >
-                🙂
-              </button>
-              {composer.emojiOpen && (
-                <div className="emoji-picker" role="menu" aria-label="Emoji picker">
-                  <div className="emoji-grid">
-                    {COMMON_EMOJIS.map((emoji) => (
-                      <button
-                        key={emoji}
-                        type="button"
-                        className="emoji-btn"
-                        onClick={() => composer.handleSelectEmoji(emoji)}
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-            <label className="icon-btn attach-btn" title="Attach File">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-              </svg>
-              <input
-                type="file"
-                style={{ display: "none" }}
-                onChange={composer.handleAttach}
-              />
-            </label>
-          </div>
-          <button
-            type="button"
-            className="icon-btn send-btn"
-            onClick={composer.handleSend}
-            disabled={!composer.canSend}
-            aria-label="Send message"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="22" y1="2" x2="11" y2="13" />
-              <polygon points="22 2 15 22 11 13 2 9 22 2" />
-            </svg>
-          </button>
-        </div>
-        <div className="input-hint">
-          <kbd>Enter</kbd> send · <kbd>Shift+Enter</kbd> new line · @mention · Paste images
-        </div>
-      </div>
     </>
+  ), [editingMessageId, replyingTo, mentionResults, mentionIndex, cancelIndicator, insertMention]);
+
+  return (
+    <MessageInputBar
+      composerRef={composerRef}
+      onSubmit={onSubmit}
+      onImageUploaded={onImageUploaded}
+      onFileUploaded={onFileUploaded}
+      onTextChange={onTextChange}
+      onKeyDownCapture={onKeyDownCapture}
+      renderAbove={renderAbove}
+      hintText="Enter send · Shift+Enter new line · @mention · Paste images"
+    />
   );
 }

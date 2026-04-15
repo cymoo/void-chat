@@ -15,19 +15,6 @@ export function UserSidebar({ send, currentUser, isOpen, onClose }: UserSidebarP
   const users = useChatStore((s) => s.users);
   const openPrivateChat = useChatStore((s) => s.openPrivateChat);
   const showUserCard = useUiStore((s) => s.showUserCard);
-  const confirm = useUiStore((s) => s.confirm);
-  const currentRoomId = useRoomStore((s) => s.currentRoomId);
-  const rooms = useRoomStore((s) => s.rooms);
-
-  const roomCreatorId = rooms.find((room) => room.id === currentRoomId)?.creatorId ?? null;
-  const currentUserRole = users.find((u) => u.id === currentUser.id)?.role ?? "member";
-  const currentUserIsOwner = roomCreatorId === currentUser.id || currentUserRole === "owner";
-  const canKick =
-    currentUserIsOwner ||
-    currentUserRole === "admin" ||
-    currentUserRole === "moderator";
-
-  const isOwner = (user: User) => user.role === "owner" || roomCreatorId === user.id;
 
   // Sort: bots first, then regular users
   const sortedUsers = [...users].sort((a, b) => {
@@ -36,22 +23,16 @@ export function UserSidebar({ send, currentUser, isOpen, onClose }: UserSidebarP
     return bBot - aBot;
   });
 
+  const roomCreatorId = useRoomStore((s) => s.rooms).find(
+    (room) => room.id === useRoomStore.getState().currentRoomId,
+  )?.creatorId ?? null;
+
+  const isOwner = (user: User) => user.role === "owner" || roomCreatorId === user.id;
+
   const handleDm = (user: User) => {
     onClose();
     openPrivateChat(user.id, user.username);
     send({ type: "private_history", targetUserId: user.id });
-  };
-
-  const handleKick = async (user: User) => {
-    const confirmed = await confirm({
-      title: "KICK USER",
-      message: `Kick ${user.username} from this room?`,
-      confirmText: "KICK",
-      cancelText: "CANCEL",
-      tone: "danger",
-    });
-    if (!confirmed) return;
-    send({ type: "kick", targetUserId: user.id });
   };
 
   return (
@@ -71,7 +52,6 @@ export function UserSidebar({ send, currentUser, isOpen, onClose }: UserSidebarP
       <div className="users-list" role="list">
         {sortedUsers.map((user) => {
           const owner = isOwner(user);
-          const canKickUser = canKick && user.id !== currentUser.id && !owner;
           return (
             <div
               key={user.id}
@@ -132,42 +112,6 @@ export function UserSidebar({ send, currentUser, isOpen, onClose }: UserSidebarP
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                    </svg>
-                  </button>
-                  {canKickUser && (
-                    <button
-                      type="button"
-                      className="dm-btn kick-btn"
-                      title="Kick user"
-                      aria-label={`Kick ${user.username}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void handleKick(user);
-                      }}
-                    >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <line x1="18" y1="6" x2="6" y2="18" />
-                        <line x1="6" y1="6" x2="18" y2="18" />
-                      </svg>
-                    </button>
-                  )}
-                </div>
-              )}
-              {user.isBot && canKick && (
-                <div className="user-item-actions">
-                  <button
-                    type="button"
-                    className="dm-btn kick-btn"
-                    title="Remove persona"
-                    aria-label={`Remove ${user.displayName ?? user.username}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      void handleKick(user);
-                    }}
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <line x1="18" y1="6" x2="6" y2="18" />
-                      <line x1="6" y1="6" x2="18" y2="18" />
                     </svg>
                   </button>
                 </div>
