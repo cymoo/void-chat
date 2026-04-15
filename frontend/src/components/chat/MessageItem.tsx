@@ -128,6 +128,7 @@ function MessageItemInner({
             src={message.avatarUrl}
             alt={message.username}
             loading="lazy"
+            className="avatar-img"
           />
         ) : (
           getInitials(message.username)

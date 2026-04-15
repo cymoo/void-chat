@@ -94,7 +94,7 @@ export function UserSidebar({ send, currentUser, isOpen, onClose }: UserSidebarP
                     src={user.avatarUrl}
                     alt={user.username}
                     loading="lazy"
-
+                    className="avatar-img"
                   />
                 ) : (
                   getInitials(user.displayName ?? user.username)

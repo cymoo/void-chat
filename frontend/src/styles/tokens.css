@@ -29,6 +29,16 @@
   box-sizing: border-box;
 }
 
+img, video, svg {
+  display: block;
+  max-width: 100%;
+}
+
+input, button, textarea, select {
+  font: inherit;
+  color: inherit;
+}
+
 html {
   overflow: hidden;
   height: 100%;
