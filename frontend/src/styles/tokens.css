@@ -1,0 +1,55 @@
+/* ============================================
+   VOID.CHAT — Brutalist Terminal Aesthetic
+   ============================================ */
+
+:root {
+  --color-bg: #0a0e14;
+  --color-surface: #0f141c;
+  --color-surface-light: #15202b;
+  --color-border: #1f2937;
+  --color-border-bright: #2ecc71;
+  --color-text: #00ff41;
+  --color-text-dim: #4a9d5f;
+  --color-text-muted: #2d5f3a;
+  --color-accent: #00ff41;
+  --color-accent-2: #39ff14;
+  --color-warning: #ff4444;
+  --color-info: #00d9ff;
+
+  --font-mono: "IBM Plex Mono", "Courier New", monospace;
+  --font-display: "Bebas Neue", "Impact", sans-serif;
+
+  --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  overflow: hidden;
+  height: 100%;
+  width: 100%;
+  overscroll-behavior: none;
+}
+
+body {
+  font-family: var(--font-mono);
+  background: var(--color-bg);
+  color: var(--color-text);
+  overflow: hidden;
+  position: relative;
+  height: 100%;
+  width: 100%;
+  overscroll-behavior: none;
+}
+
+#root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+

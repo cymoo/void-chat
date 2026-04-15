@@ -1,0 +1,198 @@
+/* ============================================
+   USERS SIDEBAR
+   ============================================ */
+
+.users-sidebar {
+  width: 280px;
+  background: rgba(10, 14, 20, 0.8);
+  border-left: 2px solid var(--color-border-bright);
+  display: flex;
+  flex-direction: column;
+  transition:
+    width var(--transition-fast),
+    transform var(--transition-fast),
+    opacity var(--transition-fast);
+}
+
+.users-sidebar-backdrop {
+  display: none;
+}
+
+.users-sidebar.collapsed {
+  width: 0;
+  opacity: 0;
+  border-left: none;
+  overflow: hidden;
+}
+
+.sidebar-header {
+  padding: 20px;
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.sidebar-title {
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: var(--color-text-dim);
+  font-weight: 600;
+}
+
+.sidebar-count {
+  font-size: 16px;
+  color: var(--color-accent);
+  font-weight: 700;
+  margin-left: auto;
+}
+
+.users-sidebar-close {
+  display: none;
+  border-color: var(--color-border);
+  width: 28px;
+  height: 28px;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0;
+}
+
+.users-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.user-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+}
+
+.user-item:hover {
+  border-color: var(--color-accent);
+  background: var(--color-surface-light);
+}
+
+.user-item:focus-visible {
+  outline: 2px solid var(--color-info);
+  outline-offset: 1px;
+}
+
+.user-item-avatar {
+  width: 32px;
+  height: 32px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-bright);
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-accent);
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.user-item-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.user-item-name {
+  font-size: 13px;
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.user-item-username {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+/* ============================================
+   DM BUTTON
+   ============================================ */
+
+.dm-btn {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  padding: 4px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.user-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: 10px;
+}
+
+.dm-btn:hover {
+  border-color: var(--color-info);
+  color: var(--color-info);
+}
+
+.kick-btn {
+  opacity: 0.45;
+  padding: 3px;
+  border-color: rgba(255, 68, 68, 0.45);
+}
+
+.kick-btn:hover {
+  opacity: 1;
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+  box-shadow: none;
+}
+
+/* ============================================
+   USER ITEM STATUS
+   ============================================ */
+
+.user-item-status {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  font-style: italic;
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ============================================
+   AVATAR IMAGE
+   ============================================ */
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 2px;
+}
+
+.avatar-img-large {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
