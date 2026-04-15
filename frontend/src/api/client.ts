@@ -5,6 +5,8 @@ import type {
   CreateRoomRequest,
   DmInboxEntry,
   InviteLink,
+  InvitePersonaRequest,
+  InvitePersonaResponse,
   RegistrationMode,
   RegistrationModeResponse,
   RoomInfo,
@@ -347,6 +349,21 @@ export async function uploadImage(file: File): Promise<UploadResponse> {
 
 export async function uploadFile(file: File): Promise<UploadResponse> {
   return uploadMultipart("/api/upload/file", "file", file);
+}
+
+// Persona API
+export async function invitePersona(
+  roomId: number,
+  req: InvitePersonaRequest,
+): Promise<InvitePersonaResponse> {
+  return request("POST", `/api/rooms/${roomId}/personas/invite`, req);
+}
+
+export async function removePersona(
+  roomId: number,
+  userId: number,
+): Promise<void> {
+  return request("DELETE", `/api/rooms/${roomId}/personas/${userId}`);
 }
 
 export { ApiError };

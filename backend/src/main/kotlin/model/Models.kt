@@ -24,6 +24,8 @@ data class User(
     val mutedUntil: Long? = null,
     val muteReason: String? = null,
     val isMuted: Boolean = false,
+    val isBot: Boolean = false,
+    val displayName: String? = null,
     val createdAt: Long,
     val lastSeen: Long
 )
@@ -333,4 +335,9 @@ data class UpdateRegistrationModeRequest(
 
 data class RegistrationModeResponse(
     val mode: String
+)
+
+data class InvitePersonaRequest(
+    val name: String,
+    val personality: String? = null
 )

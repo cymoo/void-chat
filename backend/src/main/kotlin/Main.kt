@@ -6,6 +6,7 @@ import controller.ApiController
 import controller.AuthController
 import controller.ChatController
 import controller.FileController
+import controller.PersonaController
 import io.github.cymoo.colleen.Colleen
 import io.github.cymoo.colleen.middleware.Cors
 import io.github.cymoo.colleen.middleware.RequestLogger
@@ -18,6 +19,9 @@ import service.SessionService
 import service.UserService
 import service.AuthorizationService
 import service.InvitationService
+import persona.PersonaChatEngine
+import repository.RoomMemberRepository
+import repository.UserRepository
 import java.nio.file.Paths
 
 val logger: Logger = LoggerFactory.getLogger("App")
@@ -76,6 +80,67 @@ fun main() {
     // Bootstrap initial admin from environment (optional)
     bootstrapInitAdmin(userService)
 
+    // Persona engine (enabled when PERSONA_LLM_API_KEY is set)
+    val personaChatEngine: PersonaChatEngine? = if (!Env["PERSONA_LLM_API_KEY"].isNullOrBlank()) {
+        val userRepo = UserRepository(dsl)
+        val roomMemberRepo = RoomMemberRepository(dsl)
+        val engine = PersonaChatEngine(
+            bridge = object : PersonaChatEngine.Bridge {
+                override fun getRecentMessages(roomId: Int, limit: Int): List<PersonaChatEngine.ContextMessage> {
+                    return chatService.getRecentMessages(roomId, limit).mapNotNull { msg ->
+                        when (msg) {
+                            is model.ChatMessage.Text -> PersonaChatEngine.ContextMessage(
+                                msg.userId, msg.username, msg.content, msg.id, msg.replyTo?.id
+                            )
+                            else -> null
+                        }
+                    }
+                }
+
+                override fun sendBotMessage(roomId: Int, botUserId: Int, content: String, replyToId: Int?) {
+                    val botUser = userRepo.findById(botUserId) ?: return
+                    chatService.sendTextMessage(roomId, botUser, content, replyToId)
+                }
+
+                override fun getOrCreateBotUser(username: String): PersonaChatEngine.BotIdentity {
+                    val existing = userRepo.findByUsername(username)
+                    if (existing != null) return PersonaChatEngine.BotIdentity(existing.id, existing.username)
+                    val created = userRepo.createUser(username)
+                    return PersonaChatEngine.BotIdentity(created.id, created.username)
+                }
+
+                override fun addBotToRoom(roomId: Int, userId: Int) {
+                    roomMemberRepo.addMember(roomId, userId, "member")
+                }
+
+                override fun removeBotFromRoom(roomId: Int, userId: Int) {
+                    roomMemberRepo.removeMember(roomId, userId)
+                }
+
+                override fun broadcastRoomUsers(roomId: Int) {
+                    chatService.broadcastToRoom(roomId, model.WsEvent.Users(chatService.getRoomUsers(roomId)))
+                }
+
+                override fun sendTypingStatus(roomId: Int, userId: Int, username: String, isTyping: Boolean) {
+                    chatService.broadcastToRoom(roomId, model.WsEvent.Typing(userId, username, isTyping))
+                }
+            },
+            jedisPool = jedisPool,
+            executor = java.util.concurrent.Executors.newFixedThreadPool(4) { runnable ->
+                Thread(runnable).apply {
+                    isDaemon = true
+                    name = "persona-engine"
+                }
+            }
+        )
+        chatService.personaChatEngine = engine
+        logger.info("✅ Persona engine enabled (model: ${Env["PERSONA_LLM_MODEL"] ?: "gpt-4"})")
+        engine
+    } else {
+        logger.info("ℹ️ Persona engine disabled (PERSONA_LLM_API_KEY not set)")
+        null
+    }
+
     // Middleware
     app.use(RequestLogger())
     app.use(Cors.permissive())
@@ -85,6 +150,9 @@ fun main() {
     app.addController(ApiController(roomService, fileService, userService, invitationService, sessionService, chatService, authorizationService))
     app.addController(FileController(fileService))
     app.addController(ChatController(userService, chatService, roomService, sessionService, objectMapper))
+    if (personaChatEngine != null) {
+        app.addController(PersonaController(personaChatEngine, sessionService, userService))
+    }
 
     // Start Redis pub/sub subscriber for cross-instance messaging
     chatService.startRedisSubscriber()

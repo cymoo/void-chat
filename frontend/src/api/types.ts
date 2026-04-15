@@ -15,6 +15,8 @@ export interface User {
   mutedUntil?: number | null;
   muteReason?: string | null;
   isMuted?: boolean;
+  isBot?: boolean;
+  displayName?: string | null;
   createdAt: number;
   lastSeen: number;
 }
@@ -357,4 +359,18 @@ export interface UploadResponse {
   fileName?: string | null;
   fileSize?: number | null;
   error?: string | null;
+}
+
+// Persona (digital persona) types
+export interface InvitePersonaRequest {
+  name: string;
+  personality?: string | null;
+}
+
+export interface InvitePersonaResponse {
+  success: boolean;
+  displayName?: string | null;
+  bio?: string | null;
+  error?: string | null;
+  userId?: number | null;
 }

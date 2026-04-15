@@ -12,6 +12,7 @@ import repository.PrivateMessageRepository
 import repository.RoomMemberRepository
 import repository.RoomRepository
 import repository.UserRepository
+import persona.PersonaChatEngine
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArraySet
@@ -64,6 +65,9 @@ class ChatService(
             name = "chat-broadcast"
         }
     }
+
+    /** Optional persona engine — injected after construction to break circular dependency. */
+    var personaChatEngine: PersonaChatEngine? = null
 
     /**
      * Register a user's WebSocket connection into a chat room.
@@ -233,6 +237,10 @@ class ChatService(
 
         // Parse mentions
         parseMentions(content, roomId, messageId, user.username)
+
+        // Persona hook: notify engine of new message (async)
+        personaChatEngine?.onRoomMessage(roomId, user.id, user.username, content, messageId, replyToId)
+
         return true
     }
 
@@ -314,6 +322,10 @@ class ChatService(
         return messageRepo.getRecentMessages(roomId, 30)
     }
 
+    fun getRecentMessages(roomId: Int, limit: Int): List<ChatMessage> {
+        return messageRepo.getRecentMessages(roomId, limit)
+    }
+
     fun getOlderMessages(roomId: Int, beforeId: Int, limit: Int = 30): Pair<List<ChatMessage>, Boolean> {
         val messages = messageRepo.getMessagesBefore(roomId, beforeId, limit + 1)
         val hasMore = messages.size > limit
@@ -325,7 +337,8 @@ class ChatService(
     }
 
     fun getRoomUsers(roomId: Int): List<User> {
-        return roomMemberRepo.getRoomMembers(roomId)
+        val users = roomMemberRepo.getRoomMembers(roomId)
+        return personaChatEngine?.enrichUsers(users, roomId) ?: users
     }
 
     /** Returns the number of online users per room based on active WebSocket connections. */
@@ -453,6 +466,9 @@ class ChatService(
         }
 
         roomMemberRepo.removeMember(roomId, targetUserId)
+
+        // Persona hook: clean up room bot tracking
+        personaChatEngine?.onUserKicked(roomId, targetUserId)
 
         sendToUser(targetUserId, WsEvent.Kicked(reason))
         // Close local connection if present (WsConnection is JVM-local)

@@ -25,6 +25,7 @@ function MessageItemInner({
 }: MessageItemProps) {
   const setEditingMessage = useChatStore((s) => s.setEditingMessage);
   const setReplyingTo = useChatStore((s) => s.setReplyingTo);
+  const users = useChatStore((s) => s.users);
   const confirm = useUiStore((s) => s.confirm);
   const showUserCard = useUiStore((s) => s.showUserCard);
   const setImageModal = useUiStore((s) => s.setImageModal);
@@ -33,6 +34,12 @@ function MessageItemInner({
   useCurrentMinute();
 
   const isOwn = message.messageType !== "system" && message.userId === currentUserId;
+
+  // Resolve bot info from user list
+  const botUser = message.messageType !== "system"
+    ? users.find((u) => u.id === message.userId && u.isBot)
+    : undefined;
+  const displayName = botUser?.displayName ?? (message.messageType !== "system" ? message.username : "");
 
   const EDIT_WINDOW_MS = 5 * 60 * 1000;
   const withinEditWindow =
@@ -109,12 +116,14 @@ function MessageItemInner({
   };
 
   return (
-    <div className={`message${isOwn ? " message-self" : ""}`} data-message-id={message.id}>
+    <div className={`message${isOwn ? " message-self" : ""}${botUser ? " message-bot" : ""}`} data-message-id={message.id}>
       <div
         className="message-avatar"
-        onClick={() => showUserCard(message.userId)}
+        onClick={() => { if (!botUser) showUserCard(message.userId); }}
       >
-        {message.avatarUrl ? (
+        {botUser ? (
+          <span className="bot-avatar-icon">🤖</span>
+        ) : message.avatarUrl ? (
           <img
             src={message.avatarUrl}
             alt={message.username}
@@ -132,7 +141,10 @@ function MessageItemInner({
           </div>
         )}
         <div className="message-header">
-          <div className="message-author">{message.username}</div>
+          <div className="message-author">
+            {displayName}
+            {botUser && <span className="role-badge role-bot">BOT</span>}
+          </div>
           <div className="message-time" title={formatTime(message.timestamp)}>
             {formatRelativeTime(message.timestamp)}
           </div>

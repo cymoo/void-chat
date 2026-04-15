@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useChatStore } from "@/stores/chatStore";
 import { useUiStore } from "@/stores/uiStore";
+import { useRoomStore } from "@/stores/roomStore";
 import { MessageList } from "./MessageList";
 import { MessageInput } from "./MessageInput";
 import { UserSidebar } from "./UserSidebar";
 import { SearchPanel } from "./SearchPanel";
 import { TypingIndicator } from "./TypingIndicator";
+import { InvitePersonaModal } from "./InvitePersonaModal";
 import type { User, WsSendPayload } from "@/api/types";
 
 interface ChatViewProps {
@@ -28,7 +30,18 @@ export function ChatView({
   const users = useChatStore((s) => s.users);
   const unreadDmCount = useChatStore((s) => s.unreadDmCount);
   const [usersPanelOpen, setUsersPanelOpen] = useState(() => window.innerWidth > 768);
+  const [personaModalOpen, setPersonaModalOpen] = useState(false);
   const { searchOpen, toggleSearch, setProfileOpen } = useUiStore();
+  const currentRoomId = useRoomStore((s) => s.currentRoomId);
+  const rooms = useRoomStore((s) => s.rooms);
+
+  const roomCreatorId = rooms.find((r) => r.id === currentRoomId)?.creatorId ?? null;
+  const currentUserRole = users.find((u) => u.id === currentUser.id)?.role ?? "member";
+  const canInvitePersona =
+    roomCreatorId === currentUser.id ||
+    currentUserRole === "owner" ||
+    currentUserRole === "admin" ||
+    currentUserRole === "moderator";
 
   return (
     <div className="chat-layout">
@@ -63,6 +76,21 @@ export function ChatView({
                 <line x1="21" y1="21" x2="16.65" y2="16.65" />
               </svg>
             </button>
+            {canInvitePersona && (
+              <button
+                className="icon-btn"
+                title="Invite AI Persona"
+                aria-label="Invite AI persona"
+                onClick={() => setPersonaModalOpen(true)}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="8" r="5" />
+                  <path d="M20 21a8 8 0 0 0-16 0" />
+                  <line x1="12" y1="16" x2="12" y2="22" />
+                  <line x1="9" y1="19" x2="15" y2="19" />
+                </svg>
+              </button>
+            )}
             <button className="icon-btn" title="My Profile" aria-label="Open my profile" onClick={() => setProfileOpen(true)}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
@@ -134,6 +162,15 @@ export function ChatView({
       {/* Input */}
       <TypingIndicator currentUserId={currentUser.id} />
       <MessageInput send={send} currentUser={currentUser} />
+
+      {/* Invite Persona Modal */}
+      {personaModalOpen && currentRoomId && (
+        <InvitePersonaModal
+          roomId={currentRoomId}
+          onClose={() => setPersonaModalOpen(false)}
+          onSuccess={() => {}}
+        />
+      )}
     </div>
   );
 }

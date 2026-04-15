@@ -128,7 +128,9 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
         const query = mentionMatch[1]!.toLowerCase();
         setMentionQuery(query);
         const filtered = users
-          .filter((u) => u.id !== currentUser.id && u.username.toLowerCase().includes(query))
+          .filter((u) => u.id !== currentUser.id &&
+            (u.username.toLowerCase().includes(query) ||
+             (u.displayName && u.displayName.toLowerCase().includes(query))))
           .slice(0, 5);
         setMentionResults(filtered);
         setMentionIndex(0);
@@ -251,7 +253,9 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
               className={`mention-item${i === mentionIndex ? " selected" : ""}`}
               onClick={() => insertMention(u.username)}
             >
-              <span className="mention-item-name">{u.username}</span>
+              <span className="mention-item-name">
+                {u.isBot ? `🤖 ${u.displayName ?? u.username}` : u.username}
+              </span>
               <span className="mention-item-username">@{u.username}</span>
             </div>
           ))}

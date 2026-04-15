@@ -248,11 +248,28 @@ class MessageRepository(private val dsl: DSLContext) {
         val filtered = map.filterValues { it != null }
         val json = filtered.entries.joinToString(",", "{", "}") { (k, v) ->
             val valueStr = when (v) {
-                is String -> "\"${v.replace("\\", "\\\\").replace("\"", "\\\"")}\""
+                is String -> "\"${escapeJsonString(v)}\""
                 else -> v.toString()
             }
             "\"$k\":$valueStr"
         }
         return JSONB.jsonb(json)
+    }
+
+    private fun escapeJsonString(s: String): String {
+        val sb = StringBuilder(s.length + 16)
+        for (ch in s) {
+            when (ch) {
+                '"' -> sb.append("\\\"")
+                '\\' -> sb.append("\\\\")
+                '\n' -> sb.append("\\n")
+                '\r' -> sb.append("\\r")
+                '\t' -> sb.append("\\t")
+                '\b' -> sb.append("\\b")
+                '\u000C' -> sb.append("\\f")
+                else -> if (ch.code < 0x20) sb.append("\\u%04x".format(ch.code)) else sb.append(ch)
+            }
+        }
+        return sb.toString()
     }
 }
