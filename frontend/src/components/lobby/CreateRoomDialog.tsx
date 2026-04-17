@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useRoomStore } from "@/stores/roomStore";
 import { useUiStore } from "@/stores/uiStore";
+import { Modal } from "@/components/ui/Modal";
 
 export function CreateRoomModal() {
   const navigate = useNavigate();
@@ -39,8 +40,7 @@ export function CreateRoomModal() {
   };
 
   return (
-    <div className="modal active">
-      <div className="modal-backdrop" onClick={() => setCreateRoomOpen(false)} />
+    <Modal open onClose={() => setCreateRoomOpen(false)}>
       <div className="create-room-panel">
         <div className="panel-header">
           <span className="panel-title">NEW ROOM</span>
@@ -131,6 +131,6 @@ export function CreateRoomModal() {
           </button>
         </form>
       </div>
-    </div>
+    </Modal>
   );
 }

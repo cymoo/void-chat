@@ -11,6 +11,7 @@ import { renderMarkdown } from "@/lib/markdown";
 import { formatTime } from "@/lib/utils";
 import { MessageInputBar } from "@/components/shared/MessageInputBar";
 import { MessageContent } from "@/components/chat/MessageContent";
+import { Modal } from "@/components/ui/Modal";
 import type { PrivateMessage, User, WsSendPayload } from "@/api/types";
 
 interface PrivateChatProps {
@@ -145,8 +146,7 @@ export function PrivateChat({ send, currentUser }: PrivateChatProps) {
   );
 
   return (
-    <div className="modal active">
-      <div className="modal-backdrop" onClick={handleClose} />
+    <Modal open onClose={handleClose} overlayClassName="modal-overlay-private">
       <div className="private-chat-panel">
         <div className="private-chat-header">
           <span>DM: {privateChatUsername}</span>
@@ -177,6 +177,6 @@ export function PrivateChat({ send, currentUser }: PrivateChatProps) {
           ariaLabel="direct message"
         />
       </div>
-    </div>
+    </Modal>
   );
 }

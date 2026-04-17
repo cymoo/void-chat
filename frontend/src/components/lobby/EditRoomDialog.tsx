@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import type { RoomInfo } from "@/api/types";
 import { useRoomStore } from "@/stores/roomStore";
 import { useUiStore } from "@/stores/uiStore";
+import { Modal } from "@/components/ui/Modal";
 
 interface EditRoomModalProps {
   room: RoomInfo;
@@ -61,8 +62,7 @@ export function EditRoomModal({ room, onClose }: EditRoomModalProps) {
   };
 
   return (
-    <div className="modal active">
-      <div className="modal-backdrop" onClick={onClose} />
+    <Modal open onClose={onClose}>
       <div className="create-room-panel">
         <div className="panel-header">
           <span className="panel-title">EDIT ROOM</span>
@@ -162,6 +162,6 @@ export function EditRoomModal({ room, onClose }: EditRoomModalProps) {
           </button>
         </form>
       </div>
-    </div>
+    </Modal>
   );
 }

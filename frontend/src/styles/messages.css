@@ -402,14 +402,11 @@
 }
 
 .mention-dropdown {
-  position: fixed;
-  bottom: 120px;
-  left: 30px;
   background: var(--color-bg);
   border: 1px solid var(--color-border-bright);
   max-height: 200px;
   overflow-y: auto;
-  z-index: 100;
+  z-index: 1200;
   min-width: 200px;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
 }

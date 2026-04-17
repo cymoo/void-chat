@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { Modal } from "@/components/ui/Modal";
 
 interface RoomPasswordModalProps {
   roomName: string;
@@ -15,8 +16,7 @@ export function RoomPasswordModal({ onJoin, onClose }: RoomPasswordModalProps) {
   };
 
   return (
-    <div className="modal active" role="dialog" aria-modal="true" aria-label="Room password required">
-      <div className="modal-backdrop" onClick={onClose} />
+    <Modal open onClose={onClose} aria-label="Room password required">
       <div className="room-password-panel">
         <div className="panel-header">
           <span className="panel-title">PRIVATE ROOM</span>
@@ -54,6 +54,6 @@ export function RoomPasswordModal({ onJoin, onClose }: RoomPasswordModalProps) {
           </div>
         </form>
       </div>
-    </div>
+    </Modal>
   );
 }

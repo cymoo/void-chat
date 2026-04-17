@@ -3,6 +3,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { useUiStore } from "@/stores/uiStore";
 import * as api from "@/api/client";
 import { getInitials } from "@/lib/utils";
+import { Modal } from "@/components/ui/Modal";
 
 export function ProfileModal() {
   const user = useAuthStore((s) => s.user);
@@ -55,8 +56,7 @@ export function ProfileModal() {
   };
 
   return (
-    <div className="modal active" role="dialog" aria-modal="true" aria-label="Edit profile">
-      <div className="modal-backdrop" onClick={() => setProfileOpen(false)} />
+    <Modal open onClose={() => setProfileOpen(false)} aria-label="Edit profile">
       <div className="my-profile-panel">
         <div className="panel-header">
           <span className="panel-title">MY PROFILE</span>
@@ -138,6 +138,6 @@ export function ProfileModal() {
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

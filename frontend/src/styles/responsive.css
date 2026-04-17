@@ -270,8 +270,16 @@
     padding: 16px;
   }
 
+  .modal-overlay {
+    padding: 16px;
+  }
+
   /* Private chat is full screen on mobile */
   .modal:has(.private-chat-panel) {
+    padding: 0;
+  }
+
+  .modal-overlay-private {
     padding: 0;
   }
 

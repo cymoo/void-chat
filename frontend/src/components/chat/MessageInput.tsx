@@ -7,6 +7,7 @@ import {
 } from "react";
 import { useChatStore, getMessageContent } from "@/stores/chatStore";
 import { MessageInputBar } from "@/components/shared/MessageInputBar";
+import { MentionDropdown } from "@/components/shared/MentionDropdown";
 import type { MessageComposerReturn } from "@/hooks/useMessageComposer";
 import type { User, WsSendPayload } from "@/api/types";
 
@@ -227,7 +228,7 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
     composerRef.current?.setText("");
   }, [setEditingMessage, setReplyingTo]);
 
-  const renderAbove = useCallback(() => (
+  const renderAbove = useCallback((composer: MessageComposerReturn) => (
     <>
       {/* Reply / Edit indicator */}
       {(editingMessageId || replyingTo) && (
@@ -243,23 +244,13 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
         </div>
       )}
 
-      {/* Mention dropdown */}
-      {mentionResults.length > 0 && (
-        <div className="mention-dropdown" style={{ display: "block" }}>
-          {mentionResults.map((u, i) => (
-            <div
-              key={u.id}
-              className={`mention-item${i === mentionIndex ? " selected" : ""}`}
-              onClick={() => insertMention(u.username)}
-            >
-              <span className="mention-item-name">
-                {u.isBot ? `🤖 ${u.displayName ?? u.username}` : u.username}
-              </span>
-              <span className="mention-item-username">@{u.username}</span>
-            </div>
-          ))}
-        </div>
-      )}
+      {/* Mention dropdown anchored to textarea */}
+      <MentionDropdown
+        results={mentionResults}
+        selectedIndex={mentionIndex}
+        onSelect={insertMention}
+        anchorEl={composer.textareaRef.current}
+      />
     </>
   ), [editingMessageId, replyingTo, mentionResults, mentionIndex, cancelIndicator, insertMention]);
 

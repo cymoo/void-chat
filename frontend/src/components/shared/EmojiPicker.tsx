@@ -1,5 +1,5 @@
-import { useRef, useEffect } from "react";
 import { COMMON_EMOJIS } from "@/lib/emojis";
+import { Popover } from "@/components/ui/Popover";
 
 interface EmojiPickerProps {
   open: boolean;
@@ -8,48 +8,41 @@ interface EmojiPickerProps {
 }
 
 export function EmojiPicker({ open, onToggle, onSelect }: EmojiPickerProps) {
-  const wrapperRef = useRef<HTMLDivElement>(null);
-
-  // Close on outside click
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        onToggle(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open, onToggle]);
+  const emojiGrid = (
+    <div className="emoji-picker" role="menu" aria-label="Emoji picker">
+      <div className="emoji-grid">
+        {COMMON_EMOJIS.map((emoji) => (
+          <button
+            key={emoji}
+            type="button"
+            className="emoji-btn"
+            aria-label={`Emoji ${emoji}`}
+            onClick={() => onSelect(emoji)}
+          >
+            {emoji}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 
   return (
-    <div className="emoji-picker-wrapper" ref={wrapperRef}>
+    <Popover
+      open={open}
+      onOpenChange={onToggle}
+      content={emojiGrid}
+      placement="top-end"
+      offsetPx={8}
+      className="emoji-popover"
+    >
       <button
         type="button"
         className={`icon-btn emoji-toggle-btn${open ? " active" : ""}`}
         title="Insert Emoji"
         aria-label="Insert emoji"
-        onClick={() => onToggle(!open)}
       >
         🙂
       </button>
-      {open && (
-        <div className="emoji-picker" role="menu" aria-label="Emoji picker">
-          <div className="emoji-grid">
-            {COMMON_EMOJIS.map((emoji) => (
-              <button
-                key={emoji}
-                type="button"
-                className="emoji-btn"
-                aria-label={`Emoji ${emoji}`}
-                onClick={() => onSelect(emoji)}
-              >
-                {emoji}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
+    </Popover>
   );
 }

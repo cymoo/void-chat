@@ -19,7 +19,9 @@ describe("EmojiPicker", () => {
     render(<EmojiPicker open={false} onToggle={onToggle} onSelect={vi.fn()} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Insert emoji" }));
-    expect(onToggle).toHaveBeenCalledWith(true);
+    // Floating UI's useClick passes (open, event, reason) — just verify first arg
+    expect(onToggle).toHaveBeenCalled();
+    expect(onToggle.mock.calls[0]![0]).toBe(true);
   });
 
   it("renders emoji grid with all emojis when open", () => {
@@ -48,7 +50,9 @@ describe("EmojiPicker", () => {
     const onToggle = vi.fn();
     render(<EmojiPicker open={true} onToggle={onToggle} onSelect={vi.fn()} />);
 
-    fireEvent.mouseDown(document.body);
-    expect(onToggle).toHaveBeenCalledWith(false);
+    // Floating UI's useDismiss listens to pointerdown, not mousedown
+    fireEvent.pointerDown(document.body);
+    expect(onToggle).toHaveBeenCalled();
+    expect(onToggle.mock.calls[0]![0]).toBe(false);
   });
 });

@@ -5,6 +5,7 @@ import { useUiStore } from "@/stores/uiStore";
 import { useAuthStore } from "@/stores/authStore";
 import * as api from "@/api/client";
 import { getInitials, formatDate } from "@/lib/utils";
+import { Modal } from "@/components/ui/Modal";
 import type { User, WsSendPayload } from "@/api/types";
 
 interface UserCardProps {
@@ -71,8 +72,7 @@ export function UserCard({ send }: UserCardProps) {
   };
 
   return (
-    <div className="modal active">
-      <div className="modal-backdrop" onClick={hideUserCard} />
+    <Modal open onClose={hideUserCard}>
       <div className="user-profile-panel">
         <div className="profile-header">
           <button className="modal-close panel-close-btn" onClick={hideUserCard}>
@@ -129,6 +129,6 @@ export function UserCard({ send }: UserCardProps) {
           </div>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

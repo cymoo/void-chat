@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { invitePersona } from "@/api/client";
 import { useUiStore } from "@/stores/uiStore";
+import { Modal } from "@/components/ui/Modal";
 
 interface InvitePersonaModalProps {
   roomId: number;
@@ -47,8 +48,7 @@ export function InvitePersonaModal({ roomId, onClose, onSuccess }: InvitePersona
   };
 
   return (
-    <div className="modal active">
-      <div className="modal-backdrop" onClick={onClose} />
+    <Modal open onClose={onClose}>
       <div className="confirm-dialog persona-dialog">
         <div className="panel-header">
           <span className="panel-title">INVITE AI PERSONA</span>
@@ -110,6 +110,6 @@ export function InvitePersonaModal({ roomId, onClose, onSuccess }: InvitePersona
           </form>
         )}
       </div>
-    </div>
+    </Modal>
   );
 }

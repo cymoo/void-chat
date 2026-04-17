@@ -3,6 +3,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import { COMMON_EMOJIS } from "@/lib/emojis";
+import { Popover } from "@/components/ui/Popover";
 import { useMessageComposer, type MessageComposerReturn } from "@/hooks/useMessageComposer";
 
 interface MessageInputBarProps {
@@ -55,6 +56,23 @@ export function MessageInputBar({
     [onKeyDownCapture, composer],
   );
 
+  const emojiGrid = (
+    <div className="emoji-picker" role="menu" aria-label="Emoji picker">
+      <div className="emoji-grid">
+        {COMMON_EMOJIS.map((emoji) => (
+          <button
+            key={emoji}
+            type="button"
+            className="emoji-btn"
+            onClick={() => composer.handleSelectEmoji(emoji)}
+          >
+            {emoji}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <>
       {renderAbove?.(composer)}
@@ -83,33 +101,23 @@ export function MessageInputBar({
             aria-label={ariaLabel}
           />
           <div className="input-actions">
-            <div className="emoji-picker-wrapper" ref={composer.emojiPickerRef}>
+            <Popover
+              open={composer.emojiOpen}
+              onOpenChange={composer.setEmojiOpen}
+              content={emojiGrid}
+              placement="top-end"
+              offsetPx={8}
+              className="emoji-popover"
+            >
               <button
                 type="button"
                 className={`icon-btn emoji-toggle-btn${composer.emojiOpen ? " active" : ""}`}
                 title="Insert Emoji"
                 aria-label="Insert emoji"
-                onClick={() => composer.setEmojiOpen(!composer.emojiOpen)}
               >
                 🙂
               </button>
-              {composer.emojiOpen && (
-                <div className="emoji-picker" role="menu" aria-label="Emoji picker">
-                  <div className="emoji-grid">
-                    {COMMON_EMOJIS.map((emoji) => (
-                      <button
-                        key={emoji}
-                        type="button"
-                        className="emoji-btn"
-                        onClick={() => composer.handleSelectEmoji(emoji)}
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+            </Popover>
             <label className="icon-btn attach-btn" title="Attach File">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />

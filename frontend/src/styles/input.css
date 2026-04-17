@@ -48,10 +48,6 @@
   align-self: flex-end;
 }
 
-.emoji-picker-wrapper {
-  position: relative;
-}
-
 .emoji-toggle-btn {
   height: 100%;
   font-size: 17px;
@@ -65,14 +61,10 @@
 }
 
 .emoji-picker {
-  position: absolute;
-  right: 0;
-  bottom: calc(100% + 8px);
   width: 220px;
   background: var(--color-bg);
   border: 1px solid var(--color-border-bright);
   padding: 8px;
-  z-index: 1200;
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.45);
 }
 

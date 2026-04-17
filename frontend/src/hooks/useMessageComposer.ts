@@ -31,7 +31,6 @@ export interface MessageComposerReturn {
   canSend: boolean;
   uploading: boolean;
   textareaRef: RefObject<HTMLTextAreaElement | null>;
-  emojiPickerRef: RefObject<HTMLDivElement | null>;
   emojiOpen: boolean;
   setEmojiOpen: (open: boolean) => void;
   handleChange: (e: ChangeEvent<HTMLTextAreaElement>) => void;
@@ -54,7 +53,6 @@ export function useMessageComposer({
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const emojiPickerRef = useRef<HTMLDivElement | null>(null);
   const addToast = useUiStore((s) => s.addToast);
 
   const canSend = text.trim().length > 0;
@@ -81,20 +79,6 @@ export function useMessageComposer({
   useEffect(() => {
     autoResize();
   }, [text, autoResize]);
-
-  // Close emoji picker on outside click
-  useEffect(() => {
-    if (!emojiOpen) return;
-    const handlePointerDown = (event: MouseEvent) => {
-      const target = event.target as Node | null;
-      if (!target) return;
-      if (!emojiPickerRef.current?.contains(target)) {
-        setEmojiOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handlePointerDown);
-    return () => document.removeEventListener("mousedown", handlePointerDown);
-  }, [emojiOpen]);
 
   const insertAtCursor = useCallback(
     (content: string) => {
@@ -215,7 +199,6 @@ export function useMessageComposer({
     canSend,
     uploading,
     textareaRef,
-    emojiPickerRef,
     emojiOpen,
     setEmojiOpen,
     handleChange,
