@@ -142,12 +142,24 @@ class PersonaChatEngine(
             """.trimIndent()
         }
 
-        private fun chatSystemPrompt(personaPrompt: String, displayName: String, isAutoEngage: Boolean): String {
-            val autoEngageRule = if (isAutoEngage) """
-                - This message was NOT directed at you. Only respond if the topic is directly related to
-                  your expertise, works, or philosophy, or you have a genuinely witty observation.
-                  If not relevant, respond with exactly: $NO_RESPONSE_SENTINEL
-            """.trimIndent() else ""
+        private fun chatSystemPrompt(
+            personaPrompt: String,
+            displayName: String,
+            isAutoEngage: Boolean,
+            otherPersonaNames: List<String> = emptyList()
+        ): String {
+            val autoEngageRule = if (isAutoEngage) {
+                val othersClause = if (otherPersonaNames.isNotEmpty())
+                    "Other personas in this room: ${otherPersonaNames.joinToString(", ")}. "
+                else ""
+                """
+                - This message was NOT directed at you. ${othersClause}Only respond if you are
+                  specifically mentioned or called upon, or the topic directly and uniquely relates
+                  to your expertise, works, or philosophy.
+                  If the message is addressed to other specific people and doesn't involve you,
+                  respond with exactly: $NO_RESPONSE_SENTINEL
+                """.trimIndent()
+            } else ""
 
             return """
                 $personaPrompt
@@ -232,39 +244,32 @@ class PersonaChatEngine(
         // Phase 1: determine triggers for all bots (cheap, no LLM)
         data class BotTrigger(val userId: Int, val config: PersonaConfig, val trigger: TriggerType)
 
+        val botConfigs = mutableMapOf<Int, PersonaConfig>()
         val triggered = mutableListOf<BotTrigger>()
         var hasExplicitTrigger = false
 
         for (botUserId in botIds) {
             val config = getConfig(botUserId) ?: continue
+            botConfigs[botUserId] = config
             val trigger = determineTrigger(content, replyToId, config, botUserId, recentMessages) ?: continue
             triggered.add(BotTrigger(botUserId, config, trigger))
             if (trigger != TriggerType.AUTO_ENGAGE) hasExplicitTrigger = true
         }
 
-        // Phase 2: suppress auto-engage for bots not addressed
-        //  - If any bot has an explicit trigger (@mention/reply), suppress ALL auto-engage
-        //  - Else if some bots' displayNames appear in the message, only THOSE auto-engage
-        //  - Else all auto-engage bots proceed (generic message)
+        // Phase 2: when any bot is explicitly addressed, suppress auto-engage for others
         val botsToProcess = if (hasExplicitTrigger) {
             triggered.filter { it.trigger != TriggerType.AUTO_ENGAGE }
         } else {
-            val namedBotIds = triggered
-                .filter { it.trigger == TriggerType.AUTO_ENGAGE && content.contains(it.config.displayName) }
-                .map { it.userId }.toSet()
-            if (namedBotIds.isNotEmpty()) {
-                triggered.filter { it.trigger != TriggerType.AUTO_ENGAGE || it.userId in namedBotIds }
-            } else {
-                triggered
-            }
+            triggered
         }
 
         for (bot in botsToProcess) {
+            val otherNames = botConfigs.filterKeys { it != bot.userId }.values.map { it.displayName }
             executor.execute {
                 try {
                     handleBotTrigger(
                         roomId, bot.userId, bot.config, senderUsername,
-                        content, messageId, replyToId, recentMessages, bot.trigger
+                        content, messageId, replyToId, recentMessages, bot.trigger, otherNames
                     )
                 } catch (e: Exception) {
                     log.error("Error processing persona (userId={}) in room {}", bot.userId, roomId, e)
@@ -347,14 +352,15 @@ class PersonaChatEngine(
         messageId: Int,
         replyToId: Int?,
         recentMessages: List<ContextMessage>,
-        trigger: TriggerType
+        trigger: TriggerType,
+        otherPersonaNames: List<String>
     ) {
         val botUsername = "${config.name}$botSuffix"
         val showTyping = trigger != TriggerType.AUTO_ENGAGE
 
         try {
             if (showTyping) bridge.sendTypingStatus(roomId, botUserId, botUsername, true)
-            val reply = generateReply(config, content, senderUsername, messageId, recentMessages, trigger)
+            val reply = generateReply(config, content, senderUsername, messageId, recentMessages, trigger, otherPersonaNames)
             if (reply != null) {
                 val replyTo = if (trigger == TriggerType.EXPLICIT_REPLY) replyToId else messageId
                 bridge.sendBotMessage(roomId, botUserId, reply, replyTo)
@@ -411,10 +417,11 @@ class PersonaChatEngine(
         senderUsername: String,
         messageId: Int,
         recentMessages: List<ContextMessage>,
-        trigger: TriggerType
+        trigger: TriggerType,
+        otherPersonaNames: List<String> = emptyList()
     ): String? {
         val isAutoEngage = trigger == TriggerType.AUTO_ENGAGE
-        val systemPrompt = chatSystemPrompt(config.systemPrompt, config.displayName, isAutoEngage)
+        val systemPrompt = chatSystemPrompt(config.systemPrompt, config.displayName, isAutoEngage, otherPersonaNames)
 
         val llmMessages = mutableListOf<Map<String, String>>()
         llmMessages.add(mapOf("role" to "system", "content" to systemPrompt))

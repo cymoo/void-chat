@@ -285,7 +285,7 @@ class PersonaChatEngineTest {
     }
 
     @Test
-    fun `onRoomMessage auto-engage only triggers bots whose displayName appears in message`() {
+    fun `onRoomMessage dispatches all auto-engage bots when no explicit trigger`() {
         System.setProperty("PERSONA_AUTO_ENGAGE", "true")
         try {
             val autoEngine = PersonaChatEngine(bridge, jedisPool, executor)
@@ -296,15 +296,15 @@ class PersonaChatEngineTest {
             setupBotConfig(30, "aristotle", "亚里士多德")
             every { bridge.getRecentMessages(1, any()) } returns emptyList()
 
-            // Message names 叔本华 and 庄子 but NOT 亚里士多德
+            // No @mentions — all bots auto-engage; LLM prompt decides who responds
             autoEngine.onRoomMessage(
                 roomId = 1, senderId = 99, senderUsername = "alice",
                 content = "叔本华和庄子，你们谈谈工作的意义？",
                 messageId = 100, replyToId = null
             )
 
-            // executor called for 叔本华 and 庄子, NOT 亚里士多德
-            verify(exactly = 2) { executor.execute(any<Runnable>()) }
+            // All 3 bots dispatched — prompt with otherPersonaNames handles filtering
+            verify(exactly = 3) { executor.execute(any<Runnable>()) }
         } finally {
             System.clearProperty("PERSONA_AUTO_ENGAGE")
         }
