@@ -283,4 +283,30 @@ class PersonaChatEngineTest {
         // getRecentMessages called exactly once, not per-bot
         verify(exactly = 1) { bridge.getRecentMessages(1, any()) }
     }
+
+    @Test
+    fun `onRoomMessage auto-engage only triggers bots whose displayName appears in message`() {
+        System.setProperty("PERSONA_AUTO_ENGAGE", "true")
+        try {
+            val autoEngine = PersonaChatEngine(bridge, jedisPool, executor)
+
+            every { jedis.smembers("persona:room_bots:1") } returns setOf("10", "20", "30")
+            setupBotConfig(10, "schopenhauer", "叔本华")
+            setupBotConfig(20, "zhuangzi", "庄子")
+            setupBotConfig(30, "aristotle", "亚里士多德")
+            every { bridge.getRecentMessages(1, any()) } returns emptyList()
+
+            // Message names 叔本华 and 庄子 but NOT 亚里士多德
+            autoEngine.onRoomMessage(
+                roomId = 1, senderId = 99, senderUsername = "alice",
+                content = "叔本华和庄子，你们谈谈工作的意义？",
+                messageId = 100, replyToId = null
+            )
+
+            // executor called for 叔本华 and 庄子, NOT 亚里士多德
+            verify(exactly = 2) { executor.execute(any<Runnable>()) }
+        } finally {
+            System.clearProperty("PERSONA_AUTO_ENGAGE")
+        }
+    }
 }

@@ -242,11 +242,21 @@ class PersonaChatEngine(
             if (trigger != TriggerType.AUTO_ENGAGE) hasExplicitTrigger = true
         }
 
-        // Phase 2: when any bot is explicitly addressed, suppress auto-engage for others
+        // Phase 2: suppress auto-engage for bots not addressed
+        //  - If any bot has an explicit trigger (@mention/reply), suppress ALL auto-engage
+        //  - Else if some bots' displayNames appear in the message, only THOSE auto-engage
+        //  - Else all auto-engage bots proceed (generic message)
         val botsToProcess = if (hasExplicitTrigger) {
             triggered.filter { it.trigger != TriggerType.AUTO_ENGAGE }
         } else {
-            triggered
+            val namedBotIds = triggered
+                .filter { it.trigger == TriggerType.AUTO_ENGAGE && content.contains(it.config.displayName) }
+                .map { it.userId }.toSet()
+            if (namedBotIds.isNotEmpty()) {
+                triggered.filter { it.trigger != TriggerType.AUTO_ENGAGE || it.userId in namedBotIds }
+            } else {
+                triggered
+            }
         }
 
         for (bot in botsToProcess) {
