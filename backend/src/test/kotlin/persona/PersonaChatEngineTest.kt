@@ -9,6 +9,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import redis.clients.jedis.Jedis
 import redis.clients.jedis.JedisPool
+import redis.clients.jedis.Pipeline
 import java.util.concurrent.ExecutorService
 
 class PersonaChatEngineTest {
@@ -16,6 +17,7 @@ class PersonaChatEngineTest {
     private val objectMapper = jacksonObjectMapper()
     private val bridge = mockk<PersonaChatEngine.Bridge>(relaxed = true)
     private val jedis = mockk<Jedis>(relaxed = true)
+    private val pipeline = mockk<Pipeline>(relaxed = true)
     private val jedisPool = mockk<JedisPool>()
     private val executor = mockk<ExecutorService>()
     private lateinit var engine: PersonaChatEngine
@@ -24,8 +26,9 @@ class PersonaChatEngineTest {
     fun setUp() {
         every { jedisPool.resource } returns jedis
         every { jedis.close() } just Runs
+        every { jedis.pipelined() } returns pipeline
         // Execute tasks synchronously in tests
-        every { executor.execute(any()) } answers {
+        every { executor.execute(any<Runnable>()) } answers {
             firstArg<Runnable>().run()
         }
         engine = PersonaChatEngine(bridge, jedisPool, executor)
@@ -131,8 +134,9 @@ class PersonaChatEngineTest {
 
         engine.enrichUsers(users, roomId = 7)
 
-        verify { jedis.del("persona:room_bots:7") }
-        verify { jedis.sadd("persona:room_bots:7", "10") }
+        verify { pipeline.del("persona:room_bots:7") }
+        verify { pipeline.sadd("persona:room_bots:7", "10") }
+        verify { pipeline.sync() }
     }
 
     // ── removePersona ───────────────────────────────────────────────────
@@ -150,26 +154,24 @@ class PersonaChatEngineTest {
 
     @Test
     fun `onRoomMessage ignores messages from bot users`() {
-        // Set up bot config so isBotUser returns true
-        every { jedis.get("persona:config:5") } returns
-                """{"userId":5,"name":"newton","displayName":"牛顿","systemPrompt":"...","bio":"...","personality":null,"invitedBy":1,"createdAt":1000}"""
+        // Bot is in the room's bot set — sender matches a bot ID, so it's skipped
+        every { jedis.smembers("persona:room_bots:1") } returns setOf("5")
 
         engine.onRoomMessage(roomId = 1, senderId = 5, senderUsername = "newton_bot",
             content = "Hello", messageId = 100, replyToId = null)
 
         // executor.execute should NOT have been called
-        verify(exactly = 0) { executor.execute(any()) }
+        verify(exactly = 0) { executor.execute(any<Runnable>()) }
     }
 
     @Test
     fun `onRoomMessage ignores rooms with no bots`() {
-        every { jedis.get("persona:config:99") } returns null
         every { jedis.smembers("persona:room_bots:1") } returns emptySet()
 
         engine.onRoomMessage(roomId = 1, senderId = 99, senderUsername = "alice",
             content = "Hello", messageId = 100, replyToId = null)
 
-        verify(exactly = 0) { executor.execute(any()) }
+        verify(exactly = 0) { executor.execute(any<Runnable>()) }
     }
 
     // ── getConfig ───────────────────────────────────────────────────────
@@ -201,5 +203,84 @@ class PersonaChatEngineTest {
     fun `getConfig returns null when Redis throws`() {
         every { jedis.get(any<String>()) } throws RuntimeException("timeout")
         assertNull(engine.getConfig(1))
+    }
+
+    // ── onRoomMessage trigger logic ─────────────────────────────────────
+
+    private fun setupBotConfig(userId: Int, name: String, displayName: String) {
+        val config = PersonaChatEngine.PersonaConfig(
+            userId = userId, name = name, displayName = displayName,
+            systemPrompt = "You are $displayName", bio = "...", personality = null,
+            invitedBy = 1, createdAt = 1000
+        )
+        every { jedis.get("persona:config:$userId") } returns objectMapper.writeValueAsString(config)
+    }
+
+    @Test
+    fun `onRoomMessage suppresses auto-engage when explicit mention exists`() {
+        // Enable auto-engage via system property and rebuild engine
+        System.setProperty("PERSONA_AUTO_ENGAGE", "true")
+        try {
+            val autoEngine = PersonaChatEngine(bridge, jedisPool, executor)
+
+            every { jedis.smembers("persona:room_bots:1") } returns setOf("10", "20")
+            setupBotConfig(10, "confucius", "孔子")
+            setupBotConfig(20, "zhuangzi", "庄子")
+            every { bridge.getRecentMessages(1, any()) } returns emptyList()
+
+            autoEngine.onRoomMessage(
+                roomId = 1, senderId = 99, senderUsername = "alice",
+                content = "@confucius_bot what do you think about 庄子?",
+                messageId = 100, replyToId = null
+            )
+
+            // Typing shown for confucius (explicit mention), NOT for zhuangzi (auto-engage suppressed)
+            verify { bridge.sendTypingStatus(1, 10, "confucius_bot", true) }
+            verify { bridge.sendTypingStatus(1, 10, "confucius_bot", false) }
+            verify(exactly = 0) { bridge.sendTypingStatus(1, 20, any(), any()) }
+        } finally {
+            System.clearProperty("PERSONA_AUTO_ENGAGE")
+        }
+    }
+
+    @Test
+    fun `onRoomMessage does not show typing for auto-engage trigger`() {
+        System.setProperty("PERSONA_AUTO_ENGAGE", "true")
+        try {
+            val autoEngine = PersonaChatEngine(bridge, jedisPool, executor)
+
+            every { jedis.smembers("persona:room_bots:1") } returns setOf("10")
+            setupBotConfig(10, "confucius", "孔子")
+            every { bridge.getRecentMessages(1, any()) } returns emptyList()
+
+            // No @mention or reply — pure auto-engage
+            autoEngine.onRoomMessage(
+                roomId = 1, senderId = 99, senderUsername = "alice",
+                content = "What is the meaning of life?",
+                messageId = 100, replyToId = null
+            )
+
+            // Auto-engage should NOT show typing indicator
+            verify(exactly = 0) { bridge.sendTypingStatus(any(), any(), any(), any()) }
+        } finally {
+            System.clearProperty("PERSONA_AUTO_ENGAGE")
+        }
+    }
+
+    @Test
+    fun `onRoomMessage fetches recent messages only once for multiple bots`() {
+        every { jedis.smembers("persona:room_bots:1") } returns setOf("10", "20")
+        setupBotConfig(10, "confucius", "孔子")
+        setupBotConfig(20, "newton", "牛顿")
+        every { bridge.getRecentMessages(1, any()) } returns emptyList()
+
+        engine.onRoomMessage(
+            roomId = 1, senderId = 99, senderUsername = "alice",
+            content = "@confucius_bot @newton_bot what do you think?",
+            messageId = 100, replyToId = null
+        )
+
+        // getRecentMessages called exactly once, not per-bot
+        verify(exactly = 1) { bridge.getRecentMessages(1, any()) }
     }
 }

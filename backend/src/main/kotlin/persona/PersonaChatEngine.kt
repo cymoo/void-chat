@@ -81,9 +81,17 @@ class PersonaChatEngine(
         val bio: String
     )
 
-    private enum class TriggerType { NONE, EXPLICIT_MENTION, EXPLICIT_REPLY, AUTO_ENGAGE }
+    private data class LlmConfig(
+        val baseUrl: String,
+        val apiKey: String,
+        val model: String,
+        val maxTokens: Int,
+        val temperature: Double
+    )
 
-    // ── Configuration (from env) ─────────────────────────────────────────
+    private enum class TriggerType { EXPLICIT_MENTION, EXPLICIT_REPLY, AUTO_ENGAGE }
+
+    // ── Configuration ────────────────────────────────────────────────────
 
     private val log = LoggerFactory.getLogger(PersonaChatEngine::class.java)
     private val objectMapper: ObjectMapper = jacksonObjectMapper()
@@ -92,18 +100,68 @@ class PersonaChatEngine(
         .connectTimeout(Duration.ofSeconds(10))
         .build()
 
-    private val llmBaseUrl = Env["PERSONA_LLM_BASE_URL"] ?: "https://api.openai.com/v1"
-    private val llmApiKey = Env["PERSONA_LLM_API_KEY"] ?: ""
-    private val llmModel = Env["PERSONA_LLM_MODEL"] ?: "gpt-4"
+    private val llm = LlmConfig(
+        baseUrl = Env["PERSONA_LLM_BASE_URL"] ?: "https://api.openai.com/v1",
+        apiKey = Env["PERSONA_LLM_API_KEY"] ?: "",
+        model = Env["PERSONA_LLM_MODEL"] ?: "gpt-4",
+        maxTokens = Env["PERSONA_MAX_TOKENS"]?.toIntOrNull() ?: 512,
+        temperature = Env["PERSONA_TEMPERATURE"]?.toDoubleOrNull() ?: 0.8
+    )
     private val autoEngage = Env["PERSONA_AUTO_ENGAGE"]?.toBooleanStrictOrNull() ?: false
     private val contextWindow = Env["PERSONA_CONTEXT_WINDOW"]?.toIntOrNull() ?: 20
-    private val maxTokens = Env["PERSONA_MAX_TOKENS"]?.toIntOrNull() ?: 512
-    private val temperature = Env["PERSONA_TEMPERATURE"]?.toDoubleOrNull() ?: 0.8
     val botSuffix: String = Env["PERSONA_BOT_SUFFIX"] ?: "_bot"
 
     companion object {
         private const val CONFIG_PREFIX = "persona:config:"
         private const val ROOM_BOTS_PREFIX = "persona:room_bots:"
+        private const val NO_RESPONSE_SENTINEL = "[NO_RESPONSE]"
+
+        // ── Prompt templates ─────────────────────────────────────────
+
+        private fun validationPrompt(name: String, personality: String?): String {
+            val personalityClause = if (personality.isNullOrBlank()) ""
+            else "\nThe user also specified a personality directive: \"$personality\". Incorporate this into the system_prompt."
+
+            return """
+                You are a persona validation and generation system.
+                Given a name, determine if this is a well-known historical or cultural figure. If yes, generate:
+                1. english_id: A lowercase ASCII identifier (no spaces, use underscores). E.g. "newton", "confucius"
+                2. display_name: The person's name in their most commonly known form, preferably in the language the user used
+                3. bio: A one-line description (in the same language as display_name)
+                4. system_prompt: A detailed system prompt for an LLM to roleplay as this person. It should:
+                   - Establish the persona's identity, era, and key beliefs/works
+                   - Define their speaking style and mannerisms
+                   - Include instructions to stay in character
+                   - Be written in the language the user used for the name$personalityClause
+
+                Respond in JSON only:
+                - If recognized: {"recognized": true, "english_id": "...", "display_name": "...", "bio": "...", "system_prompt": "..."}
+                - If not recognized: {"recognized": false}
+
+                The person's name: "$name"
+            """.trimIndent()
+        }
+
+        private fun chatSystemPrompt(personaPrompt: String, displayName: String, isAutoEngage: Boolean): String {
+            val autoEngageRule = if (isAutoEngage) """
+                - This message was NOT directed at you. Only respond if the topic is directly related to
+                  your expertise, works, or philosophy, or you have a genuinely witty observation.
+                  If not relevant, respond with exactly: $NO_RESPONSE_SENTINEL
+            """.trimIndent() else ""
+
+            return """
+                $personaPrompt
+
+                [Chat rules]
+                - You are in a group chat room. Keep responses concise and natural.
+                - Do NOT break character. Respond as $displayName would.
+                - Use the same language that others are using in the conversation.
+                - Do NOT prefix your messages with your name or any label.
+                - Keep responses under 200 words unless the topic demands depth.
+                - You may use markdown formatting for emphasis.
+                $autoEngageRule
+            """.trimIndent()
+        }
     }
 
     // ── Public API ───────────────────────────────────────────────────────
@@ -151,8 +209,12 @@ class PersonaChatEngine(
     }
 
     /**
-     * Hook called after every room message. Determines if any bot in the room
-     * should respond and generates replies asynchronously.
+     * Hook called after every room message. Determines which bots (if any) should
+     * respond and dispatches each as a parallel executor task.
+     *
+     * Trigger determination is cheap (no LLM calls), so it runs synchronously here.
+     * When any bot is explicitly triggered (@mention / reply), AUTO_ENGAGE bots are
+     * suppressed to avoid the "everyone talks at once" problem.
      */
     fun onRoomMessage(
         roomId: Int,
@@ -162,16 +224,41 @@ class PersonaChatEngine(
         messageId: Int,
         replyToId: Int?
     ) {
-        if (isBotUser(senderId)) return
-
         val botIds = getRoomBotIds(roomId)
-        if (botIds.isEmpty()) return
+        if (botIds.isEmpty() || senderId in botIds) return
 
-        executor.execute {
-            try {
-                processMessageForBots(roomId, senderId, senderUsername, content, messageId, replyToId, botIds)
-            } catch (e: Exception) {
-                log.error("Error processing message for personas in room {}", roomId, e)
+        val recentMessages = bridge.getRecentMessages(roomId, contextWindow)
+
+        // Phase 1: determine triggers for all bots (cheap, no LLM)
+        data class BotTrigger(val userId: Int, val config: PersonaConfig, val trigger: TriggerType)
+
+        val triggered = mutableListOf<BotTrigger>()
+        var hasExplicitTrigger = false
+
+        for (botUserId in botIds) {
+            val config = getConfig(botUserId) ?: continue
+            val trigger = determineTrigger(content, replyToId, config, botUserId, recentMessages) ?: continue
+            triggered.add(BotTrigger(botUserId, config, trigger))
+            if (trigger != TriggerType.AUTO_ENGAGE) hasExplicitTrigger = true
+        }
+
+        // Phase 2: when any bot is explicitly addressed, suppress auto-engage for others
+        val botsToProcess = if (hasExplicitTrigger) {
+            triggered.filter { it.trigger != TriggerType.AUTO_ENGAGE }
+        } else {
+            triggered
+        }
+
+        for (bot in botsToProcess) {
+            executor.execute {
+                try {
+                    handleBotTrigger(
+                        roomId, bot.userId, bot.config, senderUsername,
+                        content, messageId, replyToId, recentMessages, bot.trigger
+                    )
+                } catch (e: Exception) {
+                    log.error("Error processing persona (userId={}) in room {}", bot.userId, roomId, e)
+                }
             }
         }
     }
@@ -197,7 +284,6 @@ class PersonaChatEngine(
                 user.copy(isBot = true)
             }
         }
-        // Rebuild the room bot set from ground truth
         rebuildRoomBotSet(roomId, botIds)
         return result
     }
@@ -211,28 +297,8 @@ class PersonaChatEngine(
     // ── LLM: validation & generation ─────────────────────────────────────
 
     private fun validateAndGenerate(name: String, personality: String?): GeneratedPersona? {
-        val personalityClause = if (personality.isNullOrBlank()) ""
-        else "\nThe user also specified a personality directive: \"$personality\". Incorporate this into the system_prompt."
-
-        val prompt = """You are a persona validation and generation system.
-Given a name, determine if this is a well-known historical or cultural figure. If yes, generate:
-1. english_id: A lowercase ASCII identifier (no spaces, use underscores). E.g. "newton", "confucius", "schopenhauer"
-2. display_name: The person's name in their most commonly known form, preferably in the language the user used. E.g. "牛顿", "孔子", "叔本华" for Chinese input
-3. bio: A one-line description (in the same language as display_name)
-4. system_prompt: A detailed system prompt for an LLM to roleplay as this person. It should:
-   - Establish the persona's identity, era, and key beliefs/works
-   - Define their speaking style and mannerisms
-   - Include instructions to stay in character
-   - Be written in the language the user used for the name$personalityClause
-
-Respond in JSON only:
-- If recognized: {"recognized": true, "english_id": "...", "display_name": "...", "bio": "...", "system_prompt": "..."}
-- If not recognized: {"recognized": false}
-
-The person's name: "$name""""
-
         val response = callLlm(
-            messages = listOf(mapOf("role" to "user", "content" to prompt)),
+            messages = listOf(mapOf("role" to "user", "content" to validationPrompt(name, personality))),
             temp = 0.3,
             tokens = 1024
         ) ?: return null
@@ -253,184 +319,111 @@ The person's name: "$name""""
         }
     }
 
-    // ── Trigger logic ────────────────────────────────────────────────────
+    // ── Per-bot message handling ──────────────────────────────────────────
 
-    private fun processMessageForBots(
+    /**
+     * Full lifecycle for one bot responding to a message:
+     * typing indicator (explicit triggers only) → LLM call → send reply.
+     *
+     * For [TriggerType.AUTO_ENGAGE], typing is suppressed — the bot either
+     * silently contributes or stays quiet (via [NO_RESPONSE_SENTINEL]).
+     */
+    private fun handleBotTrigger(
         roomId: Int,
-        senderId: Int,
+        botUserId: Int,
+        config: PersonaConfig,
         senderUsername: String,
         content: String,
         messageId: Int,
         replyToId: Int?,
-        botIds: Set<Int>
+        recentMessages: List<ContextMessage>,
+        trigger: TriggerType
     ) {
-        for (botUserId in botIds) {
-            val config = getConfig(botUserId) ?: tryHealConfig(botUserId) ?: continue
+        val botUsername = "${config.name}$botSuffix"
+        val showTyping = trigger != TriggerType.AUTO_ENGAGE
 
-            val triggerType = determineTrigger(content, replyToId, config, roomId, botUserId)
-            if (triggerType == TriggerType.NONE) continue
-
-            try {
-                val botUsername = "${config.name}$botSuffix"
-                bridge.sendTypingStatus(roomId, botUserId, botUsername, true)
-
-                val reply = generateReply(roomId, config, content, senderUsername, messageId, triggerType)
-                if (reply != null) {
-                    val replyTo = when (triggerType) {
-                        TriggerType.EXPLICIT_REPLY -> replyToId
-                        else -> messageId
-                    }
-                    bridge.sendBotMessage(roomId, botUserId, reply, replyTo)
-                }
-            } catch (e: Exception) {
-                log.error("Error generating reply for persona '{}' in room {}", config.displayName, roomId, e)
-            } finally {
-                val botUsername = "${config.name}$botSuffix"
-                bridge.sendTypingStatus(roomId, botUserId, botUsername, false)
+        try {
+            if (showTyping) bridge.sendTypingStatus(roomId, botUserId, botUsername, true)
+            val reply = generateReply(config, content, senderUsername, messageId, recentMessages, trigger)
+            if (reply != null) {
+                val replyTo = if (trigger == TriggerType.EXPLICIT_REPLY) replyToId else messageId
+                bridge.sendBotMessage(roomId, botUserId, reply, replyTo)
             }
+        } finally {
+            if (showTyping) bridge.sendTypingStatus(roomId, botUserId, botUsername, false)
         }
     }
 
+    /**
+     * Determine why (if at all) this bot should respond.
+     * Returns null when the bot should stay silent.
+     * No LLM calls here — auto-engage decision is deferred to [generateReply].
+     */
     private fun determineTrigger(
         content: String,
         replyToId: Int?,
         config: PersonaConfig,
-        roomId: Int,
-        botUserId: Int
-    ): TriggerType {
-        // Check explicit @mention by bot username
+        botUserId: Int,
+        recentMessages: List<ContextMessage>
+    ): TriggerType? {
         val botUsername = "${config.name}$botSuffix"
         if (Regex("@${Regex.escape(botUsername)}\\b").containsMatchIn(content)) {
             return TriggerType.EXPLICIT_MENTION
         }
-        // Check @mention by display name
         if (content.contains("@${config.displayName}")) {
             return TriggerType.EXPLICIT_MENTION
         }
 
-        // Check if replying to this bot's message
         if (replyToId != null) {
-            val recentMessages = bridge.getRecentMessages(roomId, contextWindow)
             val repliedMsg = recentMessages.find { it.messageId == replyToId }
-            if (repliedMsg != null && repliedMsg.userId == botUserId) {
+            if (repliedMsg?.userId == botUserId) {
                 return TriggerType.EXPLICIT_REPLY
             }
         }
 
-        // Auto-engage: let LLM decide if the topic is relevant
-        if (autoEngage && shouldAutoEngage(config, content)) {
-            return TriggerType.AUTO_ENGAGE
-        }
+        if (autoEngage) return TriggerType.AUTO_ENGAGE
 
-        return TriggerType.NONE
-    }
-
-    private fun shouldAutoEngage(config: PersonaConfig, content: String): Boolean {
-        val prompt = """You are ${config.displayName}. Someone in a group chat just said:
-"$content"
-
-Should you respond? Only respond "true" if:
-1. The topic is directly related to your expertise, works, or philosophy
-2. You are mentioned by name (not @username)
-3. You have a genuinely witty or insightful observation
-
-Respond with JSON only: {"should_reply": true} or {"should_reply": false}"""
-
-        val response = callLlm(
-            messages = listOf(mapOf("role" to "user", "content" to prompt)),
-            temp = 0.3,
-            tokens = 50
-        ) ?: return false
-
-        return try {
-            val json = extractJson(response)
-            val map: Map<String, Any> = objectMapper.readValue(json)
-            map["should_reply"] == true
-        } catch (_: Exception) {
-            false
-        }
+        return null
     }
 
     // ── Reply generation (multi-turn) ────────────────────────────────────
 
+    /**
+     * Build a multi-turn conversation and call LLM.
+     *
+     * For [TriggerType.AUTO_ENGAGE], the system prompt includes an instruction
+     * to reply with [NO_RESPONSE_SENTINEL] when the topic isn't relevant,
+     * merging the "should I respond?" decision into the same LLM call.
+     */
     private fun generateReply(
-        roomId: Int,
         config: PersonaConfig,
         latestContent: String,
         senderUsername: String,
         messageId: Int,
-        triggerType: TriggerType
+        recentMessages: List<ContextMessage>,
+        trigger: TriggerType
     ): String? {
-        val recentMessages = bridge.getRecentMessages(roomId, contextWindow)
+        val isAutoEngage = trigger == TriggerType.AUTO_ENGAGE
+        val systemPrompt = chatSystemPrompt(config.systemPrompt, config.displayName, isAutoEngage)
 
         val llmMessages = mutableListOf<Map<String, String>>()
-
-        // System prompt with engagement rules
-        val systemPrompt = config.systemPrompt + "\n\n" + """[Chat rules]
-- You are in a group chat room. Keep responses concise and natural.
-- Do NOT break character. Respond as ${config.displayName} would.
-- Use the same language that others are using in the conversation.
-- Do NOT prefix your messages with your name or any label.
-- Keep responses under 200 words unless the topic demands depth.
-- You may use markdown formatting for emphasis."""
         llmMessages.add(mapOf("role" to "system", "content" to systemPrompt))
 
-        // Multi-turn conversation context
         for (msg in recentMessages) {
             val role = if (msg.userId == config.userId) "assistant" else "user"
             val prefix = if (role == "user") "${msg.username}: " else ""
             llmMessages.add(mapOf("role" to role, "content" to "$prefix${msg.content}"))
         }
 
-        // Append the triggering message if not already in recent
-        val alreadyIncluded = recentMessages.any { it.messageId == messageId }
-        if (!alreadyIncluded) {
+        if (recentMessages.none { it.messageId == messageId }) {
             llmMessages.add(mapOf("role" to "user", "content" to "$senderUsername: $latestContent"))
         }
 
-        return callLlm(messages = llmMessages, temp = temperature, tokens = maxTokens)
-    }
+        val response = callLlm(messages = llmMessages) ?: return null
 
-    // ── Self-healing ─────────────────────────────────────────────────────
+        if (isAutoEngage && NO_RESPONSE_SENTINEL in response) return null
 
-    private fun tryHealConfig(botUserId: Int): PersonaConfig? {
-        // We don't have the username here directly, but we can try to look it up
-        // by scanning recent messages or relying on the Redis room bot set.
-        // For simplicity, we skip healing in the message path — it's handled by enrichUsers.
-        log.debug("No Redis config for bot userId={}, skipping (will self-heal on next user list update)", botUserId)
-        return null
-    }
-
-    /**
-     * Attempt to self-heal a bot user's config by regenerating from LLM.
-     * Called during enrichUsers when a _bot suffix user has no Redis config.
-     */
-    internal fun healConfigForUser(userId: Int, username: String) {
-        if (!username.endsWith(botSuffix)) return
-        if (getConfig(userId) != null) return
-
-        val name = username.removeSuffix(botSuffix)
-        log.info("Self-healing persona config for '{}' (userId={})", name, userId)
-
-        executor.execute {
-            try {
-                val generated = validateAndGenerate(name, null) ?: return@execute
-                val config = PersonaConfig(
-                    userId = userId,
-                    name = generated.englishId,
-                    displayName = generated.displayName,
-                    systemPrompt = generated.systemPrompt,
-                    bio = generated.bio,
-                    personality = null,
-                    invitedBy = 0,
-                    createdAt = System.currentTimeMillis()
-                )
-                saveConfig(config)
-                log.info("Self-healed persona config for '{}' (userId={})", generated.displayName, userId)
-            } catch (e: Exception) {
-                log.warn("Failed to self-heal persona config for '{}'", name, e)
-            }
-        }
+        return response
     }
 
     // ── Redis state management ───────────────────────────────────────────
@@ -485,10 +478,12 @@ Respond with JSON only: {"should_reply": true} or {"should_reply": false}"""
         try {
             jedisPool.resource.use { jedis ->
                 val key = "$ROOM_BOTS_PREFIX$roomId"
-                jedis.del(key)
+                val pipeline = jedis.pipelined()
+                pipeline.del(key)
                 if (botIds.isNotEmpty()) {
-                    jedis.sadd(key, *botIds.map { it.toString() }.toTypedArray())
+                    pipeline.sadd(key, *botIds.map { it.toString() }.toTypedArray())
                 }
+                pipeline.sync()
             }
         } catch (e: Exception) {
             log.warn("Failed to rebuild room bot set for room {}", roomId, e)
@@ -499,22 +494,22 @@ Respond with JSON only: {"should_reply": true} or {"should_reply": false}"""
 
     private fun callLlm(
         messages: List<Map<String, String>>,
-        temp: Double = temperature,
-        tokens: Int = maxTokens
+        temp: Double = llm.temperature,
+        tokens: Int = llm.maxTokens
     ): String? {
-        if (llmApiKey.isBlank()) return null
+        if (llm.apiKey.isBlank()) return null
 
         val body = mapOf(
-            "model" to llmModel,
+            "model" to llm.model,
             "messages" to messages,
             "temperature" to temp,
             "max_tokens" to tokens
         )
 
         val request = HttpRequest.newBuilder()
-            .uri(URI.create("${llmBaseUrl.trimEnd('/')}/chat/completions"))
+            .uri(URI.create("${llm.baseUrl.trimEnd('/')}/chat/completions"))
             .header("Content-Type", "application/json")
-            .header("Authorization", "Bearer $llmApiKey")
+            .header("Authorization", "Bearer ${llm.apiKey}")
             .timeout(Duration.ofSeconds(60))
             .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body)))
             .build()
@@ -529,23 +524,29 @@ Respond with JSON only: {"should_reply": true} or {"should_reply": false}"""
             val choices = responseMap["choices"] as? List<*> ?: return null
             val firstChoice = choices.firstOrNull() as? Map<*, *> ?: return null
             val message = firstChoice["message"] as? Map<*, *> ?: return null
-            (message["content"] as? String)?.trim()
+            val content = (message["content"] as? String)?.trim() ?: return null
+            stripThinkingTags(content)
         } catch (e: Exception) {
             log.error("LLM API call failed", e)
             null
         }
     }
 
-    /** Extract JSON object from LLM response that might contain markdown code blocks. */
+    /** Strip `<think>...</think>` blocks emitted by reasoning models (e.g. DeepSeek-R1). */
+    private fun stripThinkingTags(text: String): String {
+        return text.replace(Regex("<think>[\\s\\S]*?</think>"), "").trim()
+    }
+
+    /** Extract a JSON object from LLM text that may be wrapped in markdown fences or prose. */
     private fun extractJson(text: String): String {
-        // Try markdown code block first
-        val codeBlock = Regex("```(?:json)?\\s*\\n?(\\{.*?})\\s*\\n?```", RegexOption.DOT_MATCHES_ALL)
-        codeBlock.find(text)?.let { return it.groupValues[1] }
+        // Strip markdown code fences if present
+        val stripped = text.replace(Regex("```json?\\s*"), "").replace("```", "").trim()
 
-        // Try raw JSON object
-        val rawJson = Regex("\\{[^{}]*(?:\\{[^{}]*}[^{}]*)*}", RegexOption.DOT_MATCHES_ALL)
-        rawJson.find(text)?.let { return it.value }
+        // Find the outermost { ... } span
+        val start = stripped.indexOf('{')
+        val end = stripped.lastIndexOf('}')
+        if (start >= 0 && end > start) return stripped.substring(start, end + 1)
 
-        return text.trim()
+        return stripped
     }
 }
