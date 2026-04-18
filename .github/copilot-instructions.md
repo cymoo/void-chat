@@ -81,6 +81,8 @@ Before refactoring existing code or implementing a new feature, add or update te
 
 ### Git Commit Messages
 
+After completing a task, commit the changes once the code is working and all relevant tests pass — unless the user explicitly asks not to commit.
+
 Follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
 
 ```
