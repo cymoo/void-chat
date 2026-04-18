@@ -58,7 +58,7 @@
   align-items: center;
   gap: 10px;
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  border: 2px solid var(--color-border);
   padding: 10px 14px;
   transition:
     border-color var(--transition-fast),
@@ -67,7 +67,7 @@
 
 .search-input-wrapper:focus-within {
   border-color: var(--color-border-bright);
-  box-shadow: 0 0 8px rgba(46, 204, 113, 0.2);
+  box-shadow: 0 0 10px rgba(46, 204, 113, 0.3);
 }
 
 .search-input-wrapper svg {
@@ -321,78 +321,18 @@
 }
 
 /* Persona invite dialog */
-.persona-dialog {
-  min-width: 320px;
-  max-width: 400px;
-}
-
-.persona-form {
-  padding: 12px 16px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.persona-form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.persona-label {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 1px;
-  color: var(--color-text-dim);
-  text-transform: uppercase;
-}
-
 .persona-hint {
   opacity: 0.5;
 }
 
-.persona-input {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  color: var(--color-text);
-  font-family: var(--font-mono);
-  font-size: 13px;
-  padding: 8px 10px;
-  outline: none;
-  transition: border-color var(--transition-fast);
-}
-
-.persona-input:focus {
-  border-color: var(--color-accent);
-}
-
-.persona-input::placeholder {
-  color: var(--color-text-dim);
-  opacity: 0.5;
-}
-
-.persona-input:disabled {
-  opacity: 0.5;
-}
-
-.persona-submit {
-  width: 100%;
-  text-align: center;
-  margin-top: 4px;
-}
-
-.persona-loading {
-  opacity: 0.7;
-}
-
 /* Persona invite result */
 .persona-result {
-  padding: 20px 16px;
+  padding: 24px;
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
 }
 
 .persona-result-icon {

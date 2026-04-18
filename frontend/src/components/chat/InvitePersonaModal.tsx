@@ -49,7 +49,7 @@ export function InvitePersonaModal({ roomId, onClose, onSuccess }: InvitePersona
 
   return (
     <Modal open onClose={onClose}>
-      <div className="confirm-dialog persona-dialog">
+      <div className="my-profile-panel persona-dialog">
         <div className="panel-header">
           <span className="panel-title">INVITE AI PERSONA</span>
           <button
@@ -58,7 +58,10 @@ export function InvitePersonaModal({ roomId, onClose, onSuccess }: InvitePersona
             onClick={onClose}
             aria-label="Close persona dialog"
           >
-            ×
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
           </button>
         </div>
 
@@ -70,14 +73,14 @@ export function InvitePersonaModal({ roomId, onClose, onSuccess }: InvitePersona
             <div className="persona-result-status">Joined the room!</div>
           </div>
         ) : (
-          <form onSubmit={(e) => void handleSubmit(e)} className="persona-form">
-            <div className="persona-form-group">
-              <label className="persona-label" htmlFor="persona-name">
-                PERSONA NAME
+          <form onSubmit={(e) => void handleSubmit(e)} className="my-profile-content">
+            <div className="input-group">
+              <label className="input-label" htmlFor="persona-name">
+                &gt; PERSONA NAME
               </label>
               <input
                 id="persona-name"
-                className="persona-input"
+                className="terminal-input"
                 type="text"
                 placeholder="e.g. 叔本华, Newton, 孔子..."
                 value={name}
@@ -86,13 +89,13 @@ export function InvitePersonaModal({ roomId, onClose, onSuccess }: InvitePersona
                 autoFocus
               />
             </div>
-            <div className="persona-form-group">
-              <label className="persona-label" htmlFor="persona-personality">
-                PERSONALITY DIRECTIVE <span className="persona-hint">(optional)</span>
+            <div className="input-group">
+              <label className="input-label" htmlFor="persona-personality">
+                &gt; PERSONALITY DIRECTIVE <span className="persona-hint">(optional)</span>
               </label>
               <input
                 id="persona-personality"
-                className="persona-input"
+                className="terminal-input"
                 type="text"
                 placeholder="e.g. 辛辣嘲讽的语气, Speak like a pirate..."
                 value={personality}
@@ -102,10 +105,11 @@ export function InvitePersonaModal({ roomId, onClose, onSuccess }: InvitePersona
             </div>
             <button
               type="submit"
-              className={`icon-btn confirm-btn confirm-btn-primary persona-submit${loading ? " persona-loading" : ""}`}
+              className="connect-btn"
               disabled={!name.trim() || loading}
             >
-              {loading ? "SUMMONING..." : "INVOKE PERSONA"}
+              <span className="btn-text">{loading ? "SUMMONING..." : "INVOKE PERSONA >>"}</span>
+              <span className="btn-scan" />
             </button>
           </form>
         )}

@@ -141,10 +141,13 @@
 }
 
 .icon-btn:focus-visible,
-.message-input:focus-visible,
-.search-input:focus-visible {
+.message-input:focus-visible {
   outline: 2px solid var(--color-info);
   outline-offset: 2px;
+}
+
+.search-input:focus-visible {
+  outline: none;
 }
 
 .dm-badge-btn {

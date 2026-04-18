@@ -299,7 +299,7 @@ class PersonaChatEngine(
             botIds.add(user.id)
             val config = getConfig(user.id)
             if (config != null) {
-                user.copy(displayName = config.displayName)
+                user.copy(displayName = config.displayName, bio = config.bio)
             } else {
                 user
             }

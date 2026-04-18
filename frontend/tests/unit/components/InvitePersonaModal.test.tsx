@@ -28,7 +28,7 @@ describe("InvitePersonaModal", () => {
   it("renders the form with name and personality inputs", () => {
     renderModal();
     expect(screen.getByText("INVITE AI PERSONA")).toBeInTheDocument();
-    expect(screen.getByLabelText("PERSONA NAME")).toBeInTheDocument();
+    expect(screen.getByLabelText(/PERSONA NAME/)).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/叔本华/)).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/辛辣嘲讽/)).toBeInTheDocument();
   });
@@ -41,7 +41,7 @@ describe("InvitePersonaModal", () => {
 
   it("submit button is enabled when name is filled", () => {
     renderModal();
-    fireEvent.change(screen.getByLabelText("PERSONA NAME"), {
+    fireEvent.change(screen.getByLabelText(/PERSONA NAME/), {
       target: { value: "牛顿" },
     });
     const btn = screen.getByRole("button", { name: /INVOKE PERSONA/i });
@@ -57,7 +57,7 @@ describe("InvitePersonaModal", () => {
     });
 
     renderModal();
-    fireEvent.change(screen.getByLabelText("PERSONA NAME"), {
+    fireEvent.change(screen.getByLabelText(/PERSONA NAME/), {
       target: { value: "牛顿" },
     });
     fireEvent.change(
@@ -82,7 +82,7 @@ describe("InvitePersonaModal", () => {
     );
 
     renderModal();
-    fireEvent.change(screen.getByLabelText("PERSONA NAME"), {
+    fireEvent.change(screen.getByLabelText(/PERSONA NAME/), {
       target: { value: "孔子" },
     });
     fireEvent.click(screen.getByRole("button", { name: /INVOKE PERSONA/i }));
@@ -103,7 +103,7 @@ describe("InvitePersonaModal", () => {
     });
 
     renderModal();
-    fireEvent.change(screen.getByLabelText("PERSONA NAME"), {
+    fireEvent.change(screen.getByLabelText(/PERSONA NAME/), {
       target: { value: "叔本华" },
     });
     fireEvent.click(screen.getByRole("button", { name: /INVOKE PERSONA/i }));
@@ -122,7 +122,7 @@ describe("InvitePersonaModal", () => {
     });
 
     renderModal();
-    fireEvent.change(screen.getByLabelText("PERSONA NAME"), {
+    fireEvent.change(screen.getByLabelText(/PERSONA NAME/), {
       target: { value: "nobody" },
     });
     fireEvent.click(screen.getByRole("button", { name: /INVOKE PERSONA/i }));
@@ -137,7 +137,7 @@ describe("InvitePersonaModal", () => {
     mockInvitePersona.mockRejectedValue(new Error("Network error"));
 
     renderModal();
-    fireEvent.change(screen.getByLabelText("PERSONA NAME"), {
+    fireEvent.change(screen.getByLabelText(/PERSONA NAME/), {
       target: { value: "牛顿" },
     });
     fireEvent.click(screen.getByRole("button", { name: /INVOKE PERSONA/i }));
@@ -148,9 +148,9 @@ describe("InvitePersonaModal", () => {
     });
   });
 
-  it("calls onClose when backdrop is clicked", () => {
+  it("calls onClose when close button is clicked", () => {
     renderModal();
-    fireEvent.click(screen.getByText("×"));
+    fireEvent.click(screen.getByLabelText("Close persona dialog"));
     expect(onClose).toHaveBeenCalled();
   });
 
@@ -163,7 +163,7 @@ describe("InvitePersonaModal", () => {
     });
 
     renderModal();
-    fireEvent.change(screen.getByLabelText("PERSONA NAME"), {
+    fireEvent.change(screen.getByLabelText(/PERSONA NAME/), {
       target: { value: "牛顿" },
     });
     // Don't fill personality

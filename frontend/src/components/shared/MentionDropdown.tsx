@@ -1,4 +1,8 @@
 import {
+  useRef,
+  useEffect,
+} from "react";
+import {
   useFloating,
   offset,
   flip,
@@ -27,6 +31,13 @@ export function MentionDropdown({ results, selectedIndex, onSelect, anchorEl }: 
     },
   });
 
+  const itemRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+
+  useEffect(() => {
+    const el = itemRefs.current.get(selectedIndex);
+    el?.scrollIntoView({ block: "nearest" });
+  }, [selectedIndex]);
+
   if (results.length === 0) return null;
 
   const dropdown = (
@@ -40,6 +51,7 @@ export function MentionDropdown({ results, selectedIndex, onSelect, anchorEl }: 
       {results.map((u, i) => (
         <div
           key={u.id}
+          ref={(el) => { if (el) itemRefs.current.set(i, el); else itemRefs.current.delete(i); }}
           className={`mention-item${i === selectedIndex ? " selected" : ""}`}
           role="option"
           aria-selected={i === selectedIndex}
