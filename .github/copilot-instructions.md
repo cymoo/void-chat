@@ -79,6 +79,57 @@ Mobile must be a first-class experience. Always verify layouts, interactions, an
 
 Before refactoring existing code or implementing a new feature, add or update test cases first. This ensures regressions are caught and the intended behavior is clearly defined before code changes begin.
 
+### Git Commit Messages
+
+Follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
+
+```
+<type>(<scope>): <short summary>
+
+[optional body — explain *what* and *why*, not *how*]
+
+[optional footer(s)]
+```
+
+**Types**: `feat`, `fix`, `refactor`, `perf`, `style`, `test`, `docs`, `chore`, `ci`, `build`
+
+**Rules**:
+- Subject line: imperative mood, no period, ≤ 72 chars
+- Scope: the module/layer being changed (optional but encouraged)
+- Body: wrap at 72 chars; use bullet points for multiple changes
+- Breaking changes: add `BREAKING CHANGE:` footer or append `!` after type
+
+**Examples**:
+
+```
+feat(rooms): add room archiving support
+```
+
+```
+fix(auth): prevent token reuse after logout
+
+Sessions were not invalidated in Redis on explicit logout, allowing
+reuse of the old Bearer token until the 7-day TTL expired.
+```
+
+```
+refactor(personas): improve engagement rules and mention detection
+
+- Restructured prompt rules into character-integrity and participation
+  sections for clearer separation of concerns
+- Add isNaturalMention() to detect name references beyond @-mentions
+```
+
+```
+chore(deps): bump Colleen framework to 0.4.6
+```
+
+```
+feat(api)!: require Authorization header for all /api routes
+
+BREAKING CHANGE: previously some read-only endpoints were unauthenticated.
+```
+
 ### Design System
 
 Terminal/brutalist aesthetic. Key values: background `#0a0e14`, green text `#00ff41`, cyan accent `#00d9ff`. Fonts: IBM Plex Mono (body), Bebas Neue (headings). Effects include scanlines, glitch animations, noise overlay, and a Matrix rain canvas background. All defined as CSS custom properties in `src/index.css`.
