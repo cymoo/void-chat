@@ -180,6 +180,21 @@ class ApiController(
         }
     }
 
+    @Patch("/admin/users/{userId}/profile")
+    fun updateAdminUserProfile(userId: Path<Int>, body: Json<UpdateProfileRequest>, token: BearerToken): User {
+        val actor = requireAuthUser(token)
+        if (!authorizationService.canManagePlatformUsers(actor)) {
+            throw Unauthorized("Admin permission required")
+        }
+        val req = body.value
+        return try {
+            userService.updateProfile(userId.value, req.username, req.avatarUrl, req.bio, req.status)
+                ?: throw NotFound("User not found")
+        } catch (e: IllegalArgumentException) {
+            throw BadRequest(e.message ?: "Failed to update profile")
+        }
+    }
+
     @Patch("/admin/users/{userId}/disable")
     fun updateAdminUserDisabled(userId: Path<Int>, body: Json<UpdateUserDisableRequest>, token: BearerToken): User {
         val actor = requireAuthUser(token)

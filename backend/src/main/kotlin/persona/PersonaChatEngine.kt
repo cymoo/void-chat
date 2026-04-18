@@ -249,7 +249,11 @@ class PersonaChatEngine(
         var hasExplicitTrigger = false
 
         for (botUserId in botIds) {
-            val config = getConfig(botUserId) ?: continue
+            val config = getConfig(botUserId)
+            if (config == null) {
+                log.warn("No persona config for bot userId={} in room {}; skipping", botUserId, roomId)
+                continue
+            }
             botConfigs[botUserId] = config
             val trigger = determineTrigger(content, replyToId, config, botUserId, recentMessages) ?: continue
             triggered.add(BotTrigger(botUserId, config, trigger))
@@ -284,19 +288,20 @@ class PersonaChatEngine(
     }
 
     /**
-     * Enrich a user list with isBot/displayName from Redis.
+     * Enrich a user list with displayName from Redis for bot users.
+     * Bot identity is now determined by [User.isBot] (role = 'bot' in DB).
      * Also rebuilds the room bot set as a side-effect (self-healing).
      */
     fun enrichUsers(users: List<User>, roomId: Int): List<User> {
         val botIds = mutableSetOf<Int>()
         val result = users.map { user ->
-            if (!user.username.endsWith(botSuffix)) return@map user
+            if (!user.isBot) return@map user
             botIds.add(user.id)
             val config = getConfig(user.id)
             if (config != null) {
-                user.copy(isBot = true, displayName = config.displayName)
+                user.copy(displayName = config.displayName)
             } else {
-                user.copy(isBot = true)
+                user
             }
         }
         rebuildRoomBotSet(roomId, botIds)
@@ -460,6 +465,40 @@ class PersonaChatEngine(
             log.warn("Failed to read persona config for userId={}", userId, e)
             null
         }
+    }
+
+    /** Scan Redis for all persona configs and return them as a list. */
+    fun listAllConfigs(): List<PersonaConfig> {
+        return try {
+            jedisPool.resource.use { jedis ->
+                val keys = jedis.keys("$CONFIG_PREFIX*")
+                keys.mapNotNull { key ->
+                    try { jedis.get(key)?.let { objectMapper.readValue(it) } } catch (e: Exception) { null }
+                }
+            }
+        } catch (e: Exception) {
+            log.warn("Failed to list persona configs", e)
+            emptyList()
+        }
+    }
+
+    /** Update mutable fields of a persona config (displayName, bio, systemPrompt, personality). */
+    fun updateConfig(
+        userId: Int,
+        displayName: String?,
+        bio: String?,
+        systemPrompt: String?,
+        personality: String?
+    ): PersonaConfig? {
+        val existing = getConfig(userId) ?: return null
+        val updated = existing.copy(
+            displayName = displayName?.takeIf { it.isNotBlank() } ?: existing.displayName,
+            bio = bio ?: existing.bio,
+            systemPrompt = systemPrompt?.takeIf { it.isNotBlank() } ?: existing.systemPrompt,
+            personality = personality ?: existing.personality
+        )
+        saveConfig(updated)
+        return updated
     }
 
     private fun addBotToRoomSet(roomId: Int, userId: Int) {

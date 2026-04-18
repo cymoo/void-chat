@@ -1,5 +1,6 @@
 import { memo, useCallback, useMemo } from "react";
 import { useChatStore } from "@/stores/chatStore";
+import { useAuthStore } from "@/stores/authStore";
 import { useUiStore } from "@/stores/uiStore";
 import { renderMarkdown, highlightMentions } from "@/lib/markdown";
 import { requestMessageJump } from "@/lib/messageJump";
@@ -29,6 +30,7 @@ function MessageItemInner({
   const confirm = useUiStore((s) => s.confirm);
   const showUserCard = useUiStore((s) => s.showUserCard);
   const setImageModal = useUiStore((s) => s.setImageModal);
+  const currentDisplayName = useAuthStore((s) => s.user?.displayName);
 
   // Re-render every minute so relative timestamps stay current
   useCurrentMinute();
@@ -66,8 +68,8 @@ function MessageItemInner({
 
   const textHtml = useMemo(() => {
     if (message.messageType !== "text") return null;
-    return highlightMentions(renderMarkdown(message.content), currentUsername);
-  }, [message, currentUsername]);
+    return highlightMentions(renderMarkdown(message.content), currentUsername, currentDisplayName ?? undefined);
+  }, [message, currentUsername, currentDisplayName]);
 
   if (message.messageType === "system") {
     return (
@@ -119,17 +121,17 @@ function MessageItemInner({
     <div className={`message${isOwn ? " message-self" : ""}${botUser ? " message-bot" : ""}`} data-message-id={message.id}>
       <div
         className="message-avatar"
-        onClick={() => { if (!botUser) showUserCard(message.userId); }}
+        onClick={() => showUserCard(message.userId)}
       >
-        {botUser ? (
-          <span className="bot-avatar-icon">🤖</span>
-        ) : message.avatarUrl ? (
+        {botUser?.avatarUrl ?? message.avatarUrl ? (
           <img
-            src={message.avatarUrl}
-            alt={message.username}
+            src={(botUser?.avatarUrl ?? message.avatarUrl)!}
+            alt={displayName}
             loading="lazy"
             className="avatar-img"
           />
+        ) : botUser ? (
+          <span className="bot-avatar-icon">🤖</span>
         ) : (
           getInitials(message.username)
         )}
@@ -144,7 +146,6 @@ function MessageItemInner({
         <div className="message-header">
           <div className="message-author">
             {displayName}
-            {botUser && <span className="role-badge role-bot">BOT</span>}
           </div>
           <div className="message-time" title={formatTime(message.timestamp)}>
             {formatRelativeTime(message.timestamp)}

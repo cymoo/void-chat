@@ -70,11 +70,11 @@ class UserRepository(private val dsl: DSLContext) {
             .map(::mapRecordToUser)
     }
 
-    fun createUser(username: String, passwordHash: String? = null): User {
+    fun createUser(username: String, passwordHash: String? = null, role: String = AuthorizationService.ROLE_USER): User {
         val record = dsl.insertInto(USERS)
             .set(USERS.USERNAME, username)
             .set(USERS.PASSWORD_HASH, passwordHash)
-            .set(USERS.ROLE, AuthorizationService.ROLE_USER)
+            .set(USERS.ROLE, role)
             .returningResult(*userFields)
             .fetchOne()!!
 
@@ -164,6 +164,7 @@ class UserRepository(private val dsl: DSLContext) {
             status = record.get(USERS.STATUS),
             role = role,
             capabilities = AuthorizationService.capabilitiesForPlatformRole(role),
+            isBot = role == AuthorizationService.ROLE_BOT,
             isDisabled = isDisabled,
             disabledReason = record.get(USERS.DISABLED_REASON),
             mutedUntil = mutedUntil,

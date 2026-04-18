@@ -7,6 +7,8 @@ import type {
   InviteLink,
   InvitePersonaRequest,
   InvitePersonaResponse,
+  PersonaConfig,
+  UpdatePersonaRequest,
   RegistrationMode,
   RegistrationModeResponse,
   RoomInfo,
@@ -250,6 +252,13 @@ export async function updateAdminUserRole(
   return request("PATCH", `/api/admin/users/${userId}/role`, { role });
 }
 
+export async function updateAdminUserProfile(
+  userId: number,
+  req: UpdateProfileRequest,
+): Promise<User> {
+  return request("PATCH", `/api/admin/users/${userId}/profile`, req);
+}
+
 export async function updateAdminUserDisabled(
   userId: number,
   disabled: boolean,
@@ -364,6 +373,17 @@ export async function removePersona(
   userId: number,
 ): Promise<void> {
   return request("DELETE", `/api/personas/rooms/${roomId}/${userId}`);
+}
+
+export async function listAdminPersonas(): Promise<PersonaConfig[]> {
+  return request("GET", "/api/personas/");
+}
+
+export async function updateAdminPersona(
+  userId: number,
+  req: UpdatePersonaRequest,
+): Promise<PersonaConfig> {
+  return request("PATCH", `/api/personas/${userId}`, req);
 }
 
 export { ApiError };

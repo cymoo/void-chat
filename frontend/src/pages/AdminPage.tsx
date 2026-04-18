@@ -4,17 +4,20 @@ import { useAuthStore } from "@/stores/authStore";
 import { useUiStore } from "@/stores/uiStore";
 import * as api from "@/api/client";
 import { formatDate } from "@/lib/utils";
+import { AdminUserModal } from "@/components/profile/AdminUserModal";
 import type {
   AdminDashboardResponse,
   InviteLink,
+  PersonaConfig,
   RegistrationMode,
   User,
 } from "@/api/types";
 
-const PLATFORM_ROLE_OPTIONS = [
+const ALL_ROLE_OPTIONS = [
   "user",
   "platform_admin",
   "super_admin",
+  "bot",
 ] as const;
 const ADMIN_TABS = [
   { id: "overview", label: "OVERVIEW" },
@@ -24,7 +27,7 @@ const ADMIN_TABS = [
 ] as const;
 
 type UserStateFilter = "all" | "active" | "muted" | "disabled";
-type UserRoleFilter = "all" | (typeof PLATFORM_ROLE_OPTIONS)[number];
+type UserRoleFilter = "all" | "bot" | (typeof ALL_ROLE_OPTIONS)[number];
 type AdminTabId = (typeof ADMIN_TABS)[number]["id"];
 
 function isMutedUser(user: User): boolean {
@@ -62,6 +65,9 @@ export function AdminPage() {
   const [latestInviteCode, setLatestInviteCode] = useState<string | null>(null);
   const [updatingMode, setUpdatingMode] = useState(false);
 
+  const [personaConfigs, setPersonaConfigs] = useState<Record<number, PersonaConfig>>({});
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+
   const canManagePlatformUsers = Boolean(
     currentUser?.capabilities?.canManagePlatformUsers ||
     currentUser?.role === "platform_admin" ||
@@ -84,11 +90,15 @@ export function AdminPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.getAdminDashboard();
-      setDashboard(data);
+      const [dashData, personaList] = await Promise.all([
+        api.getAdminDashboard(),
+        api.listAdminPersonas().catch(() => [] as PersonaConfig[]),
+      ]);
+      setDashboard(dashData);
       setRoleDrafts(
-        Object.fromEntries(data.users.map((u) => [u.id, u.role ?? "user"])),
+        Object.fromEntries(dashData.users.map((u) => [u.id, u.role ?? "user"])),
       );
+      setPersonaConfigs(Object.fromEntries(personaList.map((p) => [p.userId, p])));
     } catch (e) {
       const message =
         e instanceof Error ? e.message : "Failed to load admin dashboard";
@@ -472,8 +482,9 @@ export function AdminPage() {
   );
 
   const renderUsersTab = () => (
-    <section className="admin-card">
-      <h2 className="admin-card-title">PLATFORM USERS</h2>
+    <>
+      <section className="admin-card">
+        <h2 className="admin-card-title">PLATFORM USERS</h2>
       <div className="admin-user-filters">
         <input
           className="terminal-input admin-filter-input"
@@ -491,6 +502,7 @@ export function AdminPage() {
           <option value="user">user</option>
           <option value="platform_admin">platform_admin</option>
           <option value="super_admin">super_admin</option>
+          <option value="bot">bot</option>
         </select>
         <select
           className="terminal-select admin-filter-select"
@@ -528,14 +540,31 @@ export function AdminPage() {
             ) : (
               filteredUsers.map((user) => {
                 const currentRole = user.role ?? "user";
+                const isBot = currentRole === "bot";
                 const draftRole = roleDrafts[user.id] ?? currentRole;
                 const isSelf = user.id === currentUser?.id;
                 const muted = isMutedUser(user);
                 const disabled = Boolean(user.isDisabled);
                 const busy = Boolean(busyUserIds[user.id]);
+                const personaConfig = personaConfigs[user.id];
                 return (
                   <tr key={user.id}>
-                    <td>{user.username}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="admin-username-btn"
+                        onClick={() => setEditingUser(user)}
+                      >
+                        {isBot ? (
+                          <>🤖 {personaConfig?.displayName ?? user.username}</>
+                        ) : (
+                          user.username
+                        )}
+                        {isBot && (
+                          <span className="admin-username-sub">@{user.username}</span>
+                        )}
+                      </button>
+                    </td>
                     <td>
                       <select
                         className="admin-role-select"
@@ -550,8 +579,12 @@ export function AdminPage() {
                           void handleRoleChange(user, nextRole);
                         }}
                       >
-                        {PLATFORM_ROLE_OPTIONS.map((role) => (
-                          <option key={role} value={role}>
+                        {ALL_ROLE_OPTIONS.map((role) => (
+                          <option
+                            key={role}
+                            value={role}
+                            disabled={isBot ? role !== "bot" : role === "bot"}
+                          >
                             {role}
                           </option>
                         ))}
@@ -576,28 +609,40 @@ export function AdminPage() {
                         <button
                           type="button"
                           className="admin-mini-btn"
-                          disabled={
-                            !canManagePlatformUsers ||
-                            isSelf ||
-                            busy ||
-                            disabled
-                          }
-                          onClick={() => void toggleMuted(user)}
+                          disabled={!canManagePlatformUsers}
+                          onClick={() => setEditingUser(user)}
                         >
-                          {muted ? "UNMUTE" : "MUTE"}
+                          EDIT
                         </button>
-                        <button
-                          type="button"
-                          className={`admin-mini-btn ${
-                            disabled
-                              ? "admin-mini-btn-ok"
-                              : "admin-mini-btn-danger"
-                          }`}
-                          disabled={!canManagePlatformUsers || isSelf || busy}
-                          onClick={() => void toggleDisabled(user)}
-                        >
-                          {disabled ? "ENABLE" : "DISABLE"}
-                        </button>
+                        {!isBot && (
+                          <>
+                            <button
+                              type="button"
+                              className="admin-mini-btn"
+                              disabled={
+                                !canManagePlatformUsers ||
+                                isSelf ||
+                                busy ||
+                                disabled
+                              }
+                              onClick={() => void toggleMuted(user)}
+                            >
+                              {muted ? "UNMUTE" : "MUTE"}
+                            </button>
+                            <button
+                              type="button"
+                              className={`admin-mini-btn ${
+                                disabled
+                                  ? "admin-mini-btn-ok"
+                                  : "admin-mini-btn-danger"
+                              }`}
+                              disabled={!canManagePlatformUsers || isSelf || busy}
+                              onClick={() => void toggleDisabled(user)}
+                            >
+                              {disabled ? "ENABLE" : "DISABLE"}
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -608,6 +653,7 @@ export function AdminPage() {
         </table>
       </div>
     </section>
+    </>
   );
 
   const renderRoomsTab = () => (
@@ -658,6 +704,14 @@ export function AdminPage() {
       </div>
     </section>
   );
+
+  const handleUserSaved = useCallback((updatedUser: User, updatedConfig?: PersonaConfig) => {
+    updateUserInDashboard(updatedUser);
+    if (updatedConfig) {
+      setPersonaConfigs((prev) => ({ ...prev, [updatedConfig.userId]: updatedConfig }));
+    }
+    setEditingUser(null);
+  }, [updateUserInDashboard]);
 
   const renderControlTab = () => (
     <div className="admin-tab-stack">
@@ -833,6 +887,15 @@ export function AdminPage() {
           </div>
         )}
       </div>
+
+      {editingUser && (
+        <AdminUserModal
+          user={editingUser}
+          personaConfig={personaConfigs[editingUser.id]}
+          onClose={() => setEditingUser(null)}
+          onSaved={handleUserSaved}
+        />
+      )}
     </div>
   );
 }

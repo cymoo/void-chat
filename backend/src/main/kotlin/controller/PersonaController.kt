@@ -2,7 +2,9 @@ package controller
 
 import io.github.cymoo.colleen.*
 import model.InvitePersonaRequest
+import model.UpdatePersonaRequest
 import persona.PersonaChatEngine
+import service.AuthorizationService
 import service.SessionService
 import service.UserService
 import util.BearerToken
@@ -15,7 +17,8 @@ import util.BearerToken
 class PersonaController(
     private val engine: PersonaChatEngine,
     private val sessionService: SessionService,
-    private val userService: UserService
+    private val userService: UserService,
+    private val authorizationService: AuthorizationService
 ) {
 
     @Post("/rooms/{roomId}/invite")
@@ -38,6 +41,52 @@ class PersonaController(
     fun listPersonas(roomId: Path<Int>, token: BearerToken): Any {
         requireAuthUser(token)
         return mapOf("roomId" to roomId.value)
+    }
+
+    @Get("/")
+    fun listAllPersonas(token: BearerToken): Any {
+        val actor = requireAuthUser(token)
+        if (!authorizationService.canManagePlatformUsers(actor)) {
+            throw Unauthorized("Admin permission required")
+        }
+        return engine.listAllConfigs().map { config ->
+            mapOf(
+                "userId" to config.userId,
+                "name" to config.name,
+                "displayName" to config.displayName,
+                "bio" to config.bio,
+                "personality" to config.personality,
+                "systemPrompt" to config.systemPrompt,
+                "invitedBy" to config.invitedBy,
+                "createdAt" to config.createdAt
+            )
+        }
+    }
+
+    @Patch("/{userId}")
+    fun updatePersona(userId: Path<Int>, body: Json<UpdatePersonaRequest>, token: BearerToken): Any {
+        val actor = requireAuthUser(token)
+        if (!authorizationService.canManagePlatformUsers(actor)) {
+            throw Unauthorized("Admin permission required")
+        }
+        val req = body.value
+        val updated = engine.updateConfig(
+            userId = userId.value,
+            displayName = req.displayName,
+            bio = req.bio,
+            systemPrompt = req.systemPrompt,
+            personality = req.personality
+        ) ?: throw NotFound("Persona not found")
+        return mapOf(
+            "userId" to updated.userId,
+            "name" to updated.name,
+            "displayName" to updated.displayName,
+            "bio" to updated.bio,
+            "personality" to updated.personality,
+            "systemPrompt" to updated.systemPrompt,
+            "invitedBy" to updated.invitedBy,
+            "createdAt" to updated.createdAt
+        )
     }
 
     private fun requireAuthUser(token: BearerToken): model.User {

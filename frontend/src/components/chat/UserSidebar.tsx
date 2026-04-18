@@ -61,21 +61,21 @@ export function UserSidebar({ send, currentUser, isOpen, onClose }: UserSidebarP
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  if (!user.isBot) showUserCard(user.id);
+                  showUserCard(user.id);
                 }
               }}
-              onClick={() => { if (!user.isBot) showUserCard(user.id); }}
+              onClick={() => showUserCard(user.id)}
             >
               <div className="user-item-avatar">
-                {user.isBot ? (
-                  <span className="bot-avatar-icon">🤖</span>
-                ) : user.avatarUrl ? (
+                {user.avatarUrl ? (
                   <img
                     src={user.avatarUrl}
-                    alt={user.username}
+                    alt={user.displayName ?? user.username}
                     loading="lazy"
                     className="avatar-img"
                   />
+                ) : user.isBot ? (
+                  <span className="bot-avatar-icon">🤖</span>
                 ) : (
                   getInitials(user.displayName ?? user.username)
                 )}
@@ -83,9 +83,7 @@ export function UserSidebar({ send, currentUser, isOpen, onClose }: UserSidebarP
               <div className="user-item-info">
                 <div className="user-item-name">
                   {user.displayName ?? user.username}
-                  {user.isBot ? (
-                    <span className="role-badge role-bot" title="AI Persona">BOT</span>
-                  ) : owner ? (
+                  {!user.isBot && (owner ? (
                     <span className="role-badge role-owner-icon" title="Room owner" aria-label="Room owner">
                       ♛
                     </span>
@@ -94,7 +92,7 @@ export function UserSidebar({ send, currentUser, isOpen, onClose }: UserSidebarP
                     user.role !== "member" && (
                       <span className={`role-badge role-${user.role}`}>{user.role.toUpperCase()}</span>
                     )
-                  )}
+                  ))}
                 </div>
                 {!user.isBot && user.status && <div className="user-item-status">{user.status}</div>}
               </div>

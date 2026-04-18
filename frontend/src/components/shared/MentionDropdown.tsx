@@ -43,10 +43,9 @@ export function MentionDropdown({ results, selectedIndex, onSelect, anchorEl }: 
           className={`mention-item${i === selectedIndex ? " selected" : ""}`}
           role="option"
           aria-selected={i === selectedIndex}
-          onClick={() => onSelect(u.username)}
+          onClick={() => onSelect(u.displayName ?? u.username)}
         >
-          <span className="mention-item-name">{u.username}</span>
-          <span className="mention-item-username">@{u.username}</span>
+          <span className="mention-item-name">{u.displayName ?? u.username}</span>
         </div>
       ))}
     </div>

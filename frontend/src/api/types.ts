@@ -374,3 +374,21 @@ export interface InvitePersonaResponse {
   error?: string | null;
   userId?: number | null;
 }
+
+export interface PersonaConfig {
+  userId: number;
+  name: string;
+  displayName: string;
+  bio: string;
+  personality?: string | null;
+  systemPrompt?: string | null;
+  invitedBy: number;
+  createdAt: number;
+}
+
+export interface UpdatePersonaRequest {
+  displayName?: string | null;
+  bio?: string | null;
+  systemPrompt?: string | null;
+  personality?: string | null;
+}

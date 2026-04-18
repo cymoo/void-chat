@@ -341,3 +341,10 @@ data class InvitePersonaRequest(
     val name: String,
     val personality: String? = null
 )
+
+data class UpdatePersonaRequest(
+    val displayName: String? = null,
+    val bio: String? = null,
+    val systemPrompt: String? = null,
+    val personality: String? = null
+)

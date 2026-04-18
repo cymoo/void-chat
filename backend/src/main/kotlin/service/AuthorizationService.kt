@@ -15,6 +15,7 @@ class AuthorizationService {
         const val ROLE_SUPER_ADMIN = "super_admin"
         const val ROLE_PLATFORM_ADMIN = "platform_admin"
         const val ROLE_USER = "user"
+        const val ROLE_BOT = "bot"
 
         const val ROOM_ROLE_OWNER = "owner"
         const val ROOM_ROLE_ADMIN = "admin"
@@ -24,9 +25,11 @@ class AuthorizationService {
         private val validPlatformRoles = setOf(ROLE_SUPER_ADMIN, ROLE_PLATFORM_ADMIN, ROLE_USER)
         private val validAssignableRoomRoles = setOf(ROOM_ROLE_ADMIN, ROOM_ROLE_MODERATOR, ROOM_ROLE_MEMBER)
 
-        /** Normalize a raw role string to a valid platform role, defaulting to [ROLE_USER]. */
+        /** Normalize a raw role string to a valid platform role, defaulting to [ROLE_USER].
+         *  The 'bot' role is preserved as-is (not normalized to 'user'). */
         fun normalizePlatformRole(value: String?): String {
             val normalized = value?.trim()?.lowercase()
+            if (normalized == ROLE_BOT) return ROLE_BOT
             return normalized?.takeIf { it in validPlatformRoles } ?: ROLE_USER
         }
 

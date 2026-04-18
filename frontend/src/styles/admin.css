@@ -267,6 +267,36 @@
   color: var(--color-warning);
 }
 
+.admin-state-badge.state-bot {
+  border-color: rgba(0, 217, 255, 0.45);
+  color: var(--color-accent);
+}
+
+.admin-username-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--color-accent);
+  font: inherit;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.admin-username-btn:hover {
+  color: var(--color-text);
+}
+
+.admin-username-sub {
+  font-size: 10px;
+  color: var(--color-text-dim);
+  text-decoration: none;
+}
+
 .admin-control-panel {
   border-bottom: 1px solid var(--color-border);
   padding: 10px;

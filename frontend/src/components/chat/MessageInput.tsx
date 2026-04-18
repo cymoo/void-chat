@@ -126,7 +126,7 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
       // Mention detection
       const cursorPos = textarea?.selectionStart ?? val.length;
       const textBeforeCursor = val.slice(0, cursorPos);
-      const mentionMatch = textBeforeCursor.match(/@(\w*)$/);
+      const mentionMatch = textBeforeCursor.match(/@([\p{L}\p{N}_]*)$/u);
 
       if (mentionMatch) {
         const query = mentionMatch[1]!.toLowerCase();
@@ -135,7 +135,7 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
           .filter((u) => u.id !== currentUser.id &&
             (u.username.toLowerCase().includes(query) ||
              (u.displayName && u.displayName.toLowerCase().includes(query))))
-          .slice(0, 5);
+          .slice(0, 8);
         setMentionResults(filtered);
         setMentionIndex(0);
       } else {
@@ -176,7 +176,7 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
   );
 
   const insertMention = useCallback(
-    (username: string) => {
+    (name: string) => {
       const composer = composerRef.current;
       if (!composer) return;
       const el = composer.textareaRef.current;
@@ -184,7 +184,7 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
       const cursorPos = el.selectionStart;
       const textBefore = composer.text.slice(0, cursorPos);
       const textAfter = composer.text.slice(cursorPos);
-      const newTextBefore = textBefore.replace(/@\w*$/, `@${username} `);
+      const newTextBefore = textBefore.replace(/@[\p{L}\p{N}_]*$/u, `@${name} `);
       composer.setText(newTextBefore + textAfter);
       setMentionQuery(null);
       setMentionResults([]);
@@ -208,7 +208,7 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
         }
         if (e.key === "Enter" || e.key === "Tab") {
           e.preventDefault();
-          insertMention(mentionResults[mentionIndex]!.username);
+          insertMention(mentionResults[mentionIndex]!.displayName ?? mentionResults[mentionIndex]!.username);
           return true;
         }
         if (e.key === "Escape") {

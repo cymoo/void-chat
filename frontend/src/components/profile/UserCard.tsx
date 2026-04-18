@@ -25,12 +25,14 @@ export function UserCard({ send }: UserCardProps) {
 
   useEffect(() => {
     if (userId) {
-      // Try to find in online users first
+      // Try to find in online users first (already has isBot + displayName enrichment)
       const onlineUser = users.find((u) => u.id === userId);
       if (onlineUser) {
         setProfile(onlineUser);
+        // Skip API for bots — bot metadata lives in Redis, not in the user REST endpoint
+        if (onlineUser.isBot) return;
       }
-      // Also fetch full profile from API
+      // Fetch full profile from API for regular users
       api.getUser(userId).then(setProfile).catch(() => {});
     }
   }, [userId, users]);
@@ -85,48 +87,55 @@ export function UserCard({ send }: UserCardProps) {
         <div className="profile-content">
           <div className="profile-avatar-large">
             {profile.avatarUrl ? (
-              <img src={profile.avatarUrl} alt={profile.username} className="avatar-img-large" />
+              <img src={profile.avatarUrl} alt={profile.displayName ?? profile.username} className="avatar-img-large" />
+            ) : profile.isBot ? (
+              <span style={{ fontSize: "3rem" }}>🤖</span>
             ) : (
               getInitials(profile.username)
             )}
           </div>
-          <div className="profile-display-name">{profile.username}</div>
-          {isOnline && <div className="profile-online-badge">● ONLINE</div>}
+          <div className="profile-display-name">{profile.displayName ?? profile.username}</div>
+          {profile.isBot && <div className="profile-online-badge" style={{ color: "var(--color-accent)" }}>⬡ AI PERSONA</div>}
+          {!profile.isBot && isOnline && <div className="profile-online-badge">● ONLINE</div>}
           {profile.status && <div className="profile-status">{profile.status}</div>}
           {profile.bio && <div className="profile-bio">{profile.bio}</div>}
-          <div className="profile-joined">Joined: {formatDate(profile.createdAt)}</div>
-          <div className="profile-actions">
-            <button className="profile-action-btn" onClick={handleDm}>
-              DM
-            </button>
-            <button
-              className="profile-action-btn"
-              onClick={() => {
-                hideUserCard();
-                // Insert @mention into input - dispatch custom event
-                const input = document.querySelector(".message-input") as HTMLTextAreaElement;
-                if (input) {
-                  const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-                    window.HTMLTextAreaElement.prototype,
-                    "value",
-                  )?.set;
-                  nativeInputValueSetter?.call(input, input.value + `@${profile.username} `);
-                  input.dispatchEvent(new Event("input", { bubbles: true }));
-                  input.focus();
-                }
-              }}
-            >
-              @Mention
-            </button>
-            {canKickThisUser && (
+          {!profile.isBot && <div className="profile-joined">Joined: {formatDate(profile.createdAt)}</div>}
+          {profile.id !== currentUser.id && (
+            <div className="profile-actions">
+              {!profile.isBot && (
+                <button className="profile-action-btn" onClick={handleDm}>
+                  DM
+                </button>
+              )}
               <button
-                className="profile-action-btn profile-action-danger"
-                onClick={() => void handleKick()}
+                className="profile-action-btn"
+                onClick={() => {
+                  hideUserCard();
+                  const input = document.querySelector(".message-input") as HTMLTextAreaElement;
+                  if (input) {
+                    const mentionName = profile.displayName ?? profile.username;
+                    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+                      window.HTMLTextAreaElement.prototype,
+                      "value",
+                    )?.set;
+                    nativeInputValueSetter?.call(input, input.value + `@${mentionName} `);
+                    input.dispatchEvent(new Event("input", { bubbles: true }));
+                    input.focus();
+                  }
+                }}
               >
-                Kick
+                @Mention
               </button>
-            )}
-          </div>
+              {canKickThisUser && (
+                <button
+                  className="profile-action-btn profile-action-danger"
+                  onClick={() => void handleKick()}
+                >
+                  Kick
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </Modal>

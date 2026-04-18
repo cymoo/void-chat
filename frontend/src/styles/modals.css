@@ -426,6 +426,11 @@
   letter-spacing: 1px;
 }
 
+.my-profile-footer {
+  padding: 0 24px 24px;
+  flex-shrink: 0;
+}
+
 /* ============================================
    CREATE ROOM MODAL
    ============================================ */

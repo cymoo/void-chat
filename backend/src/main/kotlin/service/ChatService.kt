@@ -219,6 +219,15 @@ class ChatService(
     /** Send a text message to a room. Returns false if user is muted/disabled. */
     fun sendTextMessage(roomId: Int, user: User, content: String, replyToId: Int? = null): Boolean {
         if (roomMessageBlockReason(user.id) != null) return false
+        return doSendTextMessage(roomId, user, content, replyToId)
+    }
+
+    /** Send a bot text message bypassing mute/disable checks. */
+    fun sendBotTextMessage(roomId: Int, user: User, content: String, replyToId: Int? = null): Boolean {
+        return doSendTextMessage(roomId, user, content, replyToId)
+    }
+
+    private fun doSendTextMessage(roomId: Int, user: User, content: String, replyToId: Int? = null): Boolean {
         val messageId = messageRepo.saveTextMessage(roomId, user.id, content, replyToId)
 
         val replyInfo = if (replyToId != null) getReplyInfoById(replyToId) else null
@@ -491,14 +500,17 @@ class ChatService(
     }
 
     private fun parseMentions(content: String, roomId: Int, messageId: Int, mentionedBy: String) {
-        val mentionPattern = Regex("@(\\w+)")
+        val mentionPattern = Regex("@([\\p{L}\\p{N}_]+)")
         val mentions = mentionPattern.findAll(content).map { it.groupValues[1] }.toList()
 
         if (mentions.isEmpty()) return
 
         val roomUsers = getRoomUsers(roomId)
-        mentions.forEach { username ->
-            val mentionedUser = roomUsers.find { it.username == username }
+        mentions.forEach { name ->
+            val mentionedUser = roomUsers.find {
+                it.username.equals(name, ignoreCase = true) ||
+                    (it.displayName != null && it.displayName.equals(name, ignoreCase = true))
+            }
             if (mentionedUser != null) {
                 sendToUser(mentionedUser.id, WsEvent.Mention(messageId, mentionedBy, content))
             }

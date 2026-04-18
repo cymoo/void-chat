@@ -14,14 +14,16 @@ export function renderMarkdown(text: string): string {
 export function highlightMentions(
   html: string,
   currentUsername?: string,
+  currentDisplayName?: string,
 ): string {
   return html.replace(
-    /@(\w+)/g,
-    (_match, username: string) => {
+    /@([\p{L}\p{N}_]+)/gu,
+    (_match, name: string) => {
+      const lower = name.toLowerCase();
       const isSelf =
-        currentUsername &&
-        username.toLowerCase() === currentUsername.toLowerCase();
-      return `<span class="mention-highlight${isSelf ? " mention-self" : ""}" data-mention-user="${username}">@${username}</span>`;
+        (currentUsername && lower === currentUsername.toLowerCase()) ||
+        (currentDisplayName && lower === currentDisplayName.toLowerCase());
+      return `<span class="mention-highlight${isSelf ? " mention-self" : ""}" data-mention-user="${name}">@${name}</span>`;
     },
   );
 }

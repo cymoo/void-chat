@@ -65,11 +65,13 @@ export function ChatView({
               aria-label={usersPanelOpen ? "Hide users list" : "Show users list"}
               onClick={() => setUsersPanelOpen((open) => !open)}
             >
+              {/* Users list: three horizontal lines with person heads */}
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                <circle cx="8.5" cy="7" r="4" />
-                <line x1="20" y1="8" x2="20" y2="14" />
-                <line x1="23" y1="11" x2="17" y2="11" />
+                <circle cx="9" cy="7" r="3" />
+                <path d="M3 21v-1.5a4.5 4.5 0 0 1 4.5-4.5h3A4.5 4.5 0 0 1 15 19.5V21" />
+                <line x1="18" y1="8" x2="22" y2="8" />
+                <line x1="18" y1="12" x2="22" y2="12" />
+                <line x1="18" y1="16" x2="22" y2="16" />
               </svg>
               <span className="header-icon-count">{users.length}</span>
             </button>
@@ -86,18 +88,24 @@ export function ChatView({
                 aria-label="Invite AI persona"
                 onClick={() => setPersonaModalOpen(true)}
               >
+                {/* Robot/AI icon for persona */}
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="8" r="5" />
-                  <path d="M20 21a8 8 0 0 0-16 0" />
-                  <line x1="12" y1="16" x2="12" y2="22" />
-                  <line x1="9" y1="19" x2="15" y2="19" />
+                  <rect x="3" y="11" width="18" height="11" rx="2" />
+                  <path d="M9 11V9a3 3 0 0 1 6 0v2" />
+                  <circle cx="9" cy="16" r="1.5" fill="currentColor" stroke="none" />
+                  <circle cx="15" cy="16" r="1.5" fill="currentColor" stroke="none" />
+                  <line x1="12" y1="7" x2="12" y2="5" />
+                  <circle cx="12" cy="4.5" r="1" fill="currentColor" stroke="none" />
                 </svg>
               </button>
             )}
             <button className="icon-btn" title="My Profile" aria-label="Open my profile" onClick={() => setProfileOpen(true)}>
+              {/* Profile: person with ID card / settings */}
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                <circle cx="12" cy="7" r="4" />
+                <circle cx="12" cy="8" r="4" />
+                <rect x="4" y="14" width="16" height="7" rx="2" />
+                <line x1="9" y1="17" x2="15" y2="17" />
+                <line x1="9" y1="19.5" x2="12" y2="19.5" />
               </svg>
             </button>
             <button

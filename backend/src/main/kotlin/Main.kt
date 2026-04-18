@@ -99,13 +99,13 @@ fun main() {
 
                 override fun sendBotMessage(roomId: Int, botUserId: Int, content: String, replyToId: Int?) {
                     val botUser = userRepo.findById(botUserId) ?: return
-                    chatService.sendTextMessage(roomId, botUser, content, replyToId)
+                    chatService.sendBotTextMessage(roomId, botUser, content, replyToId)
                 }
 
                 override fun getOrCreateBotUser(username: String): PersonaChatEngine.BotIdentity {
                     val existing = userRepo.findByUsername(username)
                     if (existing != null) return PersonaChatEngine.BotIdentity(existing.id, existing.username)
-                    val created = userRepo.createUser(username)
+                    val created = userRepo.createUser(username, role = AuthorizationService.ROLE_BOT)
                     return PersonaChatEngine.BotIdentity(created.id, created.username)
                 }
 
@@ -151,7 +151,7 @@ fun main() {
     app.addController(FileController(fileService))
     app.addController(ChatController(userService, chatService, roomService, sessionService, objectMapper))
     if (personaChatEngine != null) {
-        app.addController(PersonaController(personaChatEngine, sessionService, userService))
+        app.addController(PersonaController(personaChatEngine, sessionService, userService, authorizationService))
     }
 
     // Start Redis pub/sub subscriber for cross-instance messaging
