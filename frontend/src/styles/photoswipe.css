@@ -1,0 +1,33 @@
+/* PhotoSwipe theme overrides for terminal/brutalist aesthetic */
+
+.pswp {
+  --pswp-bg: rgba(10, 14, 20, 0.95);
+  --pswp-placeholder-bg: rgba(10, 14, 20, 0.8);
+  --pswp-icon-color: var(--color-text-primary);
+  --pswp-icon-color-secondary: var(--color-text-dim);
+  --pswp-icon-stroke-color: var(--color-text-primary);
+}
+
+.pswp__bg {
+  background: var(--pswp-bg) !important;
+}
+
+.pswp__button {
+  color: var(--color-text-primary) !important;
+}
+
+.pswp__button:hover,
+.pswp__button:focus {
+  color: var(--color-accent) !important;
+}
+
+.pswp__counter {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-text-dim);
+  letter-spacing: 0.05em;
+}
+
+.pswp__zoom-wrap img {
+  border: 1px solid var(--color-border);
+}

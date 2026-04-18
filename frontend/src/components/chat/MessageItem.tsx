@@ -7,6 +7,7 @@ import { requestMessageJump } from "@/lib/messageJump";
 import { formatTime, formatRelativeTime, getInitials } from "@/lib/utils";
 import { useCurrentMinute } from "@/hooks/useCurrentTime";
 import { MessageContent } from "@/components/chat/MessageContent";
+import { openImageGallery } from "@/components/ui/ImageViewer";
 import type { ChatMessage, WsSendPayload } from "@/api/types";
 
 interface MessageItemProps {
@@ -29,7 +30,6 @@ function MessageItemInner({
   const users = useChatStore((s) => s.users);
   const confirm = useUiStore((s) => s.confirm);
   const showUserCard = useUiStore((s) => s.showUserCard);
-  const setImageModal = useUiStore((s) => s.setImageModal);
   const currentDisplayName = useAuthStore((s) => s.user?.displayName);
 
   // Re-render every minute so relative timestamps stay current
@@ -93,11 +93,20 @@ function MessageItemInner({
     }
 
     if (message.messageType === "image") {
+      const handleImageClick = () => {
+        const allMessages = useChatStore.getState().messages;
+        const imageMessages = allMessages.filter((m) => m.messageType === "image");
+        const items = imageMessages.map((m) => ({
+          src: (m as { imageUrl: string }).imageUrl,
+        }));
+        const clickedIndex = imageMessages.findIndex((m) => m.id === message.id);
+        openImageGallery(items, Math.max(0, clickedIndex));
+      };
       return (
         <MessageContent
           type="image"
           imageUrl={message.imageUrl}
-          onImageClick={setImageModal}
+          onImageClick={handleImageClick}
           onMediaLoad={onMediaLoad}
         />
       );

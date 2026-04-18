@@ -9,7 +9,6 @@ import { ChatView } from "@/components/chat/ChatView";
 import { ProfileModal } from "@/components/profile/ProfileModal";
 import { UserCard } from "@/components/profile/UserCard";
 import { PrivateChat } from "@/components/chat/PrivateChat";
-import { ImageModal } from "@/components/chat/ImageModal";
 
 export function ChatPage() {
   const navigate = useNavigate();
@@ -101,7 +100,6 @@ export function ChatPage() {
       {profileOpen && <ProfileModal />}
       {userCardUserId !== null && <UserCard send={send} />}
       {privateChatUserId !== null && <PrivateChat send={send} currentUser={user!} />}
-      <ImageModal />
     </div>
   );
 }

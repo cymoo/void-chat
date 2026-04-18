@@ -46,7 +46,7 @@ function defaultProps(message: ChatMessage, currentUserId = 99) {
 describe("MessageItem", () => {
   beforeEach(() => {
     useChatStore.setState({ editingMessageId: null, replyingTo: null });
-    useUiStore.setState({ confirmDialog: null, userCardUserId: null, imageModalUrl: null });
+    useUiStore.setState({ confirmDialog: null, userCardUserId: null, imageViewerItems: null, imageViewerIndex: 0 });
   });
 
   it("renders text message content", () => {

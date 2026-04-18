@@ -6,6 +6,7 @@ import { useAuthStore } from "@/stores/authStore";
 import * as api from "@/api/client";
 import { getInitials, formatDate } from "@/lib/utils";
 import { Modal } from "@/components/ui/Modal";
+import { openSingleImage } from "@/components/ui/ImageViewer";
 import type { User, WsSendPayload } from "@/api/types";
 
 interface UserCardProps {
@@ -87,7 +88,12 @@ export function UserCard({ send }: UserCardProps) {
         <div className="profile-content">
           <div className="profile-avatar-large">
             {profile.avatarUrl ? (
-              <img src={profile.avatarUrl} alt={profile.displayName ?? profile.username} className="avatar-img-large" />
+              <img
+                src={profile.avatarUrl}
+                alt={profile.displayName ?? profile.username}
+                className="avatar-img-large cursor-pointer"
+                onClick={() => openSingleImage(profile.avatarUrl!)}
+              />
             ) : profile.isBot ? (
               <span style={{ fontSize: "3rem" }}>🤖</span>
             ) : (

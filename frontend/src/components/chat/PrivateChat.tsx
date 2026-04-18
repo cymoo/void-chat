@@ -6,12 +6,12 @@ import {
   useMemo,
 } from "react";
 import { useChatStore } from "@/stores/chatStore";
-import { useUiStore } from "@/stores/uiStore";
 import { renderMarkdown } from "@/lib/markdown";
 import { formatTime } from "@/lib/utils";
 import { MessageInputBar } from "@/components/shared/MessageInputBar";
 import { MessageContent } from "@/components/chat/MessageContent";
 import { Modal } from "@/components/ui/Modal";
+import { openImageGallery } from "@/components/ui/ImageViewer";
 import type { PrivateMessage, User, WsSendPayload } from "@/api/types";
 
 interface PrivateChatProps {
@@ -22,11 +22,11 @@ interface PrivateChatProps {
 interface PrivateMessageItemProps {
   message: PrivateMessage;
   currentUserId: number;
-  onImageOpen: (url: string | null) => void;
+  allMessages: PrivateMessage[];
 }
 
 const PrivateMessageItem = memo(
-  ({ message, currentUserId, onImageOpen }: PrivateMessageItemProps) => {
+  ({ message, currentUserId, allMessages }: PrivateMessageItemProps) => {
     const isSelf = message.senderId === currentUserId;
     const textHtml = useMemo(() => {
       if (message.messageType !== "text") return null;
@@ -44,11 +44,17 @@ const PrivateMessageItem = memo(
         );
       }
       if (message.messageType === "image") {
+        const handleImageClick = () => {
+          const imageMessages = allMessages.filter((m) => m.messageType === "image");
+          const items = imageMessages.map((m) => ({ src: m.fileUrl ?? "" }));
+          const clickedIndex = imageMessages.findIndex((m) => m.id === message.id);
+          openImageGallery(items, Math.max(0, clickedIndex));
+        };
         return (
           <MessageContent
             type="image"
             imageUrl={message.fileUrl ?? ""}
-            onImageClick={(url) => onImageOpen(url)}
+            onImageClick={handleImageClick}
             textClassName="private-msg-content"
           />
         );
@@ -82,7 +88,7 @@ const PrivateMessageItem = memo(
   (prev, next) =>
     prev.message === next.message &&
     prev.currentUserId === next.currentUserId &&
-    prev.onImageOpen === next.onImageOpen,
+    prev.allMessages === next.allMessages,
 );
 
 export function PrivateChat({ send, currentUser }: PrivateChatProps) {
@@ -91,7 +97,6 @@ export function PrivateChat({ send, currentUser }: PrivateChatProps) {
   const privateChatUsername = useChatStore((s) => s.privateChatUsername);
   const privateMessages = useChatStore((s) => s.privateMessages);
   const closePrivateChat = useChatStore((s) => s.closePrivateChat);
-  const setImageModal = useUiStore((s) => s.setImageModal);
 
   const handleClose = useCallback(() => {
     if (privateChatUserId) {
@@ -99,11 +104,6 @@ export function PrivateChat({ send, currentUser }: PrivateChatProps) {
     }
     closePrivateChat();
   }, [privateChatUserId, send, closePrivateChat]);
-
-  const handleOpenImage = useCallback(
-    (url: string | null) => setImageModal(url),
-    [setImageModal],
-  );
 
   const syncToBottom = useCallback(() => {
     const el = messagesContainerRef.current;
@@ -163,7 +163,7 @@ export function PrivateChat({ send, currentUser }: PrivateChatProps) {
               key={msg.id}
               message={msg}
               currentUserId={currentUser.id}
-              onImageOpen={handleOpenImage}
+              allMessages={privateMessages}
             />
           ))}
         </div>

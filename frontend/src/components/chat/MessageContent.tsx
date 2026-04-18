@@ -12,7 +12,7 @@ type MessageContentProps = {
   | {
       type: "image";
       imageUrl: string;
-      onImageClick?: (url: string) => void;
+      onImageClick?: () => void;
       onMediaLoad?: () => void;
     }
   | {
@@ -45,7 +45,7 @@ export function MessageContent(props: MessageContentProps) {
           <img
             src={props.imageUrl}
             className="message-image"
-            onClick={() => props.onImageClick?.(props.imageUrl)}
+            onClick={() => props.onImageClick?.()}
             onLoad={props.onMediaLoad}
             alt="Shared image"
           />

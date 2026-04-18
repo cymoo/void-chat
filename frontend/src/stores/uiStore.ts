@@ -22,12 +22,20 @@ interface ConfirmOptions {
   tone?: ConfirmDialog["tone"];
 }
 
+export interface ImageViewerItem {
+  src: string;
+  width?: number;
+  height?: number;
+  alt?: string;
+}
+
 interface UiState {
   searchOpen: boolean;
   profileOpen: boolean;
   createRoomOpen: boolean;
   userCardUserId: number | null;
-  imageModalUrl: string | null;
+  imageViewerItems: ImageViewerItem[] | null;
+  imageViewerIndex: number;
   toasts: Toast[];
   confirmDialog: ConfirmDialog | null;
 
@@ -37,7 +45,8 @@ interface UiState {
   setCreateRoomOpen: (open: boolean) => void;
   showUserCard: (userId: number) => void;
   hideUserCard: () => void;
-  setImageModal: (url: string | null) => void;
+  openImageViewer: (items: ImageViewerItem[], index?: number) => void;
+  closeImageViewer: () => void;
   addToast: (message: string, type?: Toast["type"]) => void;
   removeToast: (id: string) => void;
   confirm: (options: ConfirmOptions) => Promise<boolean>;
@@ -52,7 +61,8 @@ export const useUiStore = create<UiState>((set) => ({
   profileOpen: false,
   createRoomOpen: false,
   userCardUserId: null,
-  imageModalUrl: null,
+  imageViewerItems: null,
+  imageViewerIndex: 0,
   toasts: [],
   confirmDialog: null,
 
@@ -62,7 +72,8 @@ export const useUiStore = create<UiState>((set) => ({
   setCreateRoomOpen: (open) => set({ createRoomOpen: open }),
   showUserCard: (userId) => set({ userCardUserId: userId }),
   hideUserCard: () => set({ userCardUserId: null }),
-  setImageModal: (url) => set({ imageModalUrl: url }),
+  openImageViewer: (items, index = 0) => set({ imageViewerItems: items, imageViewerIndex: index }),
+  closeImageViewer: () => set({ imageViewerItems: null, imageViewerIndex: 0 }),
 
   addToast: (message, type = "info") => {
     const id = `toast-${++toastCounter}`;

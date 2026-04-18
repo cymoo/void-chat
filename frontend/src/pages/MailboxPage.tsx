@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 import * as api from "@/api/client";
 import type { DmInboxEntry } from "@/api/types";
 import { PrivateChat } from "@/components/chat/PrivateChat";
-import { ImageModal } from "@/components/chat/ImageModal";
 import { useDirectWebSocket } from "@/hooks/useDirectWebSocket";
 import { formatTime, getInitials } from "@/lib/utils";
 import { useAuthStore } from "@/stores/authStore";
@@ -162,7 +161,6 @@ export function MailboxPage() {
       </div>
 
       {privateChatUserId !== null && user && <PrivateChat send={send} currentUser={user} />}
-      <ImageModal />
     </div>
   );
 }

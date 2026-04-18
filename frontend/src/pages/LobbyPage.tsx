@@ -10,7 +10,6 @@ import { EditRoomModal } from "@/components/lobby/EditRoomDialog";
 import { ProfileModal } from "@/components/profile/ProfileModal";
 import { RoomPasswordModal } from "@/components/lobby/RoomPasswordModal";
 import { PrivateChat } from "@/components/chat/PrivateChat";
-import { ImageModal } from "@/components/chat/ImageModal";
 import * as api from "@/api/client";
 import type { RoomInfo } from "@/api/types";
 
@@ -261,7 +260,6 @@ export function LobbyPage() {
       )}
       {profileOpen && <ProfileModal />}
       {privateChatUserId !== null && user && <PrivateChat send={sendDirectDm} currentUser={user} />}
-      <ImageModal />
       {passwordRoom && (
         <RoomPasswordModal
           roomName={passwordRoom.name}

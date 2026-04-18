@@ -7,6 +7,7 @@ import { AdminPage } from "@/pages/AdminPage";
 import { MailboxPage } from "@/pages/MailboxPage";
 import { ToastContainer } from "@/components/ui/Toast";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { ImageViewer } from "@/components/ui/ImageViewer";
 import { MatrixRain } from "@/components/effects/MatrixRain";
 import { useEffect } from "react";
 
@@ -66,6 +67,7 @@ export function App() {
       </Routes>
       <ToastContainer />
       <ConfirmDialog />
+      <ImageViewer />
     </>
   );
 }

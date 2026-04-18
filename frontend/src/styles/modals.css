@@ -65,13 +65,6 @@
   box-shadow: none;
 }
 
-#modal-image {
-  max-width: 100%;
-  max-height: 90vh;
-  border: 2px solid var(--color-accent);
-  box-shadow: 0 0 30px var(--color-accent);
-}
-
 /* ============================================
    PANEL HEADER (shared by new modals)
    ============================================ */
