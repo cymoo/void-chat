@@ -33,6 +33,9 @@ export function ImageViewer() {
     // Dynamically resolve image dimensions when not provided
     pswp.on("gettingData", ({ data }) => {
       if (!data.width || !data.height) {
+        // Set small placeholder size so PhotoSwipe doesn't stretch to viewport
+        data.width = 800;
+        data.height = 600;
         const img = new Image();
         img.onload = () => {
           data.width = img.naturalWidth;
@@ -65,8 +68,23 @@ export function ImageViewer() {
 /**
  * Helper to open the image viewer with a single image (e.g., avatar preview).
  */
+/**
+ * Helper to open a single image (e.g., avatar click).
+ * Pre-resolves image dimensions to avoid stretching.
+ */
 export function openSingleImage(src: string) {
-  useUiStore.getState().openImageViewer([{ src }], 0);
+  const open = (w: number, h: number) => {
+    useUiStore.getState().openImageViewer([{ src, width: w, height: h }], 0);
+  };
+  const img = new Image();
+  img.src = src;
+  if (img.complete && img.naturalWidth > 0) {
+    open(img.naturalWidth, img.naturalHeight);
+  } else {
+    img.onload = () => open(img.naturalWidth, img.naturalHeight);
+    // Fallback if load fails — open without dimensions (gettingData will handle)
+    img.onerror = () => useUiStore.getState().openImageViewer([{ src }], 0);
+  }
 }
 
 /**
