@@ -82,8 +82,8 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
   );
 
   const onImageUploaded = useCallback(
-    (url: string, thumbnailUrl?: string) => {
-      const payload: WsSendPayload = { type: "image", imageUrl: url, thumbnailUrl };
+    (url: string, thumbnailUrl?: string, width?: number, height?: number) => {
+      const payload: WsSendPayload = { type: "image", imageUrl: url, thumbnailUrl, width, height };
       if (replyingToRef.current) {
         payload.replyToId = replyingToRef.current.id;
       }

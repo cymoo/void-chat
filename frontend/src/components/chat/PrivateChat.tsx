@@ -46,7 +46,11 @@ const PrivateMessageItem = memo(
       if (message.messageType === "image") {
         const handleImageClick = () => {
           const imageMessages = allMessages.filter((m) => m.messageType === "image");
-          const items = imageMessages.map((m) => ({ src: m.fileUrl ?? "" }));
+          const items = imageMessages.map((m) => ({
+            src: m.fileUrl ?? "",
+            width: m.width ?? undefined,
+            height: m.height ?? undefined,
+          }));
           const clickedIndex = imageMessages.findIndex((m) => m.id === message.id);
           openImageGallery(items, Math.max(0, clickedIndex));
         };
@@ -54,6 +58,8 @@ const PrivateMessageItem = memo(
           <MessageContent
             type="image"
             imageUrl={message.fileUrl ?? ""}
+            width={message.width}
+            height={message.height}
             onImageClick={handleImageClick}
             textClassName="private-msg-content"
           />
@@ -130,9 +136,9 @@ export function PrivateChat({ send, currentUser }: PrivateChatProps) {
   );
 
   const onImageUploaded = useCallback(
-    (url: string, thumbnailUrl?: string) => {
+    (url: string, thumbnailUrl?: string, width?: number, height?: number) => {
       if (!privateChatUserId) return;
-      send({ type: "private_message", targetUserId: privateChatUserId, imageUrl: url, thumbnailUrl });
+      send({ type: "private_message", targetUserId: privateChatUserId, imageUrl: url, thumbnailUrl, width, height });
     },
     [privateChatUserId, send],
   );

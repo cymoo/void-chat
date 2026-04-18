@@ -8,6 +8,8 @@ data class WsPayload(
     val content: String? = null,
     val imageUrl: String? = null,
     val thumbnailUrl: String? = null,
+    val width: Int? = null,
+    val height: Int? = null,
     val fileName: String? = null,
     val fileUrl: String? = null,
     val mimeType: String? = null,

@@ -98,6 +98,8 @@ function MessageItemInner({
         const imageMessages = allMessages.filter((m) => m.messageType === "image");
         const items = imageMessages.map((m) => ({
           src: (m as { imageUrl: string }).imageUrl,
+          width: (m as { width?: number | null }).width ?? undefined,
+          height: (m as { height?: number | null }).height ?? undefined,
         }));
         const clickedIndex = imageMessages.findIndex((m) => m.id === message.id);
         openImageGallery(items, Math.max(0, clickedIndex));
@@ -106,6 +108,8 @@ function MessageItemInner({
         <MessageContent
           type="image"
           imageUrl={message.imageUrl}
+          width={message.width}
+          height={message.height}
           onImageClick={handleImageClick}
           onMediaLoad={onMediaLoad}
         />

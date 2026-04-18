@@ -253,9 +253,9 @@ class ChatService(
         return true
     }
 
-    fun sendImageMessage(roomId: Int, user: User, imageUrl: String, thumbnailUrl: String?, replyToId: Int? = null): Boolean {
+    fun sendImageMessage(roomId: Int, user: User, imageUrl: String, thumbnailUrl: String?, width: Int? = null, height: Int? = null, replyToId: Int? = null): Boolean {
         if (roomMessageBlockReason(user.id) != null) return false
-        val messageId = messageRepo.saveImageMessage(roomId, user.id, imageUrl, thumbnailUrl, replyToId)
+        val messageId = messageRepo.saveImageMessage(roomId, user.id, imageUrl, thumbnailUrl, width, height, replyToId)
 
         val replyInfo = if (replyToId != null) getReplyInfoById(replyToId) else null
 
@@ -266,6 +266,8 @@ class ChatService(
             avatarUrl = user.avatarUrl,
             imageUrl = imageUrl,
             thumbnailUrl = thumbnailUrl,
+            width = width,
+            height = height,
             timestamp = System.currentTimeMillis(),
             replyTo = replyInfo
         )
@@ -371,11 +373,13 @@ class ChatService(
         fileName: String? = null,
         fileSize: Long? = null,
         mimeType: String? = null,
-        thumbnailUrl: String? = null
+        thumbnailUrl: String? = null,
+        width: Int? = null,
+        height: Int? = null
     ) {
         val messageId = when (messageType) {
             "text" -> privateMessageRepo.saveTextMessage(sender.id, receiverId, content ?: "")
-            "image" -> privateMessageRepo.saveImageMessage(sender.id, receiverId, fileUrl ?: "", thumbnailUrl)
+            "image" -> privateMessageRepo.saveImageMessage(sender.id, receiverId, fileUrl ?: "", thumbnailUrl, width, height)
             "file" -> privateMessageRepo.saveFileMessage(
                 sender.id, receiverId, fileName ?: "", fileUrl ?: "", fileSize ?: 0L, mimeType ?: ""
             )
@@ -397,6 +401,8 @@ class ChatService(
             fileSize = fileSize,
             mimeType = mimeType,
             thumbnailUrl = thumbnailUrl,
+            width = width,
+            height = height,
             timestamp = System.currentTimeMillis()
         )
 

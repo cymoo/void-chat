@@ -8,7 +8,7 @@ import { useMessageComposer, type MessageComposerReturn } from "@/hooks/useMessa
 
 interface MessageInputBarProps {
   onSubmit: (text: string) => void;
-  onImageUploaded: (url: string, thumbnailUrl?: string) => void;
+  onImageUploaded: (url: string, thumbnailUrl?: string, width?: number, height?: number) => void;
   onFileUploaded: (fileName: string, fileUrl: string, fileSize: number, mimeType: string) => void;
   onTextChange?: (text: string, textarea: HTMLTextAreaElement | null) => void;
   /** If provided, the bar exposes its composer via this ref so the parent can call setText/focus. */

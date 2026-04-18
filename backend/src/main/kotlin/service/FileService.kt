@@ -7,6 +7,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.*
+import javax.imageio.ImageIO
 
 /**
  * File management service for uploaded images and files.
@@ -36,11 +37,15 @@ class FileService(
 
         file.save(targetPath.toString())
 
+        val (width, height) = readImageDimensions(targetPath.toFile())
+
         return FileInfo(
             fileName = safeFilename,
             fileUrl = "/uploads/$safeFilename",
             fileSize = file.size,
-            mimeType = file.contentType ?: "application/octet-stream"
+            mimeType = file.contentType ?: "application/octet-stream",
+            width = width,
+            height = height
         )
     }
 
@@ -104,5 +109,28 @@ class FileService(
             .replace('\\', '_')
             .replace(Regex("[^a-zA-Z0-9._-]"), "_")
             .take(100) // Limit filename length
+    }
+
+    /**
+     * Read image dimensions using ImageIO without fully decoding pixel data.
+     * Returns (width, height) or (null, null) if dimensions cannot be determined.
+     */
+    private fun readImageDimensions(file: File): Pair<Int?, Int?> {
+        return try {
+            val stream = ImageIO.createImageInputStream(file) ?: return Pair(null, null)
+            stream.use { input ->
+                val readers = ImageIO.getImageReaders(input)
+                if (!readers.hasNext()) return Pair(null, null)
+                val reader = readers.next()
+                try {
+                    reader.input = input
+                    Pair(reader.getWidth(0), reader.getHeight(0))
+                } finally {
+                    reader.dispose()
+                }
+            }
+        } catch (_: Exception) {
+            Pair(null, null)
+        }
     }
 }

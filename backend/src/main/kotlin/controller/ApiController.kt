@@ -87,7 +87,11 @@ class ApiController(
         return try {
             val file = image.value ?: throw BadRequest("No image uploaded")
             val fileInfo = fileService.saveImage(file)
-            UploadResponse(success = true, url = fileInfo.fileUrl, thumbnail = fileInfo.thumbnailUrl, fileName = fileInfo.fileName, fileSize = fileInfo.fileSize)
+            UploadResponse(
+                success = true, url = fileInfo.fileUrl, thumbnail = fileInfo.thumbnailUrl,
+                fileName = fileInfo.fileName, fileSize = fileInfo.fileSize,
+                width = fileInfo.width, height = fileInfo.height
+            )
         } catch (e: IllegalArgumentException) {
             UploadResponse(success = false, error = e.message)
         }

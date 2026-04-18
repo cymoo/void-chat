@@ -15,7 +15,7 @@ interface UseMessageComposerOptions {
   /** Called when the user presses Enter (without Shift) or clicks Send. */
   onSubmit: (text: string) => void;
   /** Called after an image is successfully uploaded. */
-  onImageUploaded: (url: string, thumbnailUrl?: string) => void;
+  onImageUploaded: (url: string, thumbnailUrl?: string, width?: number, height?: number) => void;
   /** Called after a non-image file is successfully uploaded. */
   onFileUploaded: (fileName: string, fileUrl: string, fileSize: number, mimeType: string) => void;
   /**
@@ -113,7 +113,12 @@ export function useMessageComposer({
     try {
       const result = await api.uploadImage(file);
       if (result.url) {
-        onImageUploadedRef.current(result.url, result.thumbnail ?? undefined);
+        onImageUploadedRef.current(
+          result.url,
+          result.thumbnail ?? undefined,
+          result.width ?? undefined,
+          result.height ?? undefined,
+        );
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Image upload failed";

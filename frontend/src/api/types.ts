@@ -82,6 +82,8 @@ export interface ImageMessage extends BaseMessage {
   avatarUrl?: string | null;
   imageUrl: string;
   thumbnailUrl?: string | null;
+  width?: number | null;
+  height?: number | null;
 }
 
 export interface FileMessage extends BaseMessage {
@@ -114,6 +116,8 @@ export interface PrivateMessage {
   fileSize?: number | null;
   mimeType?: string | null;
   thumbnailUrl?: string | null;
+  width?: number | null;
+  height?: number | null;
   isRead: boolean;
   timestamp: number;
 }
@@ -136,6 +140,8 @@ export interface WsSendPayload {
   content?: string;
   imageUrl?: string;
   thumbnailUrl?: string;
+  width?: number;
+  height?: number;
   fileName?: string;
   fileUrl?: string;
   fileSize?: number;
@@ -358,6 +364,8 @@ export interface UploadResponse {
   thumbnail?: string | null;
   fileName?: string | null;
   fileSize?: number | null;
+  width?: number | null;
+  height?: number | null;
   error?: string | null;
 }
 

@@ -164,7 +164,9 @@ data class FileInfo(
     val fileUrl: String,
     val fileSize: Long,
     val mimeType: String,
-    val thumbnailUrl: String? = null
+    val thumbnailUrl: String? = null,
+    val width: Int? = null,
+    val height: Int? = null
 )
 
 /**
@@ -292,6 +294,8 @@ data class UploadResponse(
     val thumbnail: String? = null,
     val fileName: String? = null,
     val fileSize: Long? = null,
+    val width: Int? = null,
+    val height: Int? = null,
     val error: String? = null
 )
 

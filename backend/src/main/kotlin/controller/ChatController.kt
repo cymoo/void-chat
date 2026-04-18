@@ -137,7 +137,7 @@ class ChatController(
                     }
                     "image" -> {
                         p.imageUrl?.let { image ->
-                            val sent = chatService.sendImageMessage(roomId, currentUser, image, p.thumbnailUrl, p.replyToId)
+                            val sent = chatService.sendImageMessage(roomId, currentUser, image, p.thumbnailUrl, p.width, p.height, p.replyToId)
                             if (!sent) {
                                 conn.send(chatService.serializeEvent(WsEvent.Error(
                                     chatService.roomMessageBlockReason(currentUser.id)
@@ -312,7 +312,9 @@ class ChatController(
                     receiverId = targetUserId,
                     messageType = "image",
                     fileUrl = p.imageUrl,
-                    thumbnailUrl = p.thumbnailUrl
+                    thumbnailUrl = p.thumbnailUrl,
+                    width = p.width,
+                    height = p.height
                 )
             }
             p.fileUrl != null && p.fileName != null && p.fileSize != null && p.mimeType != null -> {
