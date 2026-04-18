@@ -95,6 +95,7 @@
   font-size: 18px;
   font-weight: 700;
   flex-shrink: 0;
+  cursor: pointer;
 }
 
 .message-content {
