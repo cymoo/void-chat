@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback, useState, memo } from "react";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
-import { useChatStore, getOldestMessageId } from "@/stores/chatStore";
+import { useChatStore } from "@/stores/chatStore";
 import { useUiStore } from "@/stores/uiStore";
 import { onMessageJump } from "@/lib/messageJump";
 import { MessageItem } from "./MessageItem";
@@ -29,7 +29,7 @@ export function MessageList({ send, currentUser }: MessageListProps) {
   const messages = useChatStore((s) => s.messages);
   const hasMore = useChatStore((s) => s.hasMore);
   const initialLoaded = useChatStore((s) => s.initialLoaded);
-  const oldestMessageId = getOldestMessageId(messages);
+  const oldestMessageId = messages.length > 0 ? messages[0]!.id : null;
   const users = useChatStore((s) => s.users);
   const showUserCard = useUiStore((s) => s.showUserCard);
 

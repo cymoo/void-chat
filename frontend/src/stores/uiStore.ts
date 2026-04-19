@@ -31,8 +31,6 @@ export interface ImageViewerItem {
 
 interface UiState {
   searchOpen: boolean;
-  profileOpen: boolean;
-  createRoomOpen: boolean;
   userCardUserId: number | null;
   imageViewerItems: ImageViewerItem[] | null;
   imageViewerIndex: number;
@@ -41,8 +39,6 @@ interface UiState {
 
   toggleSearch: () => void;
   setSearchOpen: (open: boolean) => void;
-  setProfileOpen: (open: boolean) => void;
-  setCreateRoomOpen: (open: boolean) => void;
   showUserCard: (userId: number) => void;
   hideUserCard: () => void;
   openImageViewer: (items: ImageViewerItem[], index?: number) => void;
@@ -58,8 +54,6 @@ let pendingConfirmResolver: ((confirmed: boolean) => void) | null = null;
 
 export const useUiStore = create<UiState>((set) => ({
   searchOpen: false,
-  profileOpen: false,
-  createRoomOpen: false,
   userCardUserId: null,
   imageViewerItems: null,
   imageViewerIndex: 0,
@@ -68,8 +62,6 @@ export const useUiStore = create<UiState>((set) => ({
 
   toggleSearch: () => set((s) => ({ searchOpen: !s.searchOpen })),
   setSearchOpen: (open) => set({ searchOpen: open }),
-  setProfileOpen: (open) => set({ profileOpen: open }),
-  setCreateRoomOpen: (open) => set({ createRoomOpen: open }),
   showUserCard: (userId) => set({ userCardUserId: userId }),
   hideUserCard: () => set({ userCardUserId: null }),
   openImageViewer: (items, index = 0) => set({ imageViewerItems: items, imageViewerIndex: index }),

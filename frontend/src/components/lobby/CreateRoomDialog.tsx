@@ -1,14 +1,18 @@
 import { useState, type FormEvent } from "react";
+import { X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useRoomStore } from "@/stores/roomStore";
 import { useUiStore } from "@/stores/uiStore";
 import { Modal } from "@/components/ui/Modal";
 
-export function CreateRoomModal() {
+interface CreateRoomModalProps {
+  onClose: () => void;
+}
+
+export function CreateRoomModal({ onClose }: CreateRoomModalProps) {
   const navigate = useNavigate();
   const createRoom = useRoomStore((s) => s.createRoom);
   const joinRoom = useRoomStore((s) => s.joinRoom);
-  const setCreateRoomOpen = useUiStore((s) => s.setCreateRoomOpen);
   const addToast = useUiStore((s) => s.addToast);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -31,7 +35,7 @@ export function CreateRoomModal() {
         password: visibility === "private" ? password : null,
         maxUsers: parsedMaxUsers,
       });
-      setCreateRoomOpen(false);
+      onClose();
       joinRoom(room.id, room.name, visibility === "private" ? password : undefined);
       navigate(`/chat/${room.id}`);
     } catch (err) {
@@ -40,18 +44,15 @@ export function CreateRoomModal() {
   };
 
   return (
-    <Modal open onClose={() => setCreateRoomOpen(false)}>
+    <Modal open onClose={onClose}>
       <div className="create-room-panel">
         <div className="panel-header">
           <span className="panel-title">NEW ROOM</span>
           <button
             className="modal-close panel-close-btn"
-            onClick={() => setCreateRoomOpen(false)}
+            onClick={onClose}
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
+            <X size={20} />
           </button>
         </div>
         <form className="create-room-content" onSubmit={handleSubmit}>

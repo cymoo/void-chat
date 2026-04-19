@@ -68,6 +68,7 @@ interface ChatState {
   closePrivateChat: () => void;
   setSearchResults: (messages: ChatMessage[], query: string) => void;
   clearSearch: () => void;
+  setUnreadDmCount: (count: number) => void;
   clearWsError: () => void;
   reset: () => void;
 }
@@ -356,6 +357,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   clearSearch: () => set({ searchResults: [], searchQuery: "" }),
 
+  setUnreadDmCount: (count) => set({ unreadDmCount: count }),
+
   clearWsError: () => set({ wsError: null }),
 
   reset: () =>
@@ -383,8 +386,4 @@ export const useChatStore = create<ChatState>((set, get) => ({
 export function getMessageContent(msg: ChatMessage): string {
   if (msg.messageType === "text") return (msg as TextMessage).content;
   return "";
-}
-
-export function getOldestMessageId(messages: ChatMessage[]): number | null {
-  return messages.length > 0 ? messages[0]!.id : null;
 }

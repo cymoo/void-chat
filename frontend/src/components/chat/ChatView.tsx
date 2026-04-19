@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Users, Search, Bot, UserCircle, MessageSquare, ArrowLeft } from "lucide-react";
 import { useChatStore } from "@/stores/chatStore";
 import { useUiStore } from "@/stores/uiStore";
 import { useRoomStore } from "@/stores/roomStore";
@@ -16,6 +17,7 @@ interface ChatViewProps {
   currentUser: User;
   onDisconnect: () => void;
   onOpenMailbox: () => void;
+  onOpenProfile: () => void;
   wsStatus?: "connecting" | "connected" | "reconnecting" | "failed";
 }
 
@@ -25,6 +27,7 @@ export function ChatView({
   currentUser,
   onDisconnect,
   onOpenMailbox,
+  onOpenProfile,
   wsStatus,
 }: ChatViewProps) {
   const users = useChatStore((s) => s.users);
@@ -32,7 +35,7 @@ export function ChatView({
   const initialLoaded = useChatStore((s) => s.initialLoaded);
   const [usersPanelOpen, setUsersPanelOpen] = useState(() => window.innerWidth > 768);
   const [personaModalOpen, setPersonaModalOpen] = useState(false);
-  const { searchOpen, toggleSearch, setProfileOpen } = useUiStore();
+  const { searchOpen, toggleSearch } = useUiStore();
   const currentRoomId = useRoomStore((s) => s.currentRoomId);
   const rooms = useRoomStore((s) => s.rooms);
 
@@ -65,21 +68,11 @@ export function ChatView({
               aria-label={usersPanelOpen ? "Hide users list" : "Show users list"}
               onClick={() => setUsersPanelOpen((open) => !open)}
             >
-              {/* Users list: three horizontal lines with person heads */}
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="9" cy="7" r="3" />
-                <path d="M3 21v-1.5a4.5 4.5 0 0 1 4.5-4.5h3A4.5 4.5 0 0 1 15 19.5V21" />
-                <line x1="18" y1="8" x2="22" y2="8" />
-                <line x1="18" y1="12" x2="22" y2="12" />
-                <line x1="18" y1="16" x2="22" y2="16" />
-              </svg>
+              <Users size={20} />
               <span className="header-icon-count">{users.length}</span>
             </button>
             <button className="icon-btn" title="Search Messages" aria-label="Search messages" onClick={toggleSearch}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
+              <Search size={20} />
             </button>
             {canInvitePersona && (
               <button
@@ -88,25 +81,11 @@ export function ChatView({
                 aria-label="Invite AI persona"
                 onClick={() => setPersonaModalOpen(true)}
               >
-                {/* Robot/AI icon for persona */}
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="3" y="11" width="18" height="11" rx="2" />
-                  <path d="M9 11V9a3 3 0 0 1 6 0v2" />
-                  <circle cx="9" cy="16" r="1.5" fill="currentColor" stroke="none" />
-                  <circle cx="15" cy="16" r="1.5" fill="currentColor" stroke="none" />
-                  <line x1="12" y1="7" x2="12" y2="5" />
-                  <circle cx="12" cy="4.5" r="1" fill="currentColor" stroke="none" />
-                </svg>
+                <Bot size={20} />
               </button>
             )}
-            <button className="icon-btn" title="My Profile" aria-label="Open my profile" onClick={() => setProfileOpen(true)}>
-              {/* Profile: person with ID card / settings */}
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="8" r="4" />
-                <rect x="4" y="14" width="16" height="7" rx="2" />
-                <line x1="9" y1="17" x2="15" y2="17" />
-                <line x1="9" y1="19.5" x2="12" y2="19.5" />
-              </svg>
+            <button className="icon-btn" title="My Profile" aria-label="Open my profile" onClick={onOpenProfile}>
+              <UserCircle size={20} />
             </button>
             <button
               className="icon-btn dm-badge-btn"
@@ -114,9 +93,7 @@ export function ChatView({
               aria-label={`Open private mailbox, unread: ${unreadDmCount}`}
               onClick={onOpenMailbox}
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              </svg>
+              <MessageSquare size={20} />
               {unreadDmCount > 0 && <span className="dm-unread-count">{unreadDmCount}</span>}
             </button>
           </div>
@@ -131,10 +108,7 @@ export function ChatView({
               aria-label="Back to lobby"
               onClick={onDisconnect}
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="19" y1="12" x2="5" y2="12" />
-                <polyline points="12 19 5 12 12 5" />
-              </svg>
+              <ArrowLeft size={20} />
             </button>
           </div>
         </div>

@@ -1,4 +1,5 @@
 import { useState, type ChangeEvent } from "react";
+import { X } from "lucide-react";
 import { useUiStore } from "@/stores/uiStore";
 import * as api from "@/api/client";
 import { getInitials } from "@/lib/utils";
@@ -95,10 +96,7 @@ export function AdminUserModal({ user, personaConfig, onClose, onSaved }: Props)
         <div className="panel-header">
           <span className="panel-title">{title}</span>
           <button className="modal-close panel-close-btn" onClick={onClose}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
+            <X size={20} />
           </button>
         </div>
 

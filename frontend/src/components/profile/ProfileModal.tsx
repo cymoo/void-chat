@@ -1,14 +1,18 @@
 import { useState, type ChangeEvent } from "react";
+import { X } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { useUiStore } from "@/stores/uiStore";
 import * as api from "@/api/client";
 import { getInitials } from "@/lib/utils";
 import { Modal } from "@/components/ui/Modal";
 
-export function ProfileModal() {
+interface ProfileModalProps {
+  onClose: () => void;
+}
+
+export function ProfileModal({ onClose }: ProfileModalProps) {
   const user = useAuthStore((s) => s.user);
   const updateUser = useAuthStore((s) => s.updateUser);
-  const setProfileOpen = useUiStore((s) => s.setProfileOpen);
   const addToast = useUiStore((s) => s.addToast);
 
   const [username, setUsername] = useState(user?.username ?? "");
@@ -48,7 +52,7 @@ export function ProfileModal() {
       const updated = await api.updateProfile({ username: trimmedUsername, status, bio });
       updateUser(updated);
       addToast("Profile updated", "success");
-      setProfileOpen(false);
+      onClose();
     } catch (err) {
       addToast(err instanceof Error ? err.message : "Failed to update profile", "error");
     }
@@ -56,18 +60,15 @@ export function ProfileModal() {
   };
 
   return (
-    <Modal open onClose={() => setProfileOpen(false)} aria-label="Edit profile">
+    <Modal open onClose={onClose} aria-label="Edit profile">
       <div className="my-profile-panel">
         <div className="panel-header">
           <span className="panel-title">MY PROFILE</span>
           <button
             className="modal-close panel-close-btn"
-            onClick={() => setProfileOpen(false)}
+            onClick={onClose}
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
+            <X size={20} />
           </button>
         </div>
         <div className="my-profile-content">

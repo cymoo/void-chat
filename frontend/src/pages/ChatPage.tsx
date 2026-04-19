@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuthStore } from "@/stores/authStore";
 import { useRoomStore } from "@/stores/roomStore";
@@ -19,9 +19,10 @@ export function ChatPage() {
     useRoomStore();
   const reset = useChatStore((s) => s.reset);
   const addToast = useUiStore((s) => s.addToast);
-  const { profileOpen, userCardUserId } = useUiStore();
+  const userCardUserId = useUiStore((s) => s.userCardUserId);
   const privateChatUserId = useChatStore((s) => s.privateChatUserId);
   const roomIdNum = Number(roomId);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   const onKicked = useCallback(
     (reason: string) => {
@@ -95,9 +96,10 @@ export function ChatPage() {
         currentUser={user!}
         onDisconnect={handleDisconnect}
         onOpenMailbox={handleOpenMailbox}
+        onOpenProfile={() => setProfileOpen(true)}
         wsStatus={status}
       />
-      {profileOpen && <ProfileModal />}
+      {profileOpen && <ProfileModal onClose={() => setProfileOpen(false)} />}
       {userCardUserId !== null && <UserCard send={send} />}
       {privateChatUserId !== null && <PrivateChat send={send} currentUser={user!} />}
     </div>

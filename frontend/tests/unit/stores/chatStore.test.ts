@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { useChatStore, getOldestMessageId } from "@/stores/chatStore";
+import { useChatStore } from "@/stores/chatStore";
 import type { ChatMessage, User } from "@/api/types";
 
 describe("chatStore", () => {
@@ -396,18 +396,6 @@ describe("chatStore", () => {
     useChatStore.setState({ wsError: "some error" });
     useChatStore.getState().clearWsError();
     expect(useChatStore.getState().wsError).toBeNull();
-  });
-
-  it("getOldestMessageId returns null for empty messages", () => {
-    expect(getOldestMessageId([])).toBeNull();
-  });
-
-  it("getOldestMessageId returns first message id", () => {
-    const msgs = [
-      { id: 5, messageType: "text" } as unknown as ChatMessage,
-      { id: 10, messageType: "text" } as unknown as ChatMessage,
-    ];
-    expect(getOldestMessageId(msgs)).toBe(5);
   });
 
   it("setMessages replaces messages and sets hasMore", () => {

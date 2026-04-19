@@ -1,14 +1,19 @@
 import { useCallback, useMemo, useState } from "react";
 import * as api from "@/api/client";
 import { formatDate } from "@/lib/utils";
-import type { User } from "@/api/types";
+import type { PersonaConfig, User } from "@/api/types";
 import type { AdminTabProps } from "./types";
 import { isMutedUser } from "./types";
 
-const PLATFORM_ROLE_OPTIONS = ["user", "platform_admin", "super_admin"] as const;
+const ALL_ROLE_OPTIONS = ["user", "platform_admin", "super_admin", "bot"] as const;
 
 type UserStateFilter = "all" | "active" | "muted" | "disabled";
-type UserRoleFilter = "all" | (typeof PLATFORM_ROLE_OPTIONS)[number];
+type UserRoleFilter = "all" | "bot" | (typeof ALL_ROLE_OPTIONS)[number];
+
+interface AdminUserManagementTabProps extends AdminTabProps {
+  personaConfigs: Record<number, PersonaConfig>;
+  onEditUser: (user: User) => void;
+}
 
 export function AdminUserManagementTab({
   dashboard,
@@ -17,7 +22,9 @@ export function AdminUserManagementTab({
   addToast,
   confirm,
   updateUserInDashboard,
-}: AdminTabProps) {
+  personaConfigs,
+  onEditUser,
+}: AdminUserManagementTabProps) {
   const users = useMemo(() => dashboard.users ?? [], [dashboard]);
   const [roleDrafts, setRoleDrafts] = useState<Record<number, string>>(
     () => Object.fromEntries(users.map((u) => [u.id, u.role ?? "user"])),
@@ -164,6 +171,7 @@ export function AdminUserManagementTab({
           <option value="user">user</option>
           <option value="platform_admin">platform_admin</option>
           <option value="super_admin">super_admin</option>
+          <option value="bot">bot</option>
         </select>
         <select
           className="terminal-select admin-filter-select"
@@ -201,14 +209,31 @@ export function AdminUserManagementTab({
             ) : (
               filteredUsers.map((user) => {
                 const currentRole = user.role ?? "user";
+                const isBot = currentRole === "bot";
                 const draftRole = roleDrafts[user.id] ?? currentRole;
                 const isSelf = user.id === currentUser?.id;
                 const muted = isMutedUser(user);
                 const disabled = Boolean(user.isDisabled);
                 const busy = Boolean(busyUserIds[user.id]);
+                const personaConfig = personaConfigs[user.id];
                 return (
                   <tr key={user.id}>
-                    <td>{user.username}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="admin-username-btn"
+                        onClick={() => onEditUser(user)}
+                      >
+                        {isBot ? (
+                          <>🤖 {personaConfig?.displayName ?? user.username}</>
+                        ) : (
+                          user.username
+                        )}
+                        {isBot && (
+                          <span className="admin-username-sub">@{user.username}</span>
+                        )}
+                      </button>
+                    </td>
                     <td>
                       <select
                         className="admin-role-select"
@@ -220,8 +245,12 @@ export function AdminUserManagementTab({
                           void handleRoleChange(user, nextRole);
                         }}
                       >
-                        {PLATFORM_ROLE_OPTIONS.map((role) => (
-                          <option key={role} value={role}>
+                        {ALL_ROLE_OPTIONS.map((role) => (
+                          <option
+                            key={role}
+                            value={role}
+                            disabled={isBot ? role !== "bot" : role === "bot"}
+                          >
                             {role}
                           </option>
                         ))}
@@ -242,21 +271,33 @@ export function AdminUserManagementTab({
                         <button
                           type="button"
                           className="admin-mini-btn"
-                          disabled={!canManagePlatformUsers || isSelf || busy || disabled}
-                          onClick={() => void toggleMuted(user)}
+                          disabled={!canManagePlatformUsers}
+                          onClick={() => onEditUser(user)}
                         >
-                          {muted ? "UNMUTE" : "MUTE"}
+                          EDIT
                         </button>
-                        <button
-                          type="button"
-                          className={`admin-mini-btn ${
-                            disabled ? "admin-mini-btn-ok" : "admin-mini-btn-danger"
-                          }`}
-                          disabled={!canManagePlatformUsers || isSelf || busy}
-                          onClick={() => void toggleDisabled(user)}
-                        >
-                          {disabled ? "ENABLE" : "DISABLE"}
-                        </button>
+                        {!isBot && (
+                          <>
+                            <button
+                              type="button"
+                              className="admin-mini-btn"
+                              disabled={!canManagePlatformUsers || isSelf || busy || disabled}
+                              onClick={() => void toggleMuted(user)}
+                            >
+                              {muted ? "UNMUTE" : "MUTE"}
+                            </button>
+                            <button
+                              type="button"
+                              className={`admin-mini-btn ${
+                                disabled ? "admin-mini-btn-ok" : "admin-mini-btn-danger"
+                              }`}
+                              disabled={!canManagePlatformUsers || isSelf || busy}
+                              onClick={() => void toggleDisabled(user)}
+                            >
+                              {disabled ? "ENABLE" : "DISABLE"}
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

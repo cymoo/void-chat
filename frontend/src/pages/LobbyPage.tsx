@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { User as UserIcon, MessageSquare, Plus, LayoutList, LogOut, Pencil, Trash2 } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { useChatStore } from "@/stores/chatStore";
@@ -20,18 +21,15 @@ export function LobbyPage() {
   const logout = useAuthStore((s) => s.logout);
   const { rooms, loading, fetchRooms, joinRoom, deleteRoom } = useRoomStore();
   const privateChatUserId = useChatStore((s) => s.privateChatUserId);
-  const {
-    profileOpen,
-    setProfileOpen,
-    createRoomOpen,
-    setCreateRoomOpen,
-  } = useUiStore();
+  const unreadDmCount = useChatStore((s) => s.unreadDmCount);
+  const setUnreadDmCount = useChatStore((s) => s.setUnreadDmCount);
   const addToast = useUiStore((s) => s.addToast);
   const confirm = useUiStore((s) => s.confirm);
 
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [createRoomOpen, setCreateRoomOpen] = useState(false);
   const [passwordRoom, setPasswordRoom] = useState<RoomInfo | null>(null);
   const [editingRoom, setEditingRoom] = useState<RoomInfo | null>(null);
-  const [dmUnreadCount, setDmUnreadCount] = useState(0);
   const { send: sendDirectDm } = useDirectWebSocket({ token: token ?? "" });
   const canAccessAdminDashboard = Boolean(
     user?.capabilities?.canAccessAdminDashboard ||
@@ -42,13 +40,13 @@ export function LobbyPage() {
   const loadUnreadDmCount = useCallback(async () => {
     try {
       const unread = await api.getDmInbox();
-      setDmUnreadCount(
+      setUnreadDmCount(
         unread.reduce((sum, item) => sum + Math.max(0, item.unreadCount), 0),
       );
     } catch {
-      setDmUnreadCount(0);
+      setUnreadDmCount(0);
     }
-  }, []);
+  }, [setUnreadDmCount]);
 
   useEffect(() => {
     fetchRooms();
@@ -119,10 +117,7 @@ export function LobbyPage() {
               title="My Profile"
               onClick={() => setProfileOpen(true)}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                <circle cx="12" cy="7" r="4" />
-              </svg>
+              <UserIcon size={14} />
               <span className="btn-label">PROFILE</span>
             </button>
             <button
@@ -134,21 +129,16 @@ export function LobbyPage() {
                 })
               }
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              </svg>
+              <MessageSquare size={14} />
               <span className="btn-label">MAILBOX</span>
-              {dmUnreadCount > 0 && <span className="dm-unread-count">{dmUnreadCount}</span>}
+              {unreadDmCount > 0 && <span className="dm-unread-count">{unreadDmCount}</span>}
             </button>
             <button
               className="icon-btn lobby-action-btn"
               title="Create Room"
               onClick={() => setCreateRoomOpen(true)}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
+              <Plus size={14} />
               <span className="btn-label">NEW ROOM</span>
             </button>
             {canAccessAdminDashboard && (
@@ -157,12 +147,7 @@ export function LobbyPage() {
                 title="Admin Dashboard"
                 onClick={() => navigate("/admin")}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="3" y="3" width="18" height="18" rx="2" />
-                  <path d="M9 8h6" />
-                  <path d="M9 12h6" />
-                  <path d="M9 16h6" />
-                </svg>
+                <LayoutList size={14} />
                 <span className="btn-label">ADMIN</span>
               </button>
             )}
@@ -171,11 +156,7 @@ export function LobbyPage() {
               title="Logout"
               onClick={handleLogout}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                <polyline points="16 17 21 12 16 7" />
-                <line x1="21" y1="12" x2="9" y2="12" />
-              </svg>
+              <LogOut size={14} />
               <span className="btn-label">LOGOUT</span>
             </button>
           </div>
@@ -216,10 +197,7 @@ export function LobbyPage() {
                         onKeyDown={(e) => e.stopPropagation()}
                         onClick={(e) => handleEditRoom(e, room)}
                       >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M12 20h9" />
-                          <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                        </svg>
+                        <Pencil size={14} />
                       </button>
                       <button
                         className="icon-btn room-delete-btn"
@@ -227,13 +205,7 @@ export function LobbyPage() {
                         onKeyDown={(e) => e.stopPropagation()}
                         onClick={(e) => handleDeleteRoom(e, room)}
                       >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polyline points="3 6 5 6 21 6" />
-                          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                          <path d="M10 11v6" />
-                          <path d="M14 11v6" />
-                          <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                        </svg>
+                        <Trash2 size={14} />
                       </button>
                     </div>
                   )}
@@ -251,14 +223,14 @@ export function LobbyPage() {
         </div>
       </div>
 
-      {createRoomOpen && <CreateRoomModal />}
+      {createRoomOpen && <CreateRoomModal onClose={() => setCreateRoomOpen(false)} />}
       {editingRoom && (
         <EditRoomModal
           room={editingRoom}
           onClose={() => setEditingRoom(null)}
         />
       )}
-      {profileOpen && <ProfileModal />}
+      {profileOpen && <ProfileModal onClose={() => setProfileOpen(false)} />}
       {privateChatUserId !== null && user && <PrivateChat send={sendDirectDm} currentUser={user} />}
       {passwordRoom && (
         <RoomPasswordModal

@@ -1,4 +1,5 @@
 import { useState, useRef, type KeyboardEvent } from "react";
+import { Search } from "lucide-react";
 import { useChatStore } from "@/stores/chatStore";
 import { useUiStore } from "@/stores/uiStore";
 import { formatTime, escapeHtml } from "@/lib/utils";
@@ -52,10 +53,7 @@ export function SearchPanel({ send }: SearchPanelProps) {
   return (
     <div className="search-bar" role="search">
       <div className="search-input-wrapper">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <circle cx="11" cy="11" r="8" />
-          <line x1="21" y1="21" x2="16.65" y2="16.65" />
-        </svg>
+        <Search size={16} />
         <input
           ref={inputRef}
           className="search-input"

@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { X } from "lucide-react";
 import type { RoomInfo } from "@/api/types";
 import { useRoomStore } from "@/stores/roomStore";
 import { useUiStore } from "@/stores/uiStore";
@@ -70,10 +71,7 @@ export function EditRoomModal({ room, onClose }: EditRoomModalProps) {
             className="modal-close panel-close-btn"
             onClick={onClose}
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
+            <X size={20} />
           </button>
         </div>
         <form className="create-room-content" onSubmit={handleSubmit}>
