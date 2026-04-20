@@ -85,7 +85,8 @@
   transition: all var(--transition-fast);
 }
 
-.emoji-btn:hover {
+.emoji-btn:hover,
+.emoji-btn-focused {
   border-color: var(--color-accent);
   background: rgba(0, 255, 65, 0.08);
 }
@@ -123,6 +124,15 @@
   font-size: 12px;
   color: var(--color-info);
   min-height: 20px;
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: opacity 0.2s ease, max-height 0.2s ease;
+}
+
+.typing-indicator.typing-visible {
+  opacity: 1;
+  max-height: 40px;
 }
 
 kbd {

@@ -147,7 +147,8 @@
 }
 
 .search-input:focus-visible {
-  outline: none;
+  outline: 2px solid var(--color-info);
+  outline-offset: 2px;
 }
 
 .dm-badge-btn {
@@ -438,6 +439,31 @@
   color: var(--color-text-muted);
   font-size: 13px;
   text-align: center;
+}
+
+.mailbox-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 60px 24px;
+  min-height: 220px;
+  justify-content: center;
+}
+
+.mailbox-empty-icon {
+  font-size: 36px;
+}
+
+.mailbox-empty-text {
+  font-size: 14px;
+  color: var(--color-text-dim);
+  letter-spacing: 2px;
+}
+
+.mailbox-empty-hint {
+  font-size: 12px;
+  color: var(--color-text-muted);
 }
 
 .modal-header {

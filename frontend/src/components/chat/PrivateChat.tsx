@@ -105,6 +105,13 @@ export function PrivateChat({ send, currentUser }: PrivateChatProps) {
   const privateMessages = useChatStore((s) => s.privateMessages);
   const closePrivateChat = useChatStore((s) => s.closePrivateChat);
 
+  // Mark messages as read when opening
+  useEffect(() => {
+    if (privateChatUserId) {
+      send({ type: "mark_read", targetUserId: privateChatUserId });
+    }
+  }, [privateChatUserId, send]);
+
   const handleClose = useCallback(() => {
     if (privateChatUserId) {
       send({ type: "mark_read", targetUserId: privateChatUserId });
@@ -115,12 +122,8 @@ export function PrivateChat({ send, currentUser }: PrivateChatProps) {
   const syncToBottom = useCallback(() => {
     const el = messagesContainerRef.current;
     if (!el) return;
-    el.scrollTop = el.scrollHeight;
     requestAnimationFrame(() => {
       el.scrollTop = el.scrollHeight;
-      requestAnimationFrame(() => {
-        el.scrollTop = el.scrollHeight;
-      });
     });
   }, []);
 

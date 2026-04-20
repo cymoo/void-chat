@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 
 // Shared interval — all subscribers share one timer
-let listeners: Set<() => void> = new Set();
+const listeners: Set<() => void> = new Set();
 let intervalId: ReturnType<typeof setInterval> | null = null;
 
 function startTicker() {

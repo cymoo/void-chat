@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useChatStore } from "@/stores/chatStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useUiStore } from "@/stores/uiStore";
@@ -31,6 +31,20 @@ function MessageItemInner({
   const confirm = useUiStore((s) => s.confirm);
   const showUserCard = useUiStore((s) => s.showUserCard);
   const currentDisplayName = useAuthStore((s) => s.user?.displayName);
+  const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close mobile actions menu on outside click
+  useEffect(() => {
+    if (!mobileActionsOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(e.target as Node)) {
+        setMobileActionsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [mobileActionsOpen]);
 
   // Re-render every minute so relative timestamps stay current
   useCurrentMinute();
@@ -47,7 +61,10 @@ function MessageItemInner({
   const withinEditWindow =
     isOwn && Date.now() - message.timestamp < EDIT_WINDOW_MS;
 
+  const hasActions = message.messageType !== "system";
+
   const handleDelete = useCallback(async () => {
+    setMobileActionsOpen(false);
     const confirmed = await confirm({
       title: "DELETE MESSAGE",
       message: "Delete this message?",
@@ -130,6 +147,39 @@ function MessageItemInner({
     return null;
   };
 
+  const actionButtons = (
+    <>
+      <button
+        className="msg-action-btn msg-action-reply"
+        onClick={() => { setReplyingTo(message); setMobileActionsOpen(false); }}
+        title="Reply"
+        aria-label="Reply to message"
+      >
+        ↩
+      </button>
+      {withinEditWindow && message.messageType === "text" && (
+        <button
+          className="msg-action-btn msg-action-edit"
+          onClick={() => { setEditingMessage(message.id); setMobileActionsOpen(false); }}
+          title="Edit"
+          aria-label="Edit message"
+        >
+          ✎
+        </button>
+      )}
+      {withinEditWindow && (
+        <button
+          className="msg-action-btn msg-action-delete"
+          onClick={handleDelete}
+          title="Delete"
+          aria-label="Delete message"
+        >
+          ✕
+        </button>
+      )}
+    </>
+  );
+
   return (
     <div className={`message${isOwn ? " message-self" : ""}${botUser ? " message-bot" : ""}`} data-message-id={message.id}>
       <div
@@ -163,36 +213,29 @@ function MessageItemInner({
           <div className="message-time" title={formatTime(message.timestamp)}>
             {formatRelativeTime(message.timestamp)}
           </div>
-          <div className="message-actions">
-            <button
-              className="msg-action-btn msg-action-reply"
-              onClick={() => setReplyingTo(message)}
-              title="Reply"
-              aria-label="Reply to message"
-            >
-              ↩
-            </button>
-            {withinEditWindow && message.messageType === "text" && (
+          {/* Desktop: hover-visible actions */}
+          {hasActions && (
+            <div className="message-actions message-actions-desktop">
+              {actionButtons}
+            </div>
+          )}
+          {/* Mobile: "more" toggle button */}
+          {hasActions && (
+            <div className="message-actions-mobile" ref={mobileMenuRef}>
               <button
-                className="msg-action-btn msg-action-edit"
-                onClick={() => setEditingMessage(message.id)}
-                title="Edit"
-                aria-label="Edit message"
+                className="msg-more-btn"
+                onClick={() => setMobileActionsOpen((o) => !o)}
+                aria-label="Message actions"
               >
-                ✎
+                ⋯
               </button>
-            )}
-            {withinEditWindow && (
-              <button
-                className="msg-action-btn msg-action-delete"
-                onClick={handleDelete}
-                title="Delete"
-                aria-label="Delete message"
-              >
-                ✕
-              </button>
-            )}
-          </div>
+              {mobileActionsOpen && (
+                <div className="mobile-actions-menu">
+                  {actionButtons}
+                </div>
+              )}
+            </div>
+          )}
         </div>
         {renderContent()}
       </div>

@@ -19,6 +19,7 @@ interface ChatViewProps {
   onOpenMailbox: () => void;
   onOpenProfile: () => void;
   wsStatus?: "connecting" | "connected" | "reconnecting" | "failed";
+  reconnectAttempt?: number;
 }
 
 export function ChatView({
@@ -29,6 +30,7 @@ export function ChatView({
   onOpenMailbox,
   onOpenProfile,
   wsStatus,
+  reconnectAttempt,
 }: ChatViewProps) {
   const users = useChatStore((s) => s.users);
   const unreadDmCount = useChatStore((s) => s.unreadDmCount);
@@ -116,7 +118,14 @@ export function ChatView({
 
       {/* Connection Status Banner — only after initial load to avoid stacking with the channel loader */}
       {initialLoaded && wsStatus === "reconnecting" && (
-        <div className="connection-banner reconnecting">⟳ RECONNECTING...</div>
+        <div className="connection-banner reconnecting">
+          ⟳ RECONNECTING{reconnectAttempt ? ` (${reconnectAttempt}/5)` : ""}...
+        </div>
+      )}
+      {initialLoaded && wsStatus === "failed" && (
+        <div className="connection-banner failed">
+          ✕ CONNECTION LOST — Please refresh
+        </div>
       )}
       {initialLoaded && wsStatus === "connecting" && (
         <div className="connection-banner connecting">CONNECTING...</div>

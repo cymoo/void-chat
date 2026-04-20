@@ -166,7 +166,17 @@ export function LobbyPage() {
           {loading ? (
             <div className="lobby-loading">LOADING ROOMS...</div>
           ) : rooms.length === 0 ? (
-            <div className="lobby-loading">NO ROOMS AVAILABLE. CREATE ONE!</div>
+            <div className="lobby-empty-state">
+              <div className="lobby-empty-icon">📡</div>
+              <div className="lobby-empty-text">NO ROOMS AVAILABLE</div>
+              <button
+                className="connect-btn"
+                onClick={() => setCreateRoomOpen(true)}
+              >
+                <span className="btn-text">CREATE ROOM &gt;&gt;</span>
+                <span className="btn-scan" />
+              </button>
+            </div>
           ) : (
             rooms.map((room) => (
               // Platform admins can manage any room; creators can always manage their own room.

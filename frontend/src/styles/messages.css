@@ -282,15 +282,56 @@
    MESSAGE ACTIONS (Edit/Delete/Reply buttons)
    ============================================ */
 
-.message-actions {
+.message-actions-desktop {
   visibility: hidden;
   display: flex;
   gap: 4px;
   margin-left: auto;
 }
 
-.message:hover .message-actions {
+.message:hover .message-actions-desktop {
   visibility: visible;
+}
+
+.message-actions-mobile {
+  display: none;
+  position: relative;
+  margin-left: auto;
+}
+
+.msg-more-btn {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-dim);
+  font-size: 16px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  line-height: 1;
+  transition: all var(--transition-fast);
+  min-width: 32px;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.msg-more-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.mobile-actions-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  display: flex;
+  gap: 4px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-bright);
+  padding: 6px;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
 .msg-action-btn {

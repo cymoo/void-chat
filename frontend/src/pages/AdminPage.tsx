@@ -121,7 +121,7 @@ export function AdminPage() {
                 </button>
               ))}
             </div>
-            <div className="admin-tab-content">
+            <div className="admin-tab-content" role="tabpanel">
               {activeTab === "overview" && <AdminOverviewTab dashboard={dashboard} />}
               {activeTab === "users" && (
                 <AdminUserManagementTab

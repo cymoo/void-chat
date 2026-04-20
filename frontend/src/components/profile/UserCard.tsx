@@ -115,17 +115,10 @@ export function UserCard({ send }: UserCardProps) {
                 className="profile-action-btn"
                 onClick={() => {
                   hideUserCard();
-                  const input = document.querySelector(".message-input") as HTMLTextAreaElement;
-                  if (input) {
-                    const mentionName = profile.displayName ?? profile.username;
-                    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-                      window.HTMLTextAreaElement.prototype,
-                      "value",
-                    )?.set;
-                    nativeInputValueSetter?.call(input, input.value + `@${mentionName} `);
-                    input.dispatchEvent(new Event("input", { bubbles: true }));
-                    input.focus();
-                  }
+                  const mentionName = profile.displayName ?? profile.username;
+                  window.dispatchEvent(
+                    new CustomEvent("void-insert-mention", { detail: mentionName }),
+                  );
                 }}
               >
                 @Mention

@@ -48,6 +48,8 @@ export function AdminControlTab({
     try {
       const created = await api.createAdminInvite(parsedMaxUses, parsedExpires);
       setLatestInviteCode(created.code);
+      // Auto-copy to clipboard
+      try { await navigator.clipboard.writeText(created.code); } catch { /* noop */ }
       setDashboard((prev) =>
         prev
           ? {
@@ -56,7 +58,7 @@ export function AdminControlTab({
             }
           : prev,
       );
-      addToast("Invite link created", "success");
+      addToast("Invite link created — code copied to clipboard", "success");
     } catch (e) {
       const message = e instanceof Error ? e.message : "Failed to create invite";
       addToast(message, "error");

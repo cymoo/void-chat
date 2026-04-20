@@ -314,5 +314,33 @@
     right: 12px;
     left: 12px;
   }
+
+  /* Mobile message actions */
+  .message-actions-desktop {
+    display: none !important;
+  }
+
+  .message-actions-mobile {
+    display: flex;
+  }
+
+  /* Touch targets — min 44px for interactive elements */
+  .icon-btn,
+  .msg-action-btn,
+  .modal-close,
+  .panel-close-btn,
+  .kick-btn,
+  .dm-btn {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .msg-more-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
 }
 

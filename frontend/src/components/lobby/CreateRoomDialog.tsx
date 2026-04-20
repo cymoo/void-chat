@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { X } from "lucide-react";
+import { X, Eye, EyeOff } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useRoomStore } from "@/stores/roomStore";
 import { useUiStore } from "@/stores/uiStore";
@@ -18,6 +18,7 @@ export function CreateRoomModal({ onClose }: CreateRoomModalProps) {
   const [description, setDescription] = useState("");
   const [visibility, setVisibility] = useState<"public" | "private">("public");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [maxUsers, setMaxUsers] = useState("100");
 
   const handleSubmit = async (e: FormEvent) => {
@@ -117,13 +118,23 @@ export function CreateRoomModal({ onClose }: CreateRoomModalProps) {
           {visibility === "private" && (
             <div className="input-group">
               <label className="input-label">&gt; ROOM PASSWORD</label>
-              <input
-                className="terminal-input"
-                type="password"
-                placeholder="Room password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
+              <div className="password-input-wrap">
+                <input
+                  className="terminal-input"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Room password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="password-toggle-btn"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
           )}
           <button className="connect-btn" type="submit">

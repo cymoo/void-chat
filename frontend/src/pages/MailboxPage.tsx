@@ -111,7 +111,11 @@ export function MailboxPage() {
             {loading ? (
               <div className="mailbox-empty">LOADING MAILBOX...</div>
             ) : entries.length === 0 ? (
-              <div className="mailbox-empty">NO PRIVATE CONVERSATIONS YET</div>
+              <div className="mailbox-empty-state">
+                <div className="mailbox-empty-icon">💬</div>
+                <div className="mailbox-empty-text">NO PRIVATE CONVERSATIONS YET</div>
+                <div className="mailbox-empty-hint">Click on a user in a chat room to start a DM</div>
+              </div>
             ) : (
               entries.map((entry) => {
                 const sentByCurrentUser = entry.latestMessageSenderId === user?.id;

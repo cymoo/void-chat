@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { X } from "lucide-react";
+import { X, Eye, EyeOff } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 
 interface RoomPasswordModalProps {
@@ -10,6 +10,7 @@ interface RoomPasswordModalProps {
 
 export function RoomPasswordModal({ onJoin, onClose }: RoomPasswordModalProps) {
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -31,15 +32,25 @@ export function RoomPasswordModal({ onJoin, onClose }: RoomPasswordModalProps) {
           </p>
           <div className="input-group">
             <label className="input-label">&gt; PASSWORD</label>
-            <input
-              className="terminal-input"
-              type="password"
-              placeholder="Enter room password"
-              autoComplete="off"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoFocus
-            />
+            <div className="password-input-wrap">
+              <input
+                className="terminal-input"
+                type={showPassword ? "text" : "password"}
+                placeholder="Enter room password"
+                autoComplete="off"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoFocus
+              />
+              <button
+                type="button"
+                className="password-toggle-btn"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
           </div>
           <div className="room-password-actions">
             <button className="icon-btn" type="button" onClick={onClose}>

@@ -11,7 +11,7 @@ describe("EmojiPicker", () => {
 
   it("does not render grid when open is false", () => {
     render(<EmojiPicker open={false} onToggle={vi.fn()} onSelect={vi.fn()} />);
-    expect(screen.queryByRole("menu", { name: "Emoji picker" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("grid", { name: "Emoji picker" })).not.toBeInTheDocument();
   });
 
   it("opens emoji grid when toggle clicked", () => {
@@ -27,9 +27,9 @@ describe("EmojiPicker", () => {
   it("renders emoji grid with all emojis when open", () => {
     render(<EmojiPicker open={true} onToggle={vi.fn()} onSelect={vi.fn()} />);
 
-    expect(screen.getByRole("menu", { name: "Emoji picker" })).toBeInTheDocument();
+    expect(screen.getByRole("grid", { name: "Emoji picker" })).toBeInTheDocument();
     const emojiButtons = screen.getAllByRole("button").filter(
-      (btn) => btn.className === "emoji-btn",
+      (btn) => btn.className.includes("emoji-btn"),
     );
     expect(emojiButtons).toHaveLength(COMMON_EMOJIS.length);
   });

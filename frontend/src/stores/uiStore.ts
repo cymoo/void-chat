@@ -70,9 +70,10 @@ export const useUiStore = create<UiState>((set) => ({
   addToast: (message, type = "info") => {
     const id = `toast-${++toastCounter}`;
     set((s) => ({ toasts: [...s.toasts, { id, message, type }] }));
+    const duration = type === "error" ? 8000 : 4000;
     setTimeout(() => {
       set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) }));
-    }, 4000);
+    }, duration);
   },
 
   removeToast: (id) =>

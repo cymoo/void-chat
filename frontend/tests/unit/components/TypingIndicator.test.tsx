@@ -8,9 +8,12 @@ describe("TypingIndicator", () => {
     useChatStore.setState({ typingUsers: [] });
   });
 
-  it("renders nothing when no one is typing", () => {
+  it("renders empty container when no one is typing", () => {
     const { container } = render(<TypingIndicator currentUserId={1} />);
-    expect(container.firstChild).toBeNull();
+    const el = container.firstChild as HTMLElement;
+    expect(el).not.toBeNull();
+    expect(el.textContent).toBe("");
+    expect(el.classList.contains("typing-visible")).toBe(false);
   });
 
   it("shows '<name> is typing...' for one other user", () => {
@@ -49,6 +52,8 @@ describe("TypingIndicator", () => {
       typingUsers: [{ userId: 1, username: "me" }],
     });
     const { container } = render(<TypingIndicator currentUserId={1} />);
-    expect(container.firstChild).toBeNull();
+    const el = container.firstChild as HTMLElement;
+    expect(el.textContent).toBe("");
+    expect(el.classList.contains("typing-visible")).toBe(false);
   });
 });

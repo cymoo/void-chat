@@ -7,6 +7,8 @@ interface AuthState {
   user: User | null;
   loading: boolean;
   error: string | null;
+  /** True once the initial checkAuth call has resolved (success or failure). */
+  authChecked: boolean;
 
   login: (username: string, password: string) => Promise<void>;
   register: (username: string, password: string, inviteCode?: string) => Promise<void>;
@@ -21,6 +23,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   user: JSON.parse(localStorage.getItem("currentUser") ?? "null"),
   loading: false,
   error: null,
+  authChecked: !localStorage.getItem("authToken"),
 
   login: async (username, password) => {
     set({ loading: true, error: null });
@@ -61,16 +64,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   checkAuth: async () => {
     const { token } = get();
-    if (!token) return;
+    if (!token) {
+      set({ authChecked: true });
+      return;
+    }
     set({ loading: true });
     try {
       const user = await api.getMe();
       localStorage.setItem("currentUser", JSON.stringify(user));
-      set({ user, loading: false });
+      set({ user, loading: false, authChecked: true });
     } catch {
       localStorage.removeItem("authToken");
       localStorage.removeItem("currentUser");
-      set({ token: null, user: null, loading: false });
+      set({ token: null, user: null, loading: false, authChecked: true });
     }
   },
 

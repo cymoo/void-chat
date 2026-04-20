@@ -33,6 +33,8 @@ export function AdminUserManagementTab({
   const [userQuery, setUserQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<UserRoleFilter>("all");
   const [stateFilter, setStateFilter] = useState<UserStateFilter>("all");
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 25;
 
   const setUserBusy = useCallback((userId: number, busy: boolean) => {
     setBusyUserIds((prev) => {
@@ -57,10 +59,28 @@ export function AdminUserManagementTab({
     });
   }, [roleFilter, stateFilter, userQuery, users]);
 
+  // Reset page when filters change
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
+  const safePageIndex = Math.min(page, totalPages - 1);
+  const pagedUsers = filteredUsers.slice(safePageIndex * PAGE_SIZE, (safePageIndex + 1) * PAGE_SIZE);
+
   const handleRoleChange = useCallback(
     async (user: User, nextRole: string) => {
       const currentRole = user.role ?? "user";
       if (nextRole === currentRole) return;
+
+      const confirmed = await confirm({
+        title: "CHANGE ROLE",
+        message: `Change ${user.username}'s role from ${currentRole} to ${nextRole}?`,
+        confirmText: "CHANGE",
+        cancelText: "CANCEL",
+        tone: "danger",
+      });
+      if (!confirmed) {
+        setRoleDrafts((prev) => ({ ...prev, [user.id]: currentRole }));
+        return;
+      }
+
       setUserBusy(user.id, true);
       try {
         const updated = await api.updateAdminUserRole(user.id, nextRole);
@@ -75,7 +95,7 @@ export function AdminUserManagementTab({
         setUserBusy(user.id, false);
       }
     },
-    [addToast, setUserBusy, updateUserInDashboard],
+    [addToast, confirm, setUserBusy, updateUserInDashboard],
   );
 
   const toggleDisabled = useCallback(
@@ -160,12 +180,12 @@ export function AdminUserManagementTab({
           type="text"
           value={userQuery}
           placeholder="Search username..."
-          onChange={(e) => setUserQuery(e.target.value)}
+          onChange={(e) => { setUserQuery(e.target.value); setPage(0); }}
         />
         <select
           className="terminal-select admin-filter-select"
           value={roleFilter}
-          onChange={(e) => setRoleFilter(e.target.value as UserRoleFilter)}
+          onChange={(e) => { setRoleFilter(e.target.value as UserRoleFilter); setPage(0); }}
         >
           <option value="all">All roles</option>
           <option value="user">user</option>
@@ -176,7 +196,7 @@ export function AdminUserManagementTab({
         <select
           className="terminal-select admin-filter-select"
           value={stateFilter}
-          onChange={(e) => setStateFilter(e.target.value as UserStateFilter)}
+          onChange={(e) => { setStateFilter(e.target.value as UserStateFilter); setPage(0); }}
         >
           <option value="all">All states</option>
           <option value="active">active</option>
@@ -207,7 +227,7 @@ export function AdminUserManagementTab({
                 </td>
               </tr>
             ) : (
-              filteredUsers.map((user) => {
+              pagedUsers.map((user) => {
                 const currentRole = user.role ?? "user";
                 const isBot = currentRole === "bot";
                 const draftRole = roleDrafts[user.id] ?? currentRole;
@@ -307,6 +327,29 @@ export function AdminUserManagementTab({
           </tbody>
         </table>
       </div>
+      {totalPages > 1 && (
+        <div className="admin-pagination">
+          <button
+            type="button"
+            className="admin-mini-btn"
+            disabled={safePageIndex === 0}
+            onClick={() => setPage((p) => p - 1)}
+          >
+            ← PREV
+          </button>
+          <span className="admin-page-info">
+            PAGE {safePageIndex + 1} / {totalPages}
+          </span>
+          <button
+            type="button"
+            className="admin-mini-btn"
+            disabled={safePageIndex >= totalPages - 1}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            NEXT →
+          </button>
+        </div>
+      )}
     </section>
   );
 }

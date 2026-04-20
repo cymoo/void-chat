@@ -1,5 +1,7 @@
+import { useRef, useEffect } from "react";
 import { FileText } from "lucide-react";
 import { formatFileSize } from "@/lib/utils";
+import { attachCodeCopyHandlers } from "@/lib/markdown";
 
 const IMAGE_MAX_WIDTH = 400;
 const IMAGE_MAX_HEIGHT = 300;
@@ -38,12 +40,20 @@ function getImageDisplaySize(w?: number | null, h?: number | null) {
 
 export function MessageContent(props: MessageContentProps) {
   const textCls = props.textClassName ?? "message-text";
+  const textRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (props.type === "text" && textRef.current) {
+      attachCodeCopyHandlers(textRef.current);
+    }
+  }, [props.type, props.type === "text" ? props.contentHtml : null]);
 
   switch (props.type) {
     case "text":
       return (
         <>
           <div
+            ref={textRef}
             className={`${textCls} markdown-body`}
             dangerouslySetInnerHTML={{ __html: props.contentHtml }}
           />

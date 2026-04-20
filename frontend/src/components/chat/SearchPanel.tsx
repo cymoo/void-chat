@@ -1,4 +1,4 @@
-import { useState, useRef, type KeyboardEvent } from "react";
+import { useState, useRef, useEffect, useCallback, type KeyboardEvent } from "react";
 import { Search } from "lucide-react";
 import { useChatStore } from "@/stores/chatStore";
 import { useUiStore } from "@/stores/uiStore";
@@ -6,31 +6,71 @@ import { formatTime, escapeHtml } from "@/lib/utils";
 import { requestMessageJump } from "@/lib/messageJump";
 import type { WsSendPayload } from "@/api/types";
 
+const PAGE_SIZE = 20;
+const MAX_PREVIEW_LEN = 120;
+
 interface SearchPanelProps {
   send: (payload: WsSendPayload) => void;
 }
 
 export function SearchPanel({ send }: SearchPanelProps) {
   const [query, setQuery] = useState("");
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [page, setPage] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const debounceRef = useRef<number | null>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
   const searchResults = useChatStore((s) => s.searchResults);
   const searchQuery = useChatStore((s) => s.searchQuery);
   const clearSearch = useChatStore((s) => s.clearSearch);
   const setSearchOpen = useUiStore((s) => s.setSearchOpen);
 
-  const handleSearch = () => {
+  const totalPages = Math.max(1, Math.ceil(searchResults.length / PAGE_SIZE));
+  const pagedResults = searchResults.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  const doSearch = useCallback(
+    (q: string) => {
+      const trimmed = q.trim();
+      if (trimmed) {
+        send({ type: "search", query: trimmed });
+        setPage(0);
+        setSelectedIndex(-1);
+      }
+    },
+    [send],
+  );
+
+  // Debounced search on input change
+  useEffect(() => {
+    if (debounceRef.current !== null) window.clearTimeout(debounceRef.current);
     const q = query.trim();
-    if (q) {
-      send({ type: "search", query: q });
+    if (q.length >= 2) {
+      debounceRef.current = window.setTimeout(() => doSearch(q), 350);
     }
-  };
+    return () => {
+      if (debounceRef.current !== null) window.clearTimeout(debounceRef.current);
+    };
+  }, [query, doSearch]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
-      handleSearch();
+      e.preventDefault();
+      doSearch(query);
     }
     if (e.key === "Escape") {
       handleClose();
+    }
+    if (e.key === "ArrowDown" && pagedResults.length > 0) {
+      e.preventDefault();
+      setSelectedIndex((i) => Math.min(i + 1, pagedResults.length - 1));
+    }
+    if (e.key === "ArrowUp" && pagedResults.length > 0) {
+      e.preventDefault();
+      setSelectedIndex((i) => Math.max(i - 1, 0));
+    }
+    if ((e.key === "Enter" || e.key === " ") && selectedIndex >= 0 && pagedResults[selectedIndex]) {
+      e.preventDefault();
+      handleResultClick(pagedResults[selectedIndex]!.id);
     }
   };
 
@@ -41,14 +81,26 @@ export function SearchPanel({ send }: SearchPanelProps) {
 
   const handleResultClick = (messageId: number) => {
     requestMessageJump(messageId);
+    handleClose();
   };
+
+  const truncate = (text: string): string =>
+    text.length > MAX_PREVIEW_LEN ? text.slice(0, MAX_PREVIEW_LEN) + "…" : text;
 
   const highlightQuery = (text: string, q: string): string => {
     if (!q) return escapeHtml(text);
-    const escaped = escapeHtml(text);
+    const escaped = escapeHtml(truncate(text));
     const regex = new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
     return escaped.replace(regex, '<mark class="search-highlight">$1</mark>');
   };
+
+  // Scroll selected result into view
+  useEffect(() => {
+    if (selectedIndex < 0) return;
+    const container = resultsRef.current;
+    const items = container?.querySelectorAll(".search-result-item");
+    items?.[selectedIndex]?.scrollIntoView({ block: "nearest" });
+  }, [selectedIndex]);
 
   return (
     <div className="search-bar" role="search">
@@ -83,16 +135,20 @@ export function SearchPanel({ send }: SearchPanelProps) {
       {searchQuery && (
         <div className="search-meta">
           <span>QUERY: {searchQuery}</span>
-          <span>{searchResults.length} RESULT{searchResults.length === 1 ? "" : "S"}</span>
+          <span>
+            {searchResults.length} RESULT{searchResults.length === 1 ? "" : "S"}
+            {totalPages > 1 && ` — PAGE ${page + 1}/${totalPages}`}
+          </span>
         </div>
       )}
-      {searchResults.length > 0 && (
-        <div className="search-results" role="list">
-          {searchResults.map((msg) => (
+      {pagedResults.length > 0 && (
+        <div className="search-results" role="listbox" ref={resultsRef}>
+          {pagedResults.map((msg, i) => (
             <div
               key={msg.id}
-              className="search-result-item"
-              role="listitem"
+              className={`search-result-item${i === selectedIndex ? " search-result-selected" : ""}`}
+              role="option"
+              aria-selected={i === selectedIndex}
               onClick={() => handleResultClick(msg.id)}
             >
               <div className="search-result-header">
@@ -125,6 +181,27 @@ export function SearchPanel({ send }: SearchPanelProps) {
       {searchQuery && searchResults.length === 0 && (
         <div className="search-results">
           <div className="search-no-results">No results found</div>
+        </div>
+      )}
+      {totalPages > 1 && (
+        <div className="search-pagination">
+          <button
+            type="button"
+            className="search-page-btn"
+            disabled={page === 0}
+            onClick={() => setPage((p) => p - 1)}
+          >
+            ← PREV
+          </button>
+          <span className="search-page-info">{page + 1} / {totalPages}</span>
+          <button
+            type="button"
+            className="search-page-btn"
+            disabled={page >= totalPages - 1}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            NEXT →
+          </button>
         </div>
       )}
     </div>

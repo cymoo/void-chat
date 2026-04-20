@@ -17,6 +17,7 @@ export function MatrixRain() {
     }
 
     let animationId = 0;
+    let paused = false;
     let width = 0;
     let height = 0;
     let drops: number[] = [];
@@ -40,6 +41,8 @@ export function MatrixRain() {
     };
 
     const draw = () => {
+      if (paused) return;
+
       context.fillStyle = "rgba(10, 14, 20, 0.08)";
       context.fillRect(0, 0, width, height);
 
@@ -62,13 +65,25 @@ export function MatrixRain() {
       animationId = window.requestAnimationFrame(draw);
     };
 
+    const handleVisibility = () => {
+      if (document.hidden) {
+        paused = true;
+        window.cancelAnimationFrame(animationId);
+      } else {
+        paused = false;
+        animationId = window.requestAnimationFrame(draw);
+      }
+    };
+
     resize();
     animationId = window.requestAnimationFrame(draw);
     window.addEventListener("resize", resize);
+    document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
       window.cancelAnimationFrame(animationId);
       window.removeEventListener("resize", resize);
+      document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, []);
 

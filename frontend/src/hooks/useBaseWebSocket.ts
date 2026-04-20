@@ -32,6 +32,7 @@ export function useBaseWebSocket({
   const reconnectTimerRef = useRef<number | null>(null);
   const lastSendBlockedAtRef = useRef(0);
   const [status, setStatus] = useState<"connecting" | "connected" | "reconnecting" | "failed">("connecting");
+  const [reconnectAttempt, setReconnectAttempt] = useState(0);
 
   const handleWsEvent = useChatStore((s) => s.handleWsEvent);
   const addToast = useUiStore((s) => s.addToast);
@@ -74,6 +75,7 @@ export function useBaseWebSocket({
           return;
         }
         attempts = 0;
+        setReconnectAttempt(0);
         setStatus("connected");
       };
 
@@ -104,6 +106,7 @@ export function useBaseWebSocket({
         if (attempts < 5) {
           const delay = Math.min(1000 * Math.pow(2, attempts), 16000);
           attempts++;
+          setReconnectAttempt(attempts);
           setStatus("reconnecting");
           reconnectTimerRef.current = window.setTimeout(connect, delay);
         } else {
@@ -156,5 +159,5 @@ export function useBaseWebSocket({
     }
   }, []);
 
-  return { send, status };
+  return { send, status, reconnectAttempt };
 }

@@ -6,10 +6,13 @@ import {
   type KeyboardEvent,
 } from "react";
 import { useChatStore, getMessageContent } from "@/stores/chatStore";
+import { useRoomStore } from "@/stores/roomStore";
 import { MessageInputBar } from "@/components/shared/MessageInputBar";
 import { MentionDropdown } from "@/components/shared/MentionDropdown";
 import type { MessageComposerReturn } from "@/hooks/useMessageComposer";
 import type { User, WsSendPayload } from "@/api/types";
+
+const DRAFT_PREFIX = "void-draft:";
 
 interface MessageInputProps {
   send: (payload: WsSendPayload) => void;
@@ -23,6 +26,7 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
   const setReplyingTo = useChatStore((s) => s.setReplyingTo);
   const messages = useChatStore((s) => s.messages);
   const users = useChatStore((s) => s.users);
+  const currentRoomId = useRoomStore((s) => s.currentRoomId);
 
   // Typing indicator refs
   const typingTimerRef = useRef<number | null>(null);
@@ -35,6 +39,31 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
 
   // Composer ref to access setText/focus from parent
   const composerRef = useRef<MessageComposerReturn | null>(null);
+  const draftTimerRef = useRef<number | null>(null);
+
+  // Restore draft on mount / room change
+  useEffect(() => {
+    if (!currentRoomId || editingMessageId) return;
+    const key = `${DRAFT_PREFIX}${currentRoomId}`;
+    const saved = localStorage.getItem(key);
+    if (saved) {
+      composerRef.current?.setText(saved);
+    }
+  }, [currentRoomId, editingMessageId]);
+
+  // Listen for @mention insertion from UserCard
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const mentionName = (e as CustomEvent<string>).detail;
+      const composer = composerRef.current;
+      if (composer) {
+        composer.setText(composer.text + `@${mentionName} `);
+        composer.textareaRef.current?.focus();
+      }
+    };
+    window.addEventListener("void-insert-mention", handler);
+    return () => window.removeEventListener("void-insert-mention", handler);
+  }, []);
 
   const sendTyping = useCallback(
     (isTyping: boolean) => {
@@ -77,8 +106,12 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
         typingTimerRef.current = null;
       }
       sendTyping(false);
+      // Clear draft on send
+      if (currentRoomId) {
+        localStorage.removeItem(`${DRAFT_PREFIX}${currentRoomId}`);
+      }
     },
-    [editingMessageId, send, sendTyping, setEditingMessage, setReplyingTo],
+    [editingMessageId, send, sendTyping, setEditingMessage, setReplyingTo, currentRoomId],
   );
 
   const onImageUploaded = useCallback(
@@ -123,6 +156,19 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
         sendTyping(false);
       }
 
+      // Debounced draft save
+      if (currentRoomId && !editingMessageId) {
+        if (draftTimerRef.current !== null) window.clearTimeout(draftTimerRef.current);
+        draftTimerRef.current = window.setTimeout(() => {
+          const key = `${DRAFT_PREFIX}${currentRoomId}`;
+          if (val.trim()) {
+            localStorage.setItem(key, val);
+          } else {
+            localStorage.removeItem(key);
+          }
+        }, 500);
+      }
+
       // Mention detection
       const cursorPos = textarea?.selectionStart ?? val.length;
       const textBeforeCursor = val.slice(0, cursorPos);
@@ -143,7 +189,7 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
         setMentionResults([]);
       }
     },
-    [currentUser.id, scheduleStopTyping, sendTyping, users],
+    [currentUser.id, scheduleStopTyping, sendTyping, users, currentRoomId, editingMessageId],
   );
 
   // Populate edit text
@@ -228,6 +274,11 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
     composerRef.current?.setText("");
   }, [setEditingMessage, setReplyingTo]);
 
+  const closeMention = useCallback(() => {
+    setMentionQuery(null);
+    setMentionResults([]);
+  }, []);
+
   const renderAbove = useCallback((composer: MessageComposerReturn) => (
     <>
       {/* Reply / Edit indicator */}
@@ -249,10 +300,11 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
         results={mentionResults}
         selectedIndex={mentionIndex}
         onSelect={insertMention}
+        onClose={closeMention}
         anchorEl={composer.textareaRef.current}
       />
     </>
-  ), [editingMessageId, replyingTo, mentionResults, mentionIndex, cancelIndicator, insertMention]);
+  ), [editingMessageId, replyingTo, mentionResults, mentionIndex, cancelIndicator, insertMention, closeMention]);
 
   return (
     <MessageInputBar

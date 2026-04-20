@@ -33,7 +33,7 @@ export function ProfileModal({ onClose }: ProfileModalProps) {
         addToast("Avatar updated", "success");
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "头像上传失败";
+      const msg = err instanceof Error ? err.message : "Avatar upload failed";
       addToast(msg, "error");
     } finally {
       setAvatarUploading(false);

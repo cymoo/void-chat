@@ -122,6 +122,25 @@
   animation: pulse 2s ease-in-out infinite;
 }
 
+.lobby-empty-state {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 60px 20px;
+}
+
+.lobby-empty-icon {
+  font-size: 36px;
+}
+
+.lobby-empty-text {
+  font-size: 14px;
+  color: var(--color-text-dim);
+  letter-spacing: 2px;
+}
+
 /* ============================================
    ROOM CARDS
    ============================================ */

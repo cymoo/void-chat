@@ -175,6 +175,9 @@ export function AuthPage() {
                 value={regConfirm}
                 onChange={(e) => setRegConfirm(e.target.value)}
               />
+              {regConfirm.length > 0 && regPassword !== regConfirm && (
+                <span className="field-error">Passwords do not match</span>
+              )}
             </div>
             <div className="input-group">
               <label className="input-label">

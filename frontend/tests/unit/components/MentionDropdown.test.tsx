@@ -52,4 +52,25 @@ describe("MentionDropdown", () => {
     fireEvent.click(screen.getByText("bob"));
     expect(onSelect).toHaveBeenCalledWith("bob");
   });
+
+  it("calls onClose when clicking outside the dropdown", () => {
+    const onClose = vi.fn();
+    render(
+      <div>
+        <div data-testid="outside">Outside</div>
+        <MentionDropdown results={users} selectedIndex={0} onSelect={vi.fn()} onClose={onClose} />
+      </div>,
+    );
+    fireEvent.mouseDown(screen.getByTestId("outside"));
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("does not call onClose when clicking inside the dropdown", () => {
+    const onClose = vi.fn();
+    render(
+      <MentionDropdown results={users} selectedIndex={0} onSelect={vi.fn()} onClose={onClose} />,
+    );
+    fireEvent.mouseDown(screen.getByText("alice"));
+    expect(onClose).not.toHaveBeenCalled();
+  });
 });
