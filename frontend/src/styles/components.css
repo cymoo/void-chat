@@ -14,7 +14,7 @@
 
 .toast {
   background: var(--color-bg);
-  border: 2px solid var(--color-border-bright);
+  border: var(--border-width-ui) solid var(--color-border-bright);
   padding: 16px 20px;
   min-width: 300px;
   font-size: 13px;
@@ -81,7 +81,7 @@
   align-items: center;
   gap: 10px;
   background: var(--color-surface);
-  border: 2px solid var(--color-border);
+  border: var(--border-width-ui) solid var(--color-border);
   padding: 10px 14px;
   transition:
     border-color var(--transition-fast),

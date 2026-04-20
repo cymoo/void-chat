@@ -9,25 +9,26 @@
   --color-bg: #282c34;
   --color-surface: #21252b;
   --color-surface-light: #2c313a;
-  --color-border: #3e4452;
+  --color-border: #454c5c;
   --color-border-bright: #c678dd;
-  --color-text: #abb2bf;
-  --color-text-dim: #828997;
+  --color-text: #bac3cf;
+  --color-text-dim: #8b96a5;
   --color-text-muted: #5c6370;
   --color-accent: #c678dd;
   --color-accent-2: #56b6c2;
   --color-accent-hover: #b35ecb;
   --color-warning: #e06c75;
-  --color-info: #56b6c2;
+  --color-info: #61afef;
 
   --color-accent-rgb: 198, 120, 221;
   --color-border-bright-rgb: 198, 120, 221;
   --color-bg-rgb: 40, 44, 52;
-  --color-info-rgb: 86, 182, 194;
-  --color-text-dim-rgb: 130, 137, 151;
-  --color-border-rgb: 62, 68, 82;
+  --color-info-rgb: 97, 175, 239;
+  --color-text-dim-rgb: 139, 150, 165;
+  --color-border-rgb: 69, 76, 92;
 
   --color-inset-bg: rgba(0, 0, 0, 0.22);
+  --border-width-ui: 1px;
 }
 
 /* ── Quiet Light ── */
@@ -55,25 +56,8 @@
   --color-border-rgb: 212, 208, 200;
 
   --font-display: system-ui, -apple-system, "Segoe UI", sans-serif;
-
-  /* Light theme: black overlays become near-invisible */
   --color-inset-bg: rgba(0, 0, 0, 0.04);
-}
-
-/* Fix admin card grays on quiet-light */
-[data-theme="quiet-light"] .admin-card {
-  border-color: var(--color-border);
-}
-[data-theme="quiet-light"] .admin-room-capacity-track {
-  background: var(--color-border);
-}
-[data-theme="quiet-light"] .admin-latest-invite code {
-  background: var(--color-surface-light);
-}
-[data-theme="quiet-light"] .admin-dashboard-container {
-  box-shadow:
-    0 0 0 1px rgba(var(--color-border-bright-rgb), 0.25),
-    0 4px 24px rgba(0, 0, 0, 0.08);
+  --border-width-ui: 1px;
 }
 
 /* ── Nord ── */
@@ -101,37 +85,86 @@
   --color-border-rgb: 76, 86, 106;
 
   --color-inset-bg: rgba(0, 0, 0, 0.18);
+  --border-width-ui: 1px;
 }
 
-/* ── Dracula ── */
+/* ── Teal ── */
 
-[data-theme="dracula"] {
-  --color-bg: #282a36;
-  --color-surface: #1e1f2c;
-  --color-surface-light: #44475a;
-  --color-border: #44475a;
-  --color-border-bright: #bd93f9;
-  --color-text: #f8f8f2;
-  --color-text-dim: #d9d9e3;
-  --color-text-muted: #6272a4;
-  --color-accent: #bd93f9;
-  --color-accent-2: #ff79c6;
-  --color-accent-hover: #aa7fec;
-  --color-warning: #ff5555;
-  --color-info: #8be9fd;
+[data-theme="teal"] {
+  --color-bg: #f0faf8;
+  --color-surface: #ffffff;
+  --color-surface-light: #e0f2ef;
+  --color-border: #b2d8d4;
+  --color-border-bright: #0d9488;
+  --color-text: #0f3d38;
+  --color-text-dim: #1e6e62;
+  --color-text-muted: #5a9e98;
+  --color-accent: #0d9488;
+  --color-accent-2: #0891b2;
+  --color-accent-hover: #0f766e;
+  --color-warning: #b45309;
+  --color-info: #0369a1;
 
-  --color-accent-rgb: 189, 147, 249;
-  --color-border-bright-rgb: 189, 147, 249;
-  --color-bg-rgb: 40, 42, 54;
-  --color-info-rgb: 139, 233, 253;
-  --color-text-dim-rgb: 217, 217, 227;
-  --color-border-rgb: 68, 71, 90;
+  --color-accent-rgb: 13, 148, 136;
+  --color-border-bright-rgb: 13, 148, 136;
+  --color-bg-rgb: 240, 250, 248;
+  --color-info-rgb: 3, 105, 161;
+  --color-text-dim-rgb: 30, 110, 98;
+  --color-border-rgb: 178, 216, 212;
 
-  --color-inset-bg: rgba(0, 0, 0, 0.2);
+  --font-display: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --color-inset-bg: rgba(0, 0, 0, 0.04);
+  --border-width-ui: 1px;
 }
 
-/* ── Suppress scanline / noise effects on light theme ── */
+/* ── Admin fixes for light themes ── */
 
-[data-theme="quiet-light"] {
+[data-theme="quiet-light"] .admin-card,
+[data-theme="teal"] .admin-card {
+  border-color: var(--color-border);
+}
+
+[data-theme="quiet-light"] .admin-room-capacity-track,
+[data-theme="teal"] .admin-room-capacity-track {
+  background: var(--color-border);
+}
+
+[data-theme="quiet-light"] .admin-latest-invite code,
+[data-theme="teal"] .admin-latest-invite code {
+  background: var(--color-surface-light);
+}
+
+[data-theme="quiet-light"] .admin-dashboard-container,
+[data-theme="teal"] .admin-dashboard-container {
+  box-shadow:
+    0 0 0 1px rgba(var(--color-border-bright-rgb), 0.2),
+    0 4px 24px rgba(0, 0, 0, 0.08);
+}
+
+/* ── Glow suppression for light themes ── */
+
+[data-theme="quiet-light"],
+[data-theme="teal"] {
   --glow-accent: none;
 }
+
+[data-theme="quiet-light"] .lobby-container,
+[data-theme="teal"] .lobby-container {
+  box-shadow: 0 1px 12px rgba(0, 0, 0, 0.1), 0 0 0 1px var(--color-border);
+}
+
+[data-theme="quiet-light"] .toast,
+[data-theme="teal"] .toast {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="quiet-light"] .user-profile-panel,
+[data-theme="teal"] .user-profile-panel {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="quiet-light"] .confirm-dialog,
+[data-theme="teal"] .confirm-dialog {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+}
+

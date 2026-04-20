@@ -28,6 +28,9 @@
   /* Semantic overlay: dark panels / inset surfaces */
   --color-inset-bg: rgba(0, 0, 0, 0.25);
 
+  /* UI border width: 2px for terminal brutalist look, 1px for modern themes */
+  --border-width-ui: 2px;
+
   --font-mono: "IBM Plex Mono", "Courier New", monospace;
   --font-display: "Bebas Neue", "Impact", sans-serif;
 

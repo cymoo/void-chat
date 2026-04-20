@@ -179,7 +179,7 @@
   display: flex;
   flex-direction: column;
   background: var(--color-surface);
-  border: 2px solid var(--color-border-bright);
+  border: var(--border-width-ui) solid var(--color-border-bright);
 }
 
 .dm-inbox-list {
@@ -270,7 +270,7 @@
   display: flex;
   flex-direction: column;
   background: var(--color-surface);
-  border: 2px solid var(--color-border-bright);
+  border: var(--border-width-ui) solid var(--color-border-bright);
   box-shadow: 0 0 30px rgba(var(--color-accent-rgb), 0.08);
 }
 

@@ -49,8 +49,8 @@ describe("themeStore", () => {
     expect(useThemeStore.getState().theme).toBe("quiet-light");
     setTheme("nord");
     expect(useThemeStore.getState().theme).toBe("nord");
-    setTheme("dracula");
-    expect(useThemeStore.getState().theme).toBe("dracula");
+    setTheme("teal");
+    expect(useThemeStore.getState().theme).toBe("teal");
     setTheme("terminal");
     expect(useThemeStore.getState().theme).toBe("terminal");
   });
@@ -60,10 +60,10 @@ describe("themeBootstrap (unit — via mock validation)", () => {
   it("getInitialTheme returns a valid ThemeId", async () => {
     // Un-mock for this test to use real implementation
     vi.resetModules();
-    const VALID_THEMES = ["terminal", "one-dark", "quiet-light", "nord", "dracula"];
+    const VALID_THEMES = ["terminal", "one-dark", "quiet-light", "nord", "teal"];
 
     // Simulate localStorage with a valid stored value
-    localStorage.setItem("void-chat-theme", "one-dark");
+    localStorage.setItem("void-chat-theme", "teal");
     const { getInitialTheme: realGet } = await import("@/lib/themeBootstrap");
     expect(VALID_THEMES).toContain(realGet());
     localStorage.removeItem("void-chat-theme");

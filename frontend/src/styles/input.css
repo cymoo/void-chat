@@ -4,7 +4,7 @@
 
 .input-panel {
   background: var(--color-bg);
-  border-top: 2px solid var(--color-border-bright);
+  border-top: var(--border-width-ui) solid var(--color-border-bright);
   padding: 20px 30px;
 }
 
@@ -17,7 +17,7 @@
 .message-input {
   flex: 1;
   background: var(--color-surface);
-  border: 2px solid var(--color-border);
+  border: var(--border-width-ui) solid var(--color-border);
   color: var(--color-text);
   font-family: var(--font-mono);
   font-size: 14px;
@@ -93,7 +93,7 @@
 
 .send-btn {
   background: transparent;
-  border: 2px solid var(--color-accent);
+  border: var(--border-width-ui) solid var(--color-accent);
   color: var(--color-accent);
   align-self: flex-end;
   flex-shrink: 0;

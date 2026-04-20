@@ -13,7 +13,7 @@
   width: 100%;
   max-width: 960px;
   background: var(--color-surface);
-  border: 2px solid var(--color-border-bright);
+  border: var(--border-width-ui) solid var(--color-border-bright);
   display: flex;
   flex-direction: column;
   max-height: calc(100vh - 80px);
@@ -30,7 +30,7 @@
   align-items: center;
   padding: 20px 30px;
   background: var(--color-bg);
-  border-bottom: 2px solid var(--color-border-bright);
+  border-bottom: var(--border-width-ui) solid var(--color-border-bright);
   flex-wrap: wrap;
   gap: 12px;
   position: relative;

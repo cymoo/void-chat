@@ -6,7 +6,7 @@
   width: min(1200px, 96vw);
   height: min(860px, 94vh);
   background: var(--color-surface);
-  border: 2px solid var(--color-border-bright);
+  border: var(--border-width-ui) solid var(--color-border-bright);
   box-shadow:
     0 0 0 1px rgba(var(--color-border-bright-rgb), 0.1),
     0 0 20px rgba(var(--color-border-bright-rgb), 0.15),

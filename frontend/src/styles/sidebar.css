@@ -5,7 +5,7 @@
 .users-sidebar {
   width: 280px;
   background: rgba(var(--color-bg-rgb), 0.8);
-  border-left: 2px solid var(--color-border-bright);
+  border-left: var(--border-width-ui) solid var(--color-border-bright);
   display: flex;
   flex-direction: column;
   transition:
