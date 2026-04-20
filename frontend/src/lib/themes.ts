@@ -1,4 +1,4 @@
-export type ThemeId = "terminal" | "atom-one-dark" | "material-light";
+export type ThemeId = "terminal" | "one-dark" | "quiet-light" | "nord" | "dracula";
 
 export interface Theme {
   id: ThemeId;
@@ -7,6 +7,8 @@ export interface Theme {
 
 export const THEMES: Theme[] = [
   { id: "terminal", label: "Terminal" },
-  { id: "atom-one-dark", label: "Atom One Dark" },
-  { id: "material-light", label: "Material Light" },
+  { id: "one-dark", label: "One Dark" },
+  { id: "quiet-light", label: "Quiet Light" },
+  { id: "nord", label: "Nord" },
+  { id: "dracula", label: "Dracula" },
 ];

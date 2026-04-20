@@ -112,7 +112,7 @@
 
 .admin-card {
   border: 1px solid var(--color-border);
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--color-inset-bg);
   min-height: 0;
   display: flex;
   flex-direction: column;

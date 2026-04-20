@@ -27,26 +27,30 @@ describe("themeStore", () => {
   });
 
   it("setTheme updates the store theme", () => {
-    useThemeStore.getState().setTheme("atom-one-dark");
-    expect(useThemeStore.getState().theme).toBe("atom-one-dark");
+    useThemeStore.getState().setTheme("one-dark");
+    expect(useThemeStore.getState().theme).toBe("one-dark");
   });
 
   it("setTheme calls saveTheme with the new theme", () => {
-    useThemeStore.getState().setTheme("material-light");
-    expect(saveTheme).toHaveBeenCalledWith("material-light");
+    useThemeStore.getState().setTheme("quiet-light");
+    expect(saveTheme).toHaveBeenCalledWith("quiet-light");
   });
 
   it("setTheme calls applyTheme with the new theme", () => {
-    useThemeStore.getState().setTheme("atom-one-dark");
-    expect(applyTheme).toHaveBeenCalledWith("atom-one-dark");
+    useThemeStore.getState().setTheme("one-dark");
+    expect(applyTheme).toHaveBeenCalledWith("one-dark");
   });
 
-  it("can cycle through all three themes", () => {
+  it("can cycle through all five themes", () => {
     const { setTheme } = useThemeStore.getState();
-    setTheme("atom-one-dark");
-    expect(useThemeStore.getState().theme).toBe("atom-one-dark");
-    setTheme("material-light");
-    expect(useThemeStore.getState().theme).toBe("material-light");
+    setTheme("one-dark");
+    expect(useThemeStore.getState().theme).toBe("one-dark");
+    setTheme("quiet-light");
+    expect(useThemeStore.getState().theme).toBe("quiet-light");
+    setTheme("nord");
+    expect(useThemeStore.getState().theme).toBe("nord");
+    setTheme("dracula");
+    expect(useThemeStore.getState().theme).toBe("dracula");
     setTheme("terminal");
     expect(useThemeStore.getState().theme).toBe("terminal");
   });
@@ -56,10 +60,10 @@ describe("themeBootstrap (unit — via mock validation)", () => {
   it("getInitialTheme returns a valid ThemeId", async () => {
     // Un-mock for this test to use real implementation
     vi.resetModules();
-    const VALID_THEMES = ["terminal", "atom-one-dark", "material-light"];
+    const VALID_THEMES = ["terminal", "one-dark", "quiet-light", "nord", "dracula"];
 
     // Simulate localStorage with a valid stored value
-    localStorage.setItem("void-chat-theme", "atom-one-dark");
+    localStorage.setItem("void-chat-theme", "one-dark");
     const { getInitialTheme: realGet } = await import("@/lib/themeBootstrap");
     expect(VALID_THEMES).toContain(realGet());
     localStorage.removeItem("void-chat-theme");
@@ -82,8 +86,8 @@ describe("themeBootstrap (unit — via mock validation)", () => {
 
   it("applyTheme is called with the correct theme when setTheme is used", () => {
     // applyTheme DOM mutation is a one-liner tested indirectly via themeStore
-    useThemeStore.getState().setTheme("material-light");
-    expect(applyTheme).toHaveBeenCalledWith("material-light");
+    useThemeStore.getState().setTheme("quiet-light");
+    expect(applyTheme).toHaveBeenCalledWith("quiet-light");
     expect(document.documentElement.getAttribute("data-theme")).toBeNull(); // mock doesn't mutate DOM
   });
 });

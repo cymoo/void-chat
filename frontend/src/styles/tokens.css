@@ -25,6 +25,9 @@
   --color-text-dim-rgb: 74, 157, 95;
   --color-border-rgb: 31, 41, 55;
 
+  /* Semantic overlay: dark panels / inset surfaces */
+  --color-inset-bg: rgba(0, 0, 0, 0.25);
+
   --font-mono: "IBM Plex Mono", "Courier New", monospace;
   --font-display: "Bebas Neue", "Impact", sans-serif;
 
