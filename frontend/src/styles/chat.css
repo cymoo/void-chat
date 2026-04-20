@@ -22,7 +22,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 20px 30px;
-  background: rgba(10, 14, 20, 0.82);
+  background: rgba(var(--color-bg-rgb), 0.82);
   border-bottom: 2px solid var(--color-border-bright);
   position: relative;
 }
@@ -137,7 +137,7 @@
 .icon-btn:hover {
   border-color: var(--color-accent);
   color: var(--color-accent);
-  box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
+  box-shadow: 0 0 10px rgba(var(--color-accent-rgb), 0.3);
 }
 
 .icon-btn:focus-visible,
@@ -271,7 +271,7 @@
   flex-direction: column;
   background: var(--color-surface);
   border: 2px solid var(--color-border-bright);
-  box-shadow: 0 0 30px rgba(0, 255, 65, 0.08);
+  box-shadow: 0 0 30px rgba(var(--color-accent-rgb), 0.08);
 }
 
 .mailbox-header {
@@ -356,7 +356,7 @@
 }
 
 .mailbox-item.unread {
-  background: rgba(0, 217, 255, 0.06);
+  background: rgba(var(--color-info-rgb), 0.06);
 }
 
 .mailbox-avatar {

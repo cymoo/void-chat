@@ -1,6 +1,7 @@
 /* VOID.CHAT — Brutalist Terminal Aesthetic */
 
 @import "./styles/tokens.css";
+@import "./styles/themes.css";
 @import "./styles/effects.css";
 @import "./styles/base.css";
 @import "./styles/auth.css";

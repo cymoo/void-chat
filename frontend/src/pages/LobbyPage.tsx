@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { User as UserIcon, MessageSquare, Plus, LayoutList, LogOut, Pencil, Trash2 } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { useChatStore } from "@/stores/chatStore";
 import { useUiStore } from "@/stores/uiStore";
+import { useThemeStore } from "@/stores/themeStore";
+import { THEMES } from "@/lib/themes";
+import { Select } from "@/components/ui/Select";
 import { useDirectWebSocket } from "@/hooks/useDirectWebSocket";
 import { CreateRoomModal } from "@/components/lobby/CreateRoomDialog";
 import { EditRoomModal } from "@/components/lobby/EditRoomDialog";
@@ -25,6 +28,12 @@ export function LobbyPage() {
   const setUnreadDmCount = useChatStore((s) => s.setUnreadDmCount);
   const addToast = useUiStore((s) => s.addToast);
   const confirm = useUiStore((s) => s.confirm);
+  const theme = useThemeStore((s) => s.theme);
+  const setTheme = useThemeStore((s) => s.setTheme);
+  const themeOptions = useMemo(
+    () => THEMES.map((t) => ({ value: t.id, label: t.label })),
+    [],
+  );
 
   const [profileOpen, setProfileOpen] = useState(false);
   const [createRoomOpen, setCreateRoomOpen] = useState(false);
@@ -151,6 +160,15 @@ export function LobbyPage() {
                 <span className="btn-label">ADMIN</span>
               </button>
             )}
+            <div className="lobby-theme-wrapper">
+              <Select
+                value={theme}
+                onChange={setTheme}
+                options={themeOptions}
+                aria-label="Theme"
+                className="lobby-theme-trigger"
+              />
+            </div>
             <button
               className="icon-btn lobby-action-btn"
               title="Logout"

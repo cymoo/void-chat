@@ -68,7 +68,7 @@
 .select-trigger:focus {
   outline: none;
   border-color: var(--color-border-bright);
-  box-shadow: 0 0 8px rgba(46, 204, 113, 0.3);
+  box-shadow: 0 0 8px rgba(var(--color-border-bright-rgb), 0.3);
 }
 
 .select-trigger:disabled {

@@ -19,7 +19,7 @@
   min-width: 300px;
   font-size: 13px;
   animation: toastSlide 0.3s ease-out;
-  box-shadow: 0 0 20px rgba(46, 204, 113, 0.3);
+  box-shadow: 0 0 20px rgba(var(--color-border-bright-rgb), 0.3);
   display: flex;
   align-items: flex-start;
   gap: 10px;
@@ -90,7 +90,7 @@
 
 .search-input-wrapper:focus-within {
   border-color: var(--color-border-bright);
-  box-shadow: 0 0 10px rgba(46, 204, 113, 0.3);
+  box-shadow: 0 0 10px rgba(var(--color-border-bright-rgb), 0.3);
 }
 
 .search-input-wrapper svg {
@@ -189,7 +189,7 @@
 }
 
 .search-highlight {
-  background: rgba(0, 255, 65, 0.2);
+  background: rgba(var(--color-accent-rgb), 0.2);
   color: var(--color-accent);
   padding: 0 2px;
 }
@@ -525,9 +525,9 @@
 }
 
 .connection-banner.connecting {
-  background: rgba(0, 217, 255, 0.1);
+  background: rgba(var(--color-info-rgb), 0.1);
   color: var(--color-info);
-  border-bottom: 1px solid rgba(0, 217, 255, 0.2);
+  border-bottom: 1px solid rgba(var(--color-info-rgb), 0.2);
 }
 
 /* ============================================

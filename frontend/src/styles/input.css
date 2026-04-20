@@ -39,7 +39,7 @@
 
 .message-input:focus {
   border-color: var(--color-border-bright);
-  box-shadow: 0 0 10px rgba(46, 204, 113, 0.3);
+  box-shadow: 0 0 10px rgba(var(--color-border-bright-rgb), 0.3);
 }
 
 .input-actions {
@@ -88,7 +88,7 @@
 .emoji-btn:hover,
 .emoji-btn-focused {
   border-color: var(--color-accent);
-  background: rgba(0, 255, 65, 0.08);
+  background: rgba(var(--color-accent-rgb), 0.08);
 }
 
 .send-btn {

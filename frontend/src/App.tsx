@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuthStore } from "@/stores/authStore";
+import { useThemeStore } from "@/stores/themeStore";
 import { AuthPage } from "@/pages/AuthPage";
 import { LobbyPage } from "@/pages/LobbyPage";
 import { ChatPage } from "@/pages/ChatPage";
@@ -43,6 +44,8 @@ export function App() {
   const user = useAuthStore((s) => s.user);
   const authChecked = useAuthStore((s) => s.authChecked);
   const checkAuth = useAuthStore((s) => s.checkAuth);
+  const theme = useThemeStore((s) => s.theme);
+  const isTerminal = theme === "terminal";
   const canAccessAdminDashboard = Boolean(
     user?.capabilities?.canAccessAdminDashboard ||
     user?.role === "platform_admin" ||
@@ -55,8 +58,8 @@ export function App() {
 
   return (
     <ErrorBoundary>
-      <MatrixRain />
-      <div className="noise-overlay" />
+      {isTerminal && <MatrixRain />}
+      {isTerminal && <div className="noise-overlay" />}
       {!authChecked ? (
         <div className="app-loading">
           <div className="matrix-loader">

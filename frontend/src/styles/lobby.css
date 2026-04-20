@@ -19,8 +19,8 @@
   max-height: calc(100vh - 80px);
   min-height: 0;
   box-shadow:
-    0 0 0 1px rgba(46, 204, 113, 0.1),
-    0 0 30px rgba(46, 204, 113, 0.15);
+    0 0 0 1px rgba(var(--color-border-bright-rgb), 0.1),
+    0 0 30px rgba(var(--color-border-bright-rgb), 0.15);
   margin: auto;
 }
 
@@ -85,6 +85,18 @@
   letter-spacing: 1px;
   font-family: var(--font-mono);
   white-space: nowrap;
+}
+
+/* Theme selector wrapper in lobby header */
+.lobby-theme-wrapper {
+  width: 156px;
+  flex-shrink: 0;
+}
+
+.lobby-theme-trigger {
+  font-size: 11px;
+  padding: 8px 10px;
+  width: 100%;
 }
 
 .lobby-rooms-grid {
@@ -174,7 +186,7 @@
 .room-card:hover {
   border-color: var(--color-accent);
   background: var(--color-surface-light);
-  box-shadow: 0 0 15px rgba(0, 255, 65, 0.2);
+  box-shadow: 0 0 15px rgba(var(--color-accent-rgb), 0.2);
   transform: translateY(-2px);
 }
 

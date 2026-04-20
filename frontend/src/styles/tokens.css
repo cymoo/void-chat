@@ -13,8 +13,17 @@
   --color-text-muted: #3d7a4e;
   --color-accent: #00ff41;
   --color-accent-2: #39ff14;
+  --color-accent-hover: #00cc34;
   --color-warning: #ff4444;
   --color-info: #00d9ff;
+
+  /* RGB component vars for rgba() usage */
+  --color-accent-rgb: 0, 255, 65;
+  --color-border-bright-rgb: 46, 204, 113;
+  --color-bg-rgb: 10, 14, 20;
+  --color-info-rgb: 0, 217, 255;
+  --color-text-dim-rgb: 74, 157, 95;
+  --color-border-rgb: 31, 41, 55;
 
   --font-mono: "IBM Plex Mono", "Courier New", monospace;
   --font-display: "Bebas Neue", "Impact", sans-serif;
