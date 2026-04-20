@@ -3,14 +3,13 @@ package persona
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import com.openai.client.OpenAIClient
+import com.openai.client.okhttp.OpenAIOkHttpClient
+import com.openai.models.chat.completions.ChatCompletionCreateParams
 import config.Env
 import model.User
 import org.slf4j.LoggerFactory
 import redis.clients.jedis.JedisPool
-import java.net.URI
-import java.net.http.HttpClient
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
 import java.time.Duration
 import java.util.concurrent.ExecutorService
 
@@ -96,9 +95,14 @@ class PersonaChatEngine(
     private val log = LoggerFactory.getLogger(PersonaChatEngine::class.java)
     private val objectMapper: ObjectMapper = jacksonObjectMapper()
 
-    private val httpClient: HttpClient = HttpClient.newBuilder()
-        .connectTimeout(Duration.ofSeconds(10))
-        .build()
+    private val openAiClient: OpenAIClient? by lazy {
+        if (llm.apiKey.isBlank()) null
+        else OpenAIOkHttpClient.builder()
+            .apiKey(llm.apiKey)
+            .baseUrl(llm.baseUrl.trimEnd('/'))
+            .timeout(Duration.ofSeconds(60))
+            .build()
+    }
 
     private val llm = LlmConfig(
         baseUrl = Env["PERSONA_LLM_BASE_URL"] ?: "https://api.openai.com/v1",
@@ -600,34 +604,29 @@ class PersonaChatEngine(
         temp: Double = llm.temperature,
         tokens: Int = llm.maxTokens
     ): String? {
-        if (llm.apiKey.isBlank()) return null
-
-        val body = mapOf(
-            "model" to llm.model,
-            "messages" to messages,
-            "temperature" to temp,
-            "max_tokens" to tokens
-        )
-
-        val request = HttpRequest.newBuilder()
-            .uri(URI.create("${llm.baseUrl.trimEnd('/')}/chat/completions"))
-            .header("Content-Type", "application/json")
-            .header("Authorization", "Bearer ${llm.apiKey}")
-            .timeout(Duration.ofSeconds(60))
-            .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body)))
-            .build()
+        val client = openAiClient ?: return null
 
         return try {
-            val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
-            if (response.statusCode() != 200) {
-                log.warn("LLM API returned status {}: {}", response.statusCode(), response.body().take(500))
-                return null
-            }
-            val responseMap: Map<String, Any> = objectMapper.readValue(response.body())
-            val choices = responseMap["choices"] as? List<*> ?: return null
-            val firstChoice = choices.firstOrNull() as? Map<*, *> ?: return null
-            val message = firstChoice["message"] as? Map<*, *> ?: return null
-            val content = (message["content"] as? String)?.trim() ?: return null
+            val params = ChatCompletionCreateParams.builder()
+                .model(llm.model)
+                .temperature(temp)
+                .maxCompletionTokens(tokens.toLong())
+                .apply {
+                    messages.forEach { msg ->
+                        when (msg["role"]) {
+                            "system" -> addSystemMessage(msg["content"]!!)
+                            "user" -> addUserMessage(msg["content"]!!)
+                            "assistant" -> addAssistantMessage(msg["content"]!!)
+                            else -> log.warn("Unknown LLM message role: {}", msg["role"])
+                        }
+                    }
+                }
+                .build()
+
+            val completion = client.chat().completions().create(params)
+            val content = completion.choices().firstOrNull()
+                ?.message()?.content()?.orElse(null)?.trim()
+                ?: return null
             stripThinkingTags(content)
         } catch (e: Exception) {
             log.error("LLM API call failed", e)
