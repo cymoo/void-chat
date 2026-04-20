@@ -108,7 +108,7 @@ class PersonaChatEngine(
         temperature = Env["PERSONA_TEMPERATURE"]?.toDoubleOrNull() ?: 0.8
     )
     private val autoEngage = Env["PERSONA_AUTO_ENGAGE"]?.toBooleanStrictOrNull() ?: false
-    private val contextWindow = Env["PERSONA_CONTEXT_WINDOW"]?.toIntOrNull() ?: 20
+    private val contextWindow = Env["PERSONA_CONTEXT_WINDOW"]?.toIntOrNull() ?: 30
     val botSuffix: String = Env["PERSONA_BOT_SUFFIX"] ?: "_bot"
 
     companion object {
@@ -346,7 +346,7 @@ class PersonaChatEngine(
         val response = callLlm(
             messages = listOf(mapOf("role" to "user", "content" to validationPrompt(name, personality))),
             temp = 0.3,
-            tokens = 1024
+            tokens = 8192
         ) ?: return null
 
         return try {
@@ -637,7 +637,10 @@ class PersonaChatEngine(
 
     /** Strip `<think>...</think>` blocks emitted by reasoning models (e.g. DeepSeek-R1). */
     private fun stripThinkingTags(text: String): String {
-        return text.replace(Regex("<think>[\\s\\S]*?</think>"), "").trim()
+        val tag = "</think>"
+        val idx = text.lastIndexOf(tag)
+        return if (idx >= 0) text.substring(idx + tag.length).trim()
+        else text.trim()
     }
 
     /** Extract a JSON object from LLM text that may be wrapped in markdown fences or prose. */

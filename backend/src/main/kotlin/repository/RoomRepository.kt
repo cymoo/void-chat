@@ -36,18 +36,16 @@ class RoomRepository(private val dsl: DSLContext) {
         creatorId: Int? = null,
         maxUsers: Int = 100
     ): Room {
-        val id = dsl.insertInto(ROOMS)
+        return dsl.insertInto(ROOMS)
             .set(ROOMS.NAME, name)
             .set(ROOMS.DESCRIPTION, description)
             .set(ROOMS.IS_PRIVATE, isPrivate)
             .set(ROOMS.PASSWORD_HASH, passwordHash)
             .set(ROOMS.CREATOR_ID, creatorId)
             .set(ROOMS.MAX_USERS, maxUsers)
-            .returning(ROOMS.ID)
+            .returning()
             .fetchOne()!!
-            .get(ROOMS.ID)!!
-
-        return findById(id)!!
+            .toModel()
     }
 
     /** Returns the stored password hash for a private room, null if room is public or has no password. */

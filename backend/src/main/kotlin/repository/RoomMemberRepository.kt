@@ -4,10 +4,8 @@ import chatroom.jooq.generated.Tables.ROOM_MEMBERS
 import chatroom.jooq.generated.Tables.USERS
 import model.User
 import org.jooq.DSLContext
-import util.toEpochMillis
-import util.toEpochMillisOrNull
 
-class RoomMemberRepository(private val dsl: DSLContext) {
+class RoomMemberRepository(private val dsl: DSLContext, private val userRepo: UserRepository) {
 
     fun addMember(roomId: Int, userId: Int, role: String = "member") {
         dsl.insertInto(ROOM_MEMBERS)
@@ -38,25 +36,8 @@ class RoomMemberRepository(private val dsl: DSLContext) {
             .where(ROOM_MEMBERS.ROOM_ID.eq(roomId))
             .fetch()
             .map { record ->
-                val platformRole = record.get(USERS.ROLE) ?: "user"
-                val mutedUntil = record.get(USERS.MUTED_UNTIL).toEpochMillisOrNull()
-                val now = System.currentTimeMillis()
-                User(
-                    id = record.get(USERS.ID)!!,
-                    username = record.get(USERS.USERNAME)!!,
-                    avatarUrl = record.get(USERS.AVATAR_URL),
-                    bio = record.get(USERS.BIO),
-                    status = record.get(USERS.STATUS),
-                    role = record.get(ROOM_MEMBERS.ROLE) ?: "member",
-                    isBot = platformRole == "bot",
-                    isDisabled = record.get(USERS.IS_DISABLED) ?: false,
-                    disabledReason = record.get(USERS.DISABLED_REASON),
-                    mutedUntil = mutedUntil,
-                    muteReason = record.get(USERS.MUTE_REASON),
-                    isMuted = mutedUntil?.let { it > now } ?: false,
-                    createdAt = record.get(USERS.CREATED_AT).toEpochMillis(),
-                    lastSeen = record.get(USERS.LAST_SEEN).toEpochMillis()
-                )
+                val roomRole = record.get(ROOM_MEMBERS.ROLE) ?: "member"
+                userRepo.mapRecordToUser(record).copy(role = roomRole)
             }
     }
 

@@ -9,6 +9,7 @@ import model.User
 import service.InvitationService
 import service.SessionService
 import service.UserService
+import util.AuthHelper
 import util.BearerToken
 
 /**
@@ -53,16 +54,7 @@ class AuthController(
     }
 
     @Get("/me")
-    fun me(token: BearerToken): User {
-        val rawToken = token.require()
-        val userId = sessionService.validateSession(rawToken) ?: throw Unauthorized("Invalid or expired session")
-        val user = userService.getUserById(userId) ?: throw NotFound("User not found")
-        if (user.isDisabled) {
-            sessionService.invalidateSession(rawToken)
-            throw Unauthorized("Account is disabled")
-        }
-        return user
-    }
+    fun me(token: BearerToken): User = AuthHelper.requireAuthUser(token, sessionService, userService)
 
     @Get("/registration-mode")
     fun registrationMode(): RegistrationModeResponse {

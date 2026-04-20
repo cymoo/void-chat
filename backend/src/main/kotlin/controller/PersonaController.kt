@@ -7,6 +7,7 @@ import persona.PersonaChatEngine
 import service.AuthorizationService
 import service.SessionService
 import service.UserService
+import util.AuthHelper
 import util.BearerToken
 
 /**
@@ -89,11 +90,6 @@ class PersonaController(
         )
     }
 
-    private fun requireAuthUser(token: BearerToken): model.User {
-        val rawToken = token.require()
-        val userId = sessionService.validateSession(rawToken) ?: throw Unauthorized("Invalid or expired session")
-        val user = userService.getUserById(userId) ?: throw NotFound("User not found")
-        if (user.isDisabled) throw Unauthorized("Account is disabled")
-        return user
-    }
+    private fun requireAuthUser(token: BearerToken): model.User =
+        AuthHelper.requireAuthUser(token, sessionService, userService)
 }

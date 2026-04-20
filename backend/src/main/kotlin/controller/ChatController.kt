@@ -124,40 +124,24 @@ class ChatController(
                 val p = objectMapper.readValue<WsPayload>(msg)
 
                 when (p.type) {
-                    "text" -> {
-                        p.content?.let { text ->
-                            val sent = chatService.sendTextMessage(roomId, currentUser, text, p.replyToId)
-                            if (!sent) {
-                                conn.send(chatService.serializeEvent(WsEvent.Error(
-                                    chatService.roomMessageBlockReason(currentUser.id)
-                                        ?: "Message sending is not allowed"
-                                )))
-                            }
+                    "text" -> p.content?.let { text ->
+                        sendOrBlockError(conn, currentUser.id) {
+                            chatService.sendTextMessage(roomId, currentUser, text, p.replyToId)
                         }
                     }
-                    "image" -> {
-                        p.imageUrl?.let { image ->
-                            val sent = chatService.sendImageMessage(roomId, currentUser, image, p.thumbnailUrl, p.width, p.height, p.replyToId)
-                            if (!sent) {
-                                conn.send(chatService.serializeEvent(WsEvent.Error(
-                                    chatService.roomMessageBlockReason(currentUser.id)
-                                        ?: "Message sending is not allowed"
-                                )))
-                            }
+                    "image" -> p.imageUrl?.let { image ->
+                        sendOrBlockError(conn, currentUser.id) {
+                            chatService.sendImageMessage(roomId, currentUser, image, p.thumbnailUrl, p.width, p.height, p.replyToId)
                         }
                     }
                     "file" -> {
                         if (p.fileName != null && p.fileUrl != null &&
                             p.fileSize != null && p.mimeType != null) {
-                            val sent = chatService.sendFileMessage(
-                                roomId, currentUser, p.fileName, p.fileUrl,
-                                p.fileSize, p.mimeType, p.replyToId
-                            )
-                            if (!sent) {
-                                conn.send(chatService.serializeEvent(WsEvent.Error(
-                                    chatService.roomMessageBlockReason(currentUser.id)
-                                        ?: "Message sending is not allowed"
-                                )))
+                            sendOrBlockError(conn, currentUser.id) {
+                                chatService.sendFileMessage(
+                                    roomId, currentUser, p.fileName, p.fileUrl,
+                                    p.fileSize, p.mimeType, p.replyToId
+                                )
                             }
                         }
                     }
@@ -293,6 +277,15 @@ class ChatController(
             return null
         }
         return latest
+    }
+
+    /** Attempts to send a message; on block/mute, sends the reason as an error event. */
+    private fun sendOrBlockError(conn: WsConnection, userId: Int, send: () -> Boolean) {
+        if (!send()) {
+            conn.send(chatService.serializeEvent(WsEvent.Error(
+                chatService.roomMessageBlockReason(userId) ?: "Message sending is not allowed"
+            )))
+        }
     }
 
     private fun handlePrivateMessage(conn: WsConnection, sender: User, p: WsPayload) {

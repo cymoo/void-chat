@@ -2,16 +2,15 @@ package repository
 
 import chatroom.jooq.generated.Tables.PRIVATE_MESSAGES
 import chatroom.jooq.generated.Tables.USERS
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.kotlin.readValue
 import model.DmInboxEntry
 import model.PrivateMessage
 import model.UnreadSender
 import org.jooq.DSLContext
 import org.jooq.JSONB
 import org.jooq.Record
-import org.jooq.impl.DSL
 import org.jooq.impl.DSL.count
+import util.JsonbUtils.jsonbOf
+import util.JsonbUtils.parseContent
 import util.toEpochMillis
 
 /**
@@ -21,7 +20,6 @@ import util.toEpochMillis
  */
 class PrivateMessageRepository(private val dsl: DSLContext) {
 
-    private val objectMapper = ObjectMapper()
     private val SENDER = USERS.`as`("sender")
     private val RECEIVER = USERS.`as`("receiver")
 
@@ -120,65 +118,50 @@ class PrivateMessageRepository(private val dsl: DSLContext) {
 
     /**
      * DM inbox: one entry per conversation partner, ordered by most recent message.
-     * Uses two sub-queries — one for the latest message per counterpart, one for unread counts.
      */
     fun getInbox(userId: Int): List<DmInboxEntry> {
-        val counterpartId = DSL.field(
-            "case when {0} = {1} then {2} else {0} end",
-            Int::class.java,
-            PRIVATE_MESSAGES.SENDER_ID, DSL.inline(userId), PRIVATE_MESSAGES.RECEIVER_ID
-        )
+        val sql = """
+            SELECT u.id, u.username, u.avatar_url,
+                   pm.message_type, pm.content, pm.created_at, pm.sender_id,
+                   COALESCE(uc.unread_count, 0) AS unread_count
+            FROM (
+                SELECT CASE WHEN sender_id = ? THEN receiver_id ELSE sender_id END AS counterpart_id,
+                       MAX(id) AS latest_message_id
+                FROM private_messages
+                WHERE sender_id = ? OR receiver_id = ?
+                GROUP BY counterpart_id
+            ) lc
+            JOIN private_messages pm ON pm.id = lc.latest_message_id
+            JOIN users u ON u.id = lc.counterpart_id
+            LEFT JOIN (
+                SELECT sender_id AS counterpart_id, COUNT(*) AS unread_count
+                FROM private_messages
+                WHERE receiver_id = ? AND is_read = FALSE
+                GROUP BY sender_id
+            ) uc ON uc.counterpart_id = u.id
+            ORDER BY lc.latest_message_id DESC
+        """.trimIndent()
 
-        val latestMessageId = DSL.max(PRIVATE_MESSAGES.ID).`as`("latest_message_id")
-        val latestConversations = dsl.select(counterpartId.`as`("counterpart_id"), latestMessageId)
-            .from(PRIVATE_MESSAGES)
-            .where(PRIVATE_MESSAGES.SENDER_ID.eq(userId).or(PRIVATE_MESSAGES.RECEIVER_ID.eq(userId)))
-            .groupBy(counterpartId)
-            .asTable("latest_conversations")
-
-        val unreadCount = count().`as`("unread_count")
-        val unreadCounts = dsl.select(PRIVATE_MESSAGES.SENDER_ID.`as`("counterpart_id"), unreadCount)
-            .from(PRIVATE_MESSAGES)
-            .where(PRIVATE_MESSAGES.RECEIVER_ID.eq(userId))
-            .and(PRIVATE_MESSAGES.IS_READ.eq(false))
-            .groupBy(PRIVATE_MESSAGES.SENDER_ID)
-            .asTable("unread_counts")
-
-        val lcCounterpart = latestConversations.field("counterpart_id", Int::class.java)!!
-        val lcMessageId = latestConversations.field("latest_message_id", Int::class.java)!!
-        val ucCounterpart = unreadCounts.field("counterpart_id", Int::class.java)!!
-        val ucCount = unreadCounts.field("unread_count", Int::class.java)!!
-
-        return dsl.select(
-            USERS.ID, USERS.USERNAME, USERS.AVATAR_URL,
-            PRIVATE_MESSAGES.MESSAGE_TYPE, PRIVATE_MESSAGES.CONTENT,
-            PRIVATE_MESSAGES.CREATED_AT, PRIVATE_MESSAGES.SENDER_ID,
-            ucCount
-        )
-            .from(latestConversations)
-            .join(PRIVATE_MESSAGES).on(PRIVATE_MESSAGES.ID.eq(lcMessageId))
-            .join(USERS).on(USERS.ID.eq(lcCounterpart))
-            .leftJoin(unreadCounts).on(ucCounterpart.eq(USERS.ID))
-            .orderBy(lcMessageId.desc())
-            .fetch { record ->
-                val msgType = record.get(PRIVATE_MESSAGES.MESSAGE_TYPE) ?: "text"
-                val content = parseContent(record.get(PRIVATE_MESSAGES.CONTENT))
-                val preview = when (msgType) {
-                    "image" -> "Shared an image"
-                    "file" -> (content["name"] as? String)?.takeIf { it.isNotBlank() } ?: "Shared a file"
-                    else -> (content["text"] as? String)?.trim().orEmpty()
-                }
-                DmInboxEntry(
-                    userId = record.get(USERS.ID)!!,
-                    username = record.get(USERS.USERNAME) ?: "",
-                    avatarUrl = record.get(USERS.AVATAR_URL),
-                    latestMessageType = msgType,
-                    latestMessagePreview = preview,
-                    latestMessageTimestamp = record.get(PRIVATE_MESSAGES.CREATED_AT).toEpochMillis(),
-                    latestMessageSenderId = record.get(PRIVATE_MESSAGES.SENDER_ID)!!,
-                    unreadCount = record.get(ucCount) ?: 0
-                )
+        return dsl.fetch(sql, userId, userId, userId, userId).map { record ->
+            val msgType = record.get("message_type", String::class.java) ?: "text"
+            val contentJsonb = record.get("content", JSONB::class.java)
+            val content = parseContent(contentJsonb)
+            val preview = when (msgType) {
+                "image" -> "Shared an image"
+                "file" -> (content["name"] as? String)?.takeIf { it.isNotBlank() } ?: "Shared a file"
+                else -> (content["text"] as? String)?.trim().orEmpty()
             }
+            DmInboxEntry(
+                userId = record.get("id", Int::class.java)!!,
+                username = record.get("username", String::class.java) ?: "",
+                avatarUrl = record.get("avatar_url", String::class.java),
+                latestMessageType = msgType,
+                latestMessagePreview = preview,
+                latestMessageTimestamp = record.get("created_at", java.time.OffsetDateTime::class.java).toEpochMillis(),
+                latestMessageSenderId = record.get("sender_id", Int::class.java)!!,
+                unreadCount = record.get("unread_count", Int::class.java) ?: 0
+            )
+        }
     }
 
     // ---- Internal helpers ----
@@ -218,27 +201,4 @@ class PrivateMessageRepository(private val dsl: DSLContext) {
         )
     }
 
-    /** Parse JSONB content column into a Map. Returns empty map on null/error. */
-    private fun parseContent(jsonb: JSONB?): Map<String, Any?> {
-        if (jsonb == null) return emptyMap()
-        return try {
-            objectMapper.readValue(jsonb.data())
-        } catch (_: Exception) {
-            emptyMap()
-        }
-    }
-
-    private fun jsonbOf(vararg pairs: Pair<String, Any?>): JSONB = jsonbOf(pairs.toMap())
-
-    private fun jsonbOf(map: Map<String, Any?>): JSONB {
-        val filtered = map.filterValues { it != null }
-        val json = filtered.entries.joinToString(",", "{", "}") { (k, v) ->
-            val valueStr = when (v) {
-                is String -> "\"${v.replace("\\", "\\\\").replace("\"", "\\\"")}\""
-                else -> v.toString()
-            }
-            "\"$k\":$valueStr"
-        }
-        return JSONB.jsonb(json)
-    }
 }

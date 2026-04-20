@@ -135,6 +135,7 @@ class UserRepository(private val dsl: DSLContext) {
     fun updateProfile(userId: Int, username: String?, avatarUrl: String?, bio: String?, status: String?) {
         if (username == null && avatarUrl == null && bio == null && status == null) return
 
+        // No-op initial set to obtain a mutable UpdateSetMoreStep for conditional chaining
         var step = dsl.update(USERS).set(USERS.LAST_SEEN, USERS.LAST_SEEN)
         if (username != null) step = step.set(USERS.USERNAME, username)
         if (avatarUrl != null) step = step.set(USERS.AVATAR_URL, avatarUrl)
@@ -150,7 +151,7 @@ class UserRepository(private val dsl: DSLContext) {
      * Capabilities are derived from the platform role at mapping time so that
      * the repository remains free of service-layer dependencies.
      */
-    private fun mapRecordToUser(record: Record): User {
+    fun mapRecordToUser(record: Record): User {
         val role = AuthorizationService.normalizePlatformRole(record.get(USERS.ROLE))
         val isDisabled = record.get(USERS.IS_DISABLED) ?: false
         val mutedUntil = record.get(USERS.MUTED_UNTIL).toEpochMillisOrNull()

@@ -12,6 +12,10 @@ import io.github.cymoo.colleen.middleware.Cors
 import io.github.cymoo.colleen.middleware.RequestLogger
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import persona.PersonaBridge
+import persona.PersonaChatEngine
+import repository.RoomMemberRepository
+import repository.UserRepository
 import service.ChatService
 import service.FileService
 import service.RoomService
@@ -19,9 +23,6 @@ import service.SessionService
 import service.UserService
 import service.AuthorizationService
 import service.InvitationService
-import persona.PersonaChatEngine
-import repository.RoomMemberRepository
-import repository.UserRepository
 import java.nio.file.Paths
 
 val logger: Logger = LoggerFactory.getLogger("App")
@@ -83,48 +84,9 @@ fun main() {
     // Persona engine (enabled when PERSONA_LLM_API_KEY is set)
     val personaChatEngine: PersonaChatEngine? = if (!Env["PERSONA_LLM_API_KEY"].isNullOrBlank()) {
         val userRepo = UserRepository(dsl)
-        val roomMemberRepo = RoomMemberRepository(dsl)
+        val roomMemberRepo = RoomMemberRepository(dsl, userRepo)
         val engine = PersonaChatEngine(
-            bridge = object : PersonaChatEngine.Bridge {
-                override fun getRecentMessages(roomId: Int, limit: Int): List<PersonaChatEngine.ContextMessage> {
-                    return chatService.getRecentMessages(roomId, limit).mapNotNull { msg ->
-                        when (msg) {
-                            is model.ChatMessage.Text -> PersonaChatEngine.ContextMessage(
-                                msg.userId, msg.username, msg.content, msg.id, msg.replyTo?.id
-                            )
-                            else -> null
-                        }
-                    }
-                }
-
-                override fun sendBotMessage(roomId: Int, botUserId: Int, content: String, replyToId: Int?) {
-                    val botUser = userRepo.findById(botUserId) ?: return
-                    chatService.sendBotTextMessage(roomId, botUser, content, replyToId)
-                }
-
-                override fun getOrCreateBotUser(username: String): PersonaChatEngine.BotIdentity {
-                    val existing = userRepo.findByUsername(username)
-                    if (existing != null) return PersonaChatEngine.BotIdentity(existing.id, existing.username)
-                    val created = userRepo.createUser(username, role = AuthorizationService.ROLE_BOT)
-                    return PersonaChatEngine.BotIdentity(created.id, created.username)
-                }
-
-                override fun addBotToRoom(roomId: Int, userId: Int) {
-                    roomMemberRepo.addMember(roomId, userId, "member")
-                }
-
-                override fun removeBotFromRoom(roomId: Int, userId: Int) {
-                    roomMemberRepo.removeMember(roomId, userId)
-                }
-
-                override fun broadcastRoomUsers(roomId: Int) {
-                    chatService.broadcastToRoom(roomId, model.WsEvent.Users(chatService.getRoomUsers(roomId)))
-                }
-
-                override fun sendTypingStatus(roomId: Int, userId: Int, username: String, isTyping: Boolean) {
-                    chatService.broadcastToRoom(roomId, model.WsEvent.Typing(userId, username, isTyping))
-                }
-            },
+            bridge = PersonaBridge(chatService, userRepo, roomMemberRepo),
             jedisPool = jedisPool,
             executor = java.util.concurrent.Executors.newFixedThreadPool(4) { runnable ->
                 Thread(runnable).apply {

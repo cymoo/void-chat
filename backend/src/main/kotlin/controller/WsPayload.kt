@@ -1,8 +1,5 @@
 package controller
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties
-
-@JsonIgnoreProperties(ignoreUnknown = true)
 data class WsPayload(
     val type: String,
     val content: String? = null,

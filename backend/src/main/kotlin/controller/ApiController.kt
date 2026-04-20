@@ -9,6 +9,7 @@ import service.InvitationService
 import service.RoomService
 import service.SessionService
 import service.UserService
+import util.AuthHelper
 import util.BearerToken
 
 /**
@@ -152,8 +153,7 @@ class ApiController(
 
     @Get("/admin/dashboard")
     fun getAdminDashboard(token: BearerToken): AdminDashboardResponse {
-        val actor = requireAuthUser(token)
-        requireAdminAccess(actor)
+        requireAdmin(token)
         val rooms = getRooms()
         val users = userService.listUsers()
         val invites = invitationService.listInvites()
@@ -168,11 +168,7 @@ class ApiController(
 
     @Patch("/admin/users/{userId}/role")
     fun updateAdminUserRole(userId: Path<Int>, body: Json<UpdateUserRoleRequest>, token: BearerToken): User {
-        val actor = requireAuthUser(token)
-        if (!authorizationService.canManagePlatformUsers(actor)) {
-            throw Unauthorized("Admin permission required")
-        }
-
+        val actor = requireAdmin(token)
         val req = body.value
         if (req.role.isBlank()) throw BadRequest("Role is required")
 
@@ -186,10 +182,7 @@ class ApiController(
 
     @Patch("/admin/users/{userId}/profile")
     fun updateAdminUserProfile(userId: Path<Int>, body: Json<UpdateProfileRequest>, token: BearerToken): User {
-        val actor = requireAuthUser(token)
-        if (!authorizationService.canManagePlatformUsers(actor)) {
-            throw Unauthorized("Admin permission required")
-        }
+        requireAdmin(token)
         val req = body.value
         return try {
             userService.updateProfile(userId.value, req.username, req.avatarUrl, req.bio, req.status)
@@ -201,11 +194,7 @@ class ApiController(
 
     @Patch("/admin/users/{userId}/disable")
     fun updateAdminUserDisabled(userId: Path<Int>, body: Json<UpdateUserDisableRequest>, token: BearerToken): User {
-        val actor = requireAuthUser(token)
-        if (!authorizationService.canManagePlatformUsers(actor)) {
-            throw Unauthorized("Admin permission required")
-        }
-
+        val actor = requireAdmin(token)
         val req = body.value
         return try {
             val updated = userService.updateUserDisabled(
@@ -225,11 +214,7 @@ class ApiController(
 
     @Patch("/admin/users/{userId}/mute")
     fun updateAdminUserMute(userId: Path<Int>, body: Json<UpdateUserMuteRequest>, token: BearerToken): User {
-        val actor = requireAuthUser(token)
-        if (!authorizationService.canManagePlatformUsers(actor)) {
-            throw Unauthorized("Admin permission required")
-        }
-
+        val actor = requireAdmin(token)
         val req = body.value
         return try {
             userService.updateUserMute(
@@ -246,11 +231,7 @@ class ApiController(
 
     @Post("/admin/invites")
     fun createAdminInvite(body: Json<CreateInviteLinkRequest>, token: BearerToken): CreateInviteLinkResponse {
-        val actor = requireAuthUser(token)
-        if (!authorizationService.canManageInvites(actor)) {
-            throw Unauthorized("Admin permission required")
-        }
-
+        val actor = requireAdmin(token)
         val req = body.value
         return try {
             invitationService.createInvite(
@@ -265,19 +246,13 @@ class ApiController(
 
     @Patch("/admin/invites/{inviteId}/revoke")
     fun revokeAdminInvite(inviteId: Path<Int>, token: BearerToken): InviteLink {
-        val actor = requireAuthUser(token)
-        if (!authorizationService.canManageInvites(actor)) {
-            throw Unauthorized("Admin permission required")
-        }
+        requireAdmin(token)
         return invitationService.revokeInvite(inviteId.value) ?: throw NotFound("Invite not found")
     }
 
     @Patch("/admin/registration-mode")
     fun updateRegistrationMode(body: Json<UpdateRegistrationModeRequest>, token: BearerToken): RegistrationModeResponse {
-        val actor = requireAuthUser(token)
-        if (!authorizationService.canManageRegistrationMode(actor)) {
-            throw Unauthorized("Admin permission required")
-        }
+        requireAdmin(token)
         val req = body.value
         return try {
             RegistrationModeResponse(mode = invitationService.updateRegistrationMode(req.mode))
@@ -286,20 +261,9 @@ class ApiController(
         }
     }
 
-    private fun requireAuthUser(token: BearerToken): User {
-        val rawToken = token.require()
-        val userId = sessionService.validateSession(rawToken) ?: throw Unauthorized("Invalid or expired session")
-        val user = userService.getUserById(userId) ?: throw NotFound("User not found")
-        if (user.isDisabled) {
-            sessionService.invalidateSession(rawToken)
-            throw Unauthorized("Account is disabled")
-        }
-        return user
-    }
+    private fun requireAuthUser(token: BearerToken): User =
+        AuthHelper.requireAuthUser(token, sessionService, userService)
 
-    private fun requireAdminAccess(user: User) {
-        if (!authorizationService.canAccessAdminDashboard(user)) {
-            throw Unauthorized("Admin access required")
-        }
-    }
+    private fun requireAdmin(token: BearerToken): User =
+        AuthHelper.requireAdmin(token, sessionService, userService, authorizationService)
 }

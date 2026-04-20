@@ -32,9 +32,9 @@ class ChatService(
     private val instanceId = UUID.randomUUID().toString()
 
     private val messageRepo = MessageRepository(dsl)
-    private val roomMemberRepo = RoomMemberRepository(dsl)
-    private val roomRepo = RoomRepository(dsl)
     private val userRepo = UserRepository(dsl)
+    private val roomMemberRepo = RoomMemberRepository(dsl, userRepo)
+    private val roomRepo = RoomRepository(dsl)
     private val privateMessageRepo = PrivateMessageRepository(dsl)
     private val authorizationService = AuthorizationService()
 
@@ -97,7 +97,8 @@ class ChatService(
                 val userCounts = roomUserConnectionCounts.computeIfAbsent(roomId) { ConcurrentHashMap() }
                 val existingCount = userCounts[user.id]
                 val isNewOccupant = existingCount == null
-                val maxUsers = roomRepo.findById(roomId)?.maxUsers ?: Int.MAX_VALUE
+                val room = roomRepo.findById(roomId)
+                val maxUsers = room?.maxUsers ?: Int.MAX_VALUE
 
                 if (isNewOccupant && userCounts.size >= maxUsers) {
                     return@synchronized JoinResult(joined = false)
@@ -112,7 +113,7 @@ class ChatService(
                 // Only the first active connection triggers the join broadcast.
                 if (activeCount != 1) return@synchronized JoinResult(joined = true)
 
-                val isRoomOwner = roomRepo.findById(roomId)?.creatorId == user.id
+                val isRoomOwner = room?.creatorId == user.id
                 val desiredRole = if (isRoomOwner) AuthorizationService.ROOM_ROLE_OWNER else AuthorizationService.ROOM_ROLE_MEMBER
                 roomMemberRepo.addMember(roomId, user.id, desiredRole)
                 if (isRoomOwner && roomMemberRepo.getMemberRole(roomId, user.id) != AuthorizationService.ROOM_ROLE_OWNER) {
