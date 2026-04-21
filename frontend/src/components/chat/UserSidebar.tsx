@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { MessageSquare, LogOut, Smile, ChevronDown, ChevronRight } from "lucide-react";
+import { MessageSquare, LogOut, ChevronDown, ChevronRight } from "lucide-react";
+import { BotAvatarIcon } from "@/components/shared/BotAvatarIcon";
 import { useChatStore } from "@/stores/chatStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { useUiStore } from "@/stores/uiStore";
@@ -62,7 +63,7 @@ export function UserSidebar({ send, currentUser, isOpen, onClose, onLeaveRoom }:
               className="avatar-img"
             />
           ) : user.isBot ? (
-            <span className="bot-avatar-icon"><Smile size={18} /></span>
+            <span className="bot-avatar-icon"><BotAvatarIcon size={18} /></span>
           ) : (
             getInitials(user.displayName ?? user.username)
           )}

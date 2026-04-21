@@ -118,14 +118,9 @@
     padding: 16px;
   }
 
-  .room-card {
-    min-height: 0;
-  }
-
   .room-card-desc {
-    overflow: visible;
+    /* Switch off -webkit-box so line-clamp is removed; full description shows */
     display: block;
-    -webkit-line-clamp: unset;
   }
 
   .admin-dashboard-container {

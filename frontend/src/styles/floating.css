@@ -100,7 +100,7 @@
   background: var(--color-bg);
   border: 1px solid var(--color-border-bright);
   z-index: 1200;
-  max-height: 240px;
+  max-height: 270px;
   overflow-y: auto;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
   outline: none;
