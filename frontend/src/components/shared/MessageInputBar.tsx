@@ -1,5 +1,6 @@
 import {
   useCallback,
+  useRef,
   type KeyboardEvent,
 } from "react";
 import { Paperclip, Send } from "lucide-react";
@@ -48,9 +49,25 @@ export function MessageInputBar({
     composerRef.current = composer;
   }
 
+  // Grid ref used to route keyboard events in colon-triggered emoji mode
+  const emojiGridRef = useRef<HTMLDivElement | null>(null);
+
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
       if (onKeyDownCapture?.(e, composer)) return;
+
+      // In colon mode the textarea keeps focus; forward navigation keys to the emoji grid
+      if (composer.emojiOpen && composer.emojiColonMode) {
+        const routed = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", "Escape"];
+        if (routed.includes(e.key)) {
+          e.preventDefault();
+          emojiGridRef.current?.dispatchEvent(
+            new KeyboardEvent("keydown", { key: e.key, bubbles: true, cancelable: true }),
+          );
+          return;
+        }
+      }
+
       composer.handleKeyDown(e);
     },
     [onKeyDownCapture, composer],
@@ -88,6 +105,8 @@ export function MessageInputBar({
               open={composer.emojiOpen}
               onToggle={composer.setEmojiOpen}
               onSelect={composer.handleSelectEmoji}
+              anchorEl={composer.emojiColonMode ? composer.textareaRef.current : null}
+              gridRef={emojiGridRef}
             />
             <label className="icon-btn attach-btn" title="Attach File">
               <Paperclip size={20} />

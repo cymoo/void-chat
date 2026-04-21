@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Smile } from "lucide-react";
 import { useChatStore } from "@/stores/chatStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useUiStore } from "@/stores/uiStore";
@@ -194,7 +195,7 @@ function MessageItemInner({
             className="avatar-img"
           />
         ) : botUser ? (
-          <span className="bot-avatar-icon">🤖</span>
+          <span className="bot-avatar-icon"><Smile size={18} /></span>
         ) : (
           getInitials(message.username)
         )}

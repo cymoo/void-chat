@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MessageSquare, LogOut, ChevronDown, ChevronRight } from "lucide-react";
+import { MessageSquare, LogOut, Smile, ChevronDown, ChevronRight } from "lucide-react";
 import { useChatStore } from "@/stores/chatStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { useUiStore } from "@/stores/uiStore";
@@ -62,7 +62,7 @@ export function UserSidebar({ send, currentUser, isOpen, onClose, onLeaveRoom }:
               className="avatar-img"
             />
           ) : user.isBot ? (
-            <span className="bot-avatar-icon">🤖</span>
+            <span className="bot-avatar-icon"><Smile size={18} /></span>
           ) : (
             getInitials(user.displayName ?? user.username)
           )}
@@ -84,7 +84,7 @@ export function UserSidebar({ send, currentUser, isOpen, onClose, onLeaveRoom }:
           </div>
           {!user.isBot && user.status && <div className="user-item-status">{user.status}</div>}
         </div>
-        {user.id !== currentUser.id && !user.isBot && (
+        {user.id !== currentUser.id && !user.isBot ? (
           <div className="user-item-actions">
             <button
               type="button"
@@ -99,7 +99,29 @@ export function UserSidebar({ send, currentUser, isOpen, onClose, onLeaveRoom }:
               <MessageSquare size={14} />
             </button>
           </div>
-        )}
+        ) : user.id === currentUser.id ? (
+          <div className="user-item-actions">
+            <button
+              type="button"
+              className="leave-room-btn-inline"
+              title="Leave Room"
+              aria-label="Leave this room"
+              onClick={(e) => {
+                e.stopPropagation();
+                onLeaveRoom();
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onLeaveRoom();
+                }
+              }}
+            >
+              <LogOut size={14} />
+            </button>
+          </div>
+        ) : null}
       </div>
     );
   };
@@ -137,12 +159,6 @@ export function UserSidebar({ send, currentUser, isOpen, onClose, onLeaveRoom }:
             {offlineExpanded && offlineMembers.map((user) => renderUser(user, true))}
           </>
         )}
-      </div>
-      <div className="sidebar-footer">
-        <button type="button" className="leave-room-btn" onClick={onLeaveRoom}>
-          <LogOut size={14} />
-          LEAVE ROOM
-        </button>
       </div>
     </div>
   );

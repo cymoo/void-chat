@@ -56,9 +56,9 @@ describe("EmojiPicker keyboard navigation", () => {
     render(<EmojiPicker open={true} onToggle={vi.fn()} onSelect={onSelect} />);
 
     const grid = screen.getByRole("grid");
-    // ArrowDown should move by COLS (8)
+    // ArrowDown should move by COLS (5, matching grid-template-columns: repeat(5, ...))
     fireEvent.keyDown(grid, { key: "ArrowDown" });
-    const targetIdx = Math.min(8, COMMON_EMOJIS.length - 1);
+    const targetIdx = Math.min(5, COMMON_EMOJIS.length - 1);
     const targetBtn = screen.getAllByRole("button").find(
       (btn) => btn.textContent === COMMON_EMOJIS[targetIdx],
     )!;

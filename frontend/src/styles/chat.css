@@ -147,8 +147,7 @@
 }
 
 .search-input:focus-visible {
-  outline: 2px solid var(--color-info);
-  outline-offset: 2px;
+  outline: none;
 }
 
 .dm-badge-btn {

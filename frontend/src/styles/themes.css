@@ -117,25 +117,112 @@
   --border-width-ui: 1px;
 }
 
-/* ── Admin fixes for light themes ── */
+/* ── Midnight Neon ── */
+
+[data-theme="midnight-neon"] {
+  --color-bg: #0c0a1e;
+  --color-surface: #130f2e;
+  --color-surface-light: #1d1742;
+  --color-border: #2a2260;
+  --color-border-bright: #f72585;
+  --color-text: #e8e0ff;
+  --color-text-dim: #b8a8e8;
+  --color-text-muted: #7060a8;
+  --color-accent: #f72585;
+  --color-accent-2: #4cc9f0;
+  --color-accent-hover: #d41570;
+  --color-warning: #f77f00;
+  --color-info: #4cc9f0;
+
+  --color-accent-rgb: 247, 37, 133;
+  --color-border-bright-rgb: 247, 37, 133;
+  --color-bg-rgb: 12, 10, 30;
+  --color-info-rgb: 76, 201, 240;
+  --color-text-dim-rgb: 184, 168, 232;
+  --color-border-rgb: 42, 34, 96;
+
+  --color-inset-bg: rgba(0, 0, 0, 0.35);
+  --border-width-ui: 1px;
+}
+
+/* ── Amber Glow ── */
+
+[data-theme="amber-glow"] {
+  --color-bg: #130c02;
+  --color-surface: #1e1404;
+  --color-surface-light: #2b1d07;
+  --color-border: #3d2a0c;
+  --color-border-bright: #f59e0b;
+  --color-text: #fef3c7;
+  --color-text-dim: #d97706;
+  --color-text-muted: #92400e;
+  --color-accent: #f59e0b;
+  --color-accent-2: #fb923c;
+  --color-accent-hover: #d97706;
+  --color-warning: #ef4444;
+  --color-info: #60a5fa;
+
+  --color-accent-rgb: 245, 158, 11;
+  --color-border-bright-rgb: 245, 158, 11;
+  --color-bg-rgb: 19, 12, 2;
+  --color-info-rgb: 96, 165, 250;
+  --color-text-dim-rgb: 217, 119, 6;
+  --color-border-rgb: 61, 42, 12;
+
+  --color-inset-bg: rgba(0, 0, 0, 0.35);
+  --border-width-ui: 1px;
+}
+
+/* ── Manuscript ── */
+
+[data-theme="manuscript"] {
+  --color-bg: #f5f0e8;
+  --color-surface: #faf7f2;
+  --color-surface-light: #ede6d8;
+  --color-border: #cec5b2;
+  --color-border-bright: #6b3c1a;
+  --color-text: #2a1a0e;
+  --color-text-dim: #5c3c22;
+  --color-text-muted: #9a7c5e;
+  --color-accent: #6b3c1a;
+  --color-accent-2: #c07828;
+  --color-accent-hover: #58300f;
+  --color-warning: #b91c1c;
+  --color-info: #1e3a8a;
+
+  --color-accent-rgb: 107, 60, 26;
+  --color-border-bright-rgb: 107, 60, 26;
+  --color-bg-rgb: 245, 240, 232;
+  --color-info-rgb: 30, 58, 138;
+  --color-text-dim-rgb: 92, 60, 34;
+  --color-border-rgb: 206, 197, 178;
+
+  --font-display: "Georgia", "Times New Roman", serif;
+  --color-inset-bg: rgba(0, 0, 0, 0.04);
+  --border-width-ui: 1px;
+}
 
 [data-theme="quiet-light"] .admin-card,
-[data-theme="teal"] .admin-card {
+[data-theme="teal"] .admin-card,
+[data-theme="manuscript"] .admin-card {
   border-color: var(--color-border);
 }
 
 [data-theme="quiet-light"] .admin-room-capacity-track,
-[data-theme="teal"] .admin-room-capacity-track {
+[data-theme="teal"] .admin-room-capacity-track,
+[data-theme="manuscript"] .admin-room-capacity-track {
   background: var(--color-border);
 }
 
 [data-theme="quiet-light"] .admin-latest-invite code,
-[data-theme="teal"] .admin-latest-invite code {
+[data-theme="teal"] .admin-latest-invite code,
+[data-theme="manuscript"] .admin-latest-invite code {
   background: var(--color-surface-light);
 }
 
 [data-theme="quiet-light"] .admin-dashboard-container,
-[data-theme="teal"] .admin-dashboard-container {
+[data-theme="teal"] .admin-dashboard-container,
+[data-theme="manuscript"] .admin-dashboard-container {
   box-shadow:
     0 0 0 1px rgba(var(--color-border-bright-rgb), 0.2),
     0 4px 24px rgba(0, 0, 0, 0.08);
@@ -144,27 +231,32 @@
 /* ── Glow suppression for light themes ── */
 
 [data-theme="quiet-light"],
-[data-theme="teal"] {
+[data-theme="teal"],
+[data-theme="manuscript"] {
   --glow-accent: none;
 }
 
 [data-theme="quiet-light"] .lobby-container,
-[data-theme="teal"] .lobby-container {
+[data-theme="teal"] .lobby-container,
+[data-theme="manuscript"] .lobby-container {
   box-shadow: 0 1px 12px rgba(0, 0, 0, 0.1), 0 0 0 1px var(--color-border);
 }
 
 [data-theme="quiet-light"] .toast,
-[data-theme="teal"] .toast {
+[data-theme="teal"] .toast,
+[data-theme="manuscript"] .toast {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
 [data-theme="quiet-light"] .user-profile-panel,
-[data-theme="teal"] .user-profile-panel {
+[data-theme="teal"] .user-profile-panel,
+[data-theme="manuscript"] .user-profile-panel {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
 }
 
 [data-theme="quiet-light"] .confirm-dialog,
-[data-theme="teal"] .confirm-dialog {
+[data-theme="teal"] .confirm-dialog,
+[data-theme="manuscript"] .confirm-dialog {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
 }
 

@@ -236,35 +236,24 @@
 }
 
 /* ============================================
-   SIDEBAR FOOTER (Leave Room)
+   SIDEBAR FOOTER (Leave Room) — removed; leave button is now inline in user row
    ============================================ */
 
-.sidebar-footer {
-  padding: 6px 15px 12px;
-  border-top: 1px solid var(--color-border);
-  flex-shrink: 0;
-}
-
-.leave-room-btn {
+.leave-room-btn-inline {
+  background: transparent;
+  border: 1px solid transparent;
+  color: rgba(255, 68, 68, 0.4);
+  padding: 4px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  width: 100%;
-  background: transparent;
-  border: none;
-  color: rgba(255, 68, 68, 0.45);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 1.5px;
-  font-weight: 600;
-  padding: 6px 4px;
-  cursor: pointer;
-  transition: color var(--transition-fast);
+  flex-shrink: 0;
 }
 
-.leave-room-btn:hover {
+.leave-room-btn-inline:hover {
+  border-color: var(--color-warning);
   color: var(--color-warning);
-  background: transparent;
 }
 

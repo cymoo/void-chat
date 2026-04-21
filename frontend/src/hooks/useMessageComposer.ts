@@ -33,6 +33,8 @@ export interface MessageComposerReturn {
   textareaRef: RefObject<HTMLTextAreaElement | null>;
   emojiOpen: boolean;
   setEmojiOpen: (open: boolean) => void;
+  /** True when the emoji picker was opened by typing ':' (caret stays in textarea). */
+  emojiColonMode: boolean;
   handleChange: (e: ChangeEvent<HTMLTextAreaElement>) => void;
   /** Base keyboard handler (Enter to send, Shift+Enter for newline). Wrap this to add custom key handling. */
   handleKeyDown: (e: KeyboardEvent<HTMLTextAreaElement>) => void;
@@ -50,11 +52,22 @@ export function useMessageComposer({
   onTextChange,
 }: UseMessageComposerOptions): MessageComposerReturn {
   const [text, setText] = useState("");
-  const [emojiOpen, setEmojiOpen] = useState(false);
+  const [emojiOpen, setEmojiOpenRaw] = useState(false);
+  const [emojiColonMode, setEmojiColonMode] = useState(false);
   const [uploading, setUploading] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const addToast = useUiStore((s) => s.addToast);
-  const emojiTriggeredByColon = useRef(false);
+  // Cursor position (after ':') when colon-triggered emoji picker opens
+  const emojiColonCursorPos = useRef<number | null>(null);
+
+  // Closing the picker always resets colon-mode state
+  const setEmojiOpen = useCallback((open: boolean) => {
+    setEmojiOpenRaw(open);
+    if (!open) {
+      setEmojiColonMode(false);
+      emojiColonCursorPos.current = null;
+    }
+  }, []);
 
   const canSend = text.trim().length > 0;
 
@@ -103,15 +116,16 @@ export function useMessageComposer({
 
   const handleSelectEmoji = useCallback(
     (emoji: string) => {
-      if (emojiTriggeredByColon.current) {
-        // Replace the triggering ':' with the selected emoji
-        emojiTriggeredByColon.current = false;
-        setText((prev) => (prev.endsWith(":") ? prev.slice(0, -1) + emoji : prev + emoji));
+      const colonPos = emojiColonCursorPos.current;
+      if (colonPos !== null) {
+        // Replace the ':' at (colonPos-1) with the selected emoji
+        setText((prev) => prev.slice(0, colonPos - 1) + emoji + prev.slice(colonPos));
         requestAnimationFrame(() => {
           const el = textareaRef.current;
           if (el) {
+            const newPos = colonPos - 1 + emoji.length;
             el.focus();
-            el.setSelectionRange(el.value.length, el.value.length);
+            el.setSelectionRange(newPos, newPos);
           }
         });
       } else {
@@ -119,7 +133,7 @@ export function useMessageComposer({
       }
       setEmojiOpen(false);
     },
-    [insertAtCursor],
+    [insertAtCursor, setEmojiOpen],
   );
 
   const uploadImage = useCallback(async (file: File) => {
@@ -149,8 +163,9 @@ export function useMessageComposer({
       onTextChangeRef.current?.(val, textareaRef.current);
       // Open emoji picker when user types a standalone ':'
       if (val.endsWith(":")) {
-        emojiTriggeredByColon.current = true;
-        setEmojiOpen(true);
+        emojiColonCursorPos.current = e.target.selectionStart;
+        setEmojiColonMode(true);
+        setEmojiOpenRaw(true);
       }
     },
     [],
@@ -225,6 +240,7 @@ export function useMessageComposer({
     textareaRef,
     emojiOpen,
     setEmojiOpen,
+    emojiColonMode,
     handleChange,
     handleKeyDown,
     handleSend,
