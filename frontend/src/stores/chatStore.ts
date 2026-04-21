@@ -160,14 +160,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
         set((state) => {
           const exists = state.users.some((u) => u.id === event.user.id);
           return {
-            users: exists ? state.users : [...state.users, event.user],
+            users: exists
+              ? state.users.map((u) =>
+                  u.id === event.user.id ? { ...u, isOnline: true } : u,
+                )
+              : [...state.users, { ...event.user, isOnline: true }],
           };
         });
         break;
 
       case "user_left":
         set((state) => ({
-          users: state.users.filter((u) => u.id !== event.userId),
+          users: state.users.map((u) =>
+            u.id === event.userId ? { ...u, isOnline: false } : u,
+          ),
           typingUsers: state.typingUsers.filter(
             (typingUser) => typingUser.userId !== event.userId,
           ),

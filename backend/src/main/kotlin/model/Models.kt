@@ -26,6 +26,7 @@ data class User(
     val isMuted: Boolean = false,
     val isBot: Boolean = false,
     val displayName: String? = null,
+    val isOnline: Boolean = false,
     val createdAt: Long,
     val lastSeen: Long
 )

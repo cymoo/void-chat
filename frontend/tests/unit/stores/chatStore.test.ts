@@ -99,8 +99,8 @@ describe("chatStore", () => {
   it("should handle user_left event", () => {
     useChatStore.setState({
       users: [
-        { id: 1, username: "alice", createdAt: 0, lastSeen: 0 },
-        { id: 2, username: "bob", createdAt: 0, lastSeen: 0 },
+        { id: 1, username: "alice", createdAt: 0, lastSeen: 0, isOnline: true },
+        { id: 2, username: "bob", createdAt: 0, lastSeen: 0, isOnline: true },
       ],
     });
 
@@ -110,8 +110,10 @@ describe("chatStore", () => {
       username: "alice",
     });
 
-    expect(useChatStore.getState().users).toHaveLength(1);
-    expect(useChatStore.getState().users[0]!.username).toBe("bob");
+    const users = useChatStore.getState().users;
+    expect(users).toHaveLength(2);
+    expect(users.find((u) => u.username === "alice")?.isOnline).toBe(false);
+    expect(users.find((u) => u.username === "bob")?.isOnline).toBe(true);
   });
 
   it("should handle message_edited event", () => {
@@ -331,12 +333,12 @@ describe("chatStore", () => {
     expect(useChatStore.getState().users[0]!.username).toBe("alice");
   });
 
-  it("user_left removes the correct user and leaves others intact", () => {
+  it("user_left marks the correct user offline and leaves others intact", () => {
     useChatStore.setState({
       users: [
-        { id: 1, username: "alice", createdAt: 0, lastSeen: 0 },
-        { id: 2, username: "bob", createdAt: 0, lastSeen: 0 },
-        { id: 3, username: "carol", createdAt: 0, lastSeen: 0 },
+        { id: 1, username: "alice", createdAt: 0, lastSeen: 0, isOnline: true },
+        { id: 2, username: "bob", createdAt: 0, lastSeen: 0, isOnline: true },
+        { id: 3, username: "carol", createdAt: 0, lastSeen: 0, isOnline: true },
       ],
     });
 
@@ -347,8 +349,10 @@ describe("chatStore", () => {
     });
 
     const users = useChatStore.getState().users;
-    expect(users).toHaveLength(2);
-    expect(users.map((u) => u.username)).toEqual(["alice", "carol"]);
+    expect(users).toHaveLength(3);
+    expect(users.find((u) => u.username === "bob")?.isOnline).toBe(false);
+    expect(users.find((u) => u.username === "alice")?.isOnline).toBe(true);
+    expect(users.find((u) => u.username === "carol")?.isOnline).toBe(true);
   });
 
   it("rapid join-leave-join cycle for same user shows user exactly once", () => {

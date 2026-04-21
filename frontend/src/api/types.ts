@@ -17,6 +17,7 @@ export interface User {
   isMuted?: boolean;
   isBot?: boolean;
   displayName?: string | null;
+  isOnline?: boolean;
   createdAt: number;
   lastSeen: number;
 }

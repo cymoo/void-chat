@@ -70,8 +70,8 @@ export function useWebSocket({
     return true; // dispatch to store
   }, []);
 
-  const onCleanup = useCallback((ws: WebSocket) => {
-    ws.send(JSON.stringify({ type: "leave" }));
+  const onCleanup = useCallback((_ws: WebSocket) => {
+    // No explicit leave message needed — server onClose handles presence cleanup.
   }, []);
 
   const { send, status, reconnectAttempt } = useBaseWebSocket({ url, onEvent, onCleanup });

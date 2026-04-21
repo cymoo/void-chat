@@ -16,6 +16,7 @@ interface ChatViewProps {
   roomName: string;
   currentUser: User;
   onDisconnect: () => void;
+  onLeaveRoom: () => void;
   onOpenMailbox: () => void;
   onOpenProfile: () => void;
   wsStatus?: "connecting" | "connected" | "reconnecting" | "failed";
@@ -27,6 +28,7 @@ export function ChatView({
   roomName,
   currentUser,
   onDisconnect,
+  onLeaveRoom,
   onOpenMailbox,
   onOpenProfile,
   wsStatus,
@@ -41,6 +43,7 @@ export function ChatView({
   const currentRoomId = useRoomStore((s) => s.currentRoomId);
   const rooms = useRoomStore((s) => s.rooms);
 
+  const onlineCount = users.filter((u) => u.isOnline).length;
   const roomCreatorId = rooms.find((r) => r.id === currentRoomId)?.creatorId ?? null;
   const currentUserRole = users.find((u) => u.id === currentUser.id)?.role ?? "member";
   const canInvitePersona =
@@ -59,7 +62,7 @@ export function ChatView({
           <div className="room-name">{roomName}</div>
           <div className="room-status">
             <span className="pulse-dot" />
-            <span>{users.length} ONLINE</span>
+            <span>{onlineCount} ONLINE</span>
           </div>
         </div>
         <div className="header-right">
@@ -150,6 +153,7 @@ export function ChatView({
           currentUser={currentUser}
           isOpen={usersPanelOpen}
           onClose={() => setUsersPanelOpen(false)}
+          onLeaveRoom={onLeaveRoom}
         />
       </div>
 

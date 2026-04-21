@@ -1,4 +1,5 @@
-import { MessageSquare } from "lucide-react";
+import { useState } from "react";
+import { MessageSquare, LogOut, ChevronDown, ChevronRight } from "lucide-react";
 import { useChatStore } from "@/stores/chatStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { useUiStore } from "@/stores/uiStore";
@@ -10,25 +11,24 @@ interface UserSidebarProps {
   currentUser: User;
   isOpen: boolean;
   onClose: () => void;
+  onLeaveRoom: () => void;
 }
 
-export function UserSidebar({ send, currentUser, isOpen, onClose }: UserSidebarProps) {
+export function UserSidebar({ send, currentUser, isOpen, onClose, onLeaveRoom }: UserSidebarProps) {
   const users = useChatStore((s) => s.users);
   const openPrivateChat = useChatStore((s) => s.openPrivateChat);
   const showUserCard = useUiStore((s) => s.showUserCard);
+  const [offlineExpanded, setOfflineExpanded] = useState(false);
 
-  // Sort: bots first, then regular users
-  const sortedUsers = [...users].sort((a, b) => {
-    const aBot = a.isBot ? 1 : 0;
-    const bBot = b.isBot ? 1 : 0;
-    return bBot - aBot;
-  });
-
-  const roomCreatorId = useRoomStore((s) => s.rooms).find(
-    (room) => room.id === useRoomStore.getState().currentRoomId,
-  )?.creatorId ?? null;
+  const roomCreatorId =
+    useRoomStore((s) => s.rooms).find((room) => room.id === useRoomStore.getState().currentRoomId)
+      ?.creatorId ?? null;
 
   const isOwner = (user: User) => user.role === "owner" || roomCreatorId === user.id;
+
+  const sortByBot = (a: User, b: User) => (b.isBot ? 1 : 0) - (a.isBot ? 1 : 0);
+  const onlineUsers = [...users.filter((u) => u.isOnline)].sort(sortByBot);
+  const offlineMembers = [...users.filter((u) => !u.isOnline)].sort(sortByBot);
 
   const handleDm = (user: User) => {
     onClose();
@@ -36,11 +36,80 @@ export function UserSidebar({ send, currentUser, isOpen, onClose }: UserSidebarP
     send({ type: "private_history", targetUserId: user.id });
   };
 
+  const renderUser = (user: User, dimmed = false) => {
+    const owner = isOwner(user);
+    return (
+      <div
+        key={user.id}
+        className={`user-item${user.isBot ? " user-item-bot" : ""}${dimmed ? " user-item-offline" : ""}`}
+        role="listitem"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            showUserCard(user.id);
+          }
+        }}
+        onClick={() => showUserCard(user.id)}
+      >
+        <div className="user-item-avatar">
+          {user.avatarUrl ? (
+            <img
+              src={user.avatarUrl}
+              alt={user.displayName ?? user.username}
+              loading="lazy"
+              className="avatar-img"
+            />
+          ) : user.isBot ? (
+            <span className="bot-avatar-icon">🤖</span>
+          ) : (
+            getInitials(user.displayName ?? user.username)
+          )}
+        </div>
+        <div className="user-item-info">
+          <div className="user-item-name">
+            {user.displayName ?? user.username}
+            {!user.isBot &&
+              (owner ? (
+                <span className="role-badge role-owner-icon" title="Room owner" aria-label="Room owner">
+                  ♛
+                </span>
+              ) : (
+                user.role &&
+                user.role !== "member" && (
+                  <span className={`role-badge role-${user.role}`}>{user.role.toUpperCase()}</span>
+                )
+              ))}
+          </div>
+          {!user.isBot && user.status && <div className="user-item-status">{user.status}</div>}
+        </div>
+        {user.id !== currentUser.id && !user.isBot && (
+          <div className="user-item-actions">
+            <button
+              type="button"
+              className="dm-btn"
+              title="Send DM"
+              aria-label={`Send direct message to ${user.username}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDm(user);
+              }}
+            >
+              <MessageSquare size={14} />
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
-    <div className={`users-sidebar${isOpen ? " open" : " collapsed"}`} aria-label="Online users">
+    <div className={`users-sidebar${isOpen ? " open" : " collapsed"}`} aria-label="Room members">
       <div className="sidebar-header">
-        <div className="sidebar-title">USERS ONLINE</div>
-        <div className="sidebar-count">{users.length}</div>
+        <div className="sidebar-title">USERS</div>
+        <div className="sidebar-count">
+          {onlineUsers.length}/{users.length}
+        </div>
         <button
           type="button"
           className="icon-btn users-sidebar-close"
@@ -51,72 +120,30 @@ export function UserSidebar({ send, currentUser, isOpen, onClose }: UserSidebarP
         </button>
       </div>
       <div className="users-list" role="list">
-        {sortedUsers.map((user) => {
-          const owner = isOwner(user);
-          return (
-            <div
-              key={user.id}
-              className={`user-item${user.isBot ? " user-item-bot" : ""}`}
-              role="listitem"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  showUserCard(user.id);
-                }
-              }}
-              onClick={() => showUserCard(user.id)}
+        {onlineUsers.map((user) => renderUser(user))}
+
+        {offlineMembers.length > 0 && (
+          <>
+            <button
+              type="button"
+              className="offline-section-toggle"
+              onClick={() => setOfflineExpanded((e) => !e)}
+              aria-expanded={offlineExpanded}
             >
-              <div className="user-item-avatar">
-                {user.avatarUrl ? (
-                  <img
-                    src={user.avatarUrl}
-                    alt={user.displayName ?? user.username}
-                    loading="lazy"
-                    className="avatar-img"
-                  />
-                ) : user.isBot ? (
-                  <span className="bot-avatar-icon">🤖</span>
-                ) : (
-                  getInitials(user.displayName ?? user.username)
-                )}
-              </div>
-              <div className="user-item-info">
-                <div className="user-item-name">
-                  {user.displayName ?? user.username}
-                  {!user.isBot && (owner ? (
-                    <span className="role-badge role-owner-icon" title="Room owner" aria-label="Room owner">
-                      ♛
-                    </span>
-                  ) : (
-                    user.role &&
-                    user.role !== "member" && (
-                      <span className={`role-badge role-${user.role}`}>{user.role.toUpperCase()}</span>
-                    )
-                  ))}
-                </div>
-                {!user.isBot && user.status && <div className="user-item-status">{user.status}</div>}
-              </div>
-              {user.id !== currentUser.id && !user.isBot && (
-                <div className="user-item-actions">
-                  <button
-                    type="button"
-                    className="dm-btn"
-                    title="Send DM"
-                    aria-label={`Send direct message to ${user.username}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDm(user);
-                    }}
-                  >
-                    <MessageSquare size={14} />
-                  </button>
-                </div>
-              )}
-            </div>
-          );
-        })}
+              {offlineExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+              <span>OFFLINE — {offlineMembers.length}</span>
+            </button>
+            {offlineExpanded && offlineMembers.map((user) => renderUser(user, true))}
+          </>
+        )}
+      </div>
+      <div className="sidebar-footer">
+        <button type="button" className="leave-room-btn" onClick={onLeaveRoom}>
+          <LogOut size={14} />
+          LEAVE ROOM
+        </button>
       </div>
     </div>
   );
 }
+

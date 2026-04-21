@@ -19,6 +19,7 @@ export function ChatPage() {
     useRoomStore();
   const reset = useChatStore((s) => s.reset);
   const addToast = useUiStore((s) => s.addToast);
+  const confirm = useUiStore((s) => s.confirm);
   const userCardUserId = useUiStore((s) => s.userCardUserId);
   const privateChatUserId = useChatStore((s) => s.privateChatUserId);
   const roomIdNum = Number(roomId);
@@ -78,6 +79,20 @@ export function ChatPage() {
     navigate("/lobby");
   };
 
+  const handleLeaveRoom = useCallback(async () => {
+    const confirmed = await confirm({
+      title: "LEAVE ROOM",
+      message: "Leave this room? You can rejoin at any time.",
+      confirmText: "LEAVE",
+      cancelText: "CANCEL",
+      tone: "danger",
+    });
+    if (!confirmed) return;
+    send({ type: "leave_room" });
+    leaveRoom();
+    navigate("/lobby");
+  }, [confirm, send, leaveRoom, navigate]);
+
   const handleOpenMailbox = () => {
     leaveRoom();
     navigate("/mailbox", {
@@ -95,6 +110,7 @@ export function ChatPage() {
         roomName={displayedRoomName}
         currentUser={user!}
         onDisconnect={handleDisconnect}
+        onLeaveRoom={() => void handleLeaveRoom()}
         onOpenMailbox={handleOpenMailbox}
         onOpenProfile={() => setProfileOpen(true)}
         wsStatus={status}

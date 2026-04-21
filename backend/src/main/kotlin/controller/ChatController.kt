@@ -198,8 +198,12 @@ class ChatController(
                         }
                     }
                     "leave" -> {
+                        // Legacy: treat as a no-op; WS close via onClose handles presence cleanup.
+                    }
+                    "leave_room" -> {
+                        // Explicit persistent leave: remove from room membership.
                         if (joinedRoom.compareAndSet(true, false)) {
-                            chatService.leaveRoom(roomId, currentUser, conn)
+                            chatService.leaveRoomExplicit(roomId, currentUser)
                         }
                     }
                     "update_profile" -> {

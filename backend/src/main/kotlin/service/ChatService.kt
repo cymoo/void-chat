@@ -44,6 +44,9 @@ class ChatService(
     // Room ID -> (User ID -> active connection count in this room)
     private val roomUserConnectionCounts = ConcurrentHashMap<Int, ConcurrentHashMap<Int, Int>>()
 
+    // Room ID -> (User ID -> Set of WS connections) — for multi-tab explicit leave
+    private val roomUserConnections = ConcurrentHashMap<Int, ConcurrentHashMap<Int, CopyOnWriteArraySet<WsConnection>>>()
+
     // User ID -> Connection
     private val userConnections = ConcurrentHashMap<Int, WsConnection>()
 
@@ -79,11 +82,8 @@ class ChatService(
     fun joinRoom(roomId: Int, connection: WsConnection, user: User): Boolean {
         // Serialise join/leave for the same user+room so the count check and the
         // DB write + broadcast happen atomically relative to each other.
-        // This prevents a racing leaveRoom from interleaving inside joinRoom and
-        // producing spurious "left"/"joined" system messages.
         data class JoinWork(
             val joinedUser: User,
-            val joinMessage: ChatMessage.System,
             val allUsers: List<User>,
         )
 
@@ -108,6 +108,12 @@ class ChatService(
                 connections.add(connection)
                 userConnections[user.id] = connection
 
+                // Track per-user room connections for multi-tab explicit leave
+                roomUserConnections
+                    .computeIfAbsent(roomId) { ConcurrentHashMap() }
+                    .computeIfAbsent(user.id) { CopyOnWriteArraySet() }
+                    .add(connection)
+
                 val activeCount = userCounts.merge(user.id, 1) { prev, _ -> prev + 1 } ?: 1
 
                 // Only the first active connection triggers the join broadcast.
@@ -122,19 +128,9 @@ class ChatService(
                 userRepo.updateLastSeen(user.id)
 
                 val allUsers = getRoomUsers(roomId)
-                val joinedUser = allUsers.find { it.id == user.id } ?: user.copy(role = desiredRole)
+                val joinedUser = allUsers.find { it.id == user.id } ?: user.copy(role = desiredRole, isOnline = true)
 
-                val systemMessageId = messageRepo.saveSystemMessage(
-                    roomId,
-                    "${user.username} joined the room"
-                )
-                val joinMessage = ChatMessage.System(
-                    id = systemMessageId,
-                    content = "${user.username} joined the room",
-                    timestamp = System.currentTimeMillis()
-                )
-
-                JoinResult(joined = true, work = JoinWork(joinedUser, joinMessage, allUsers))
+                JoinResult(joined = true, work = JoinWork(joinedUser, allUsers))
             }
         }
 
@@ -142,7 +138,6 @@ class ChatService(
         // the per-user lock while waiting for the thread pool.
         if (!result.joined) return false
         if (result.work != null) {
-            broadcastToRoom(roomId, WsEvent.Message(result.work.joinMessage))
             broadcastToRoom(roomId, WsEvent.UserJoined(result.work.joinedUser))
             broadcastToRoom(roomId, WsEvent.Users(result.work.allUsers))
         }
@@ -162,7 +157,8 @@ class ChatService(
 
     /**
      * Remove a WebSocket connection from a room. If this was the user's last
-     * connection in the room, broadcasts a leave system message.
+     * connection in the room, broadcasts an offline presence update. The user
+     * remains a persistent member in the DB — only explicit leave removes them.
      */
     fun leaveRoom(roomId: Int, user: User, connection: WsConnection) {
         // Guard: if the connection was already removed, this is a duplicate call.
@@ -173,36 +169,26 @@ class ChatService(
             userConnections.remove(user.id)
         }
 
-        data class LeaveWork(val leaveMessage: ChatMessage.System)
+        // Remove from per-user room connection tracking
+        roomUserConnections[roomId]?.let { userConns ->
+            userConns[user.id]?.remove(connection)
+            if (userConns[user.id]?.isEmpty() == true) userConns.remove(user.id)
+            if (userConns.isEmpty()) roomUserConnections.remove(roomId)
+        }
 
-        val work: LeaveWork? = synchronized(userRoomLock(roomId, user.id)) {
+        val wentOffline: Boolean = synchronized(userRoomLock(roomId, user.id)) {
             synchronized(roomLock(roomId)) {
                 val userCounts = roomUserConnectionCounts[roomId]
                 val remainingConnections = userCounts?.compute(user.id) { _, count ->
                     if (count == null || count <= 1) null else count - 1
                 }
 
-                // Only broadcast the leave when no active connections remain.
-                if (remainingConnections != null) return@synchronized null
-
-                roomMemberRepo.removeMember(roomId, user.id)
-
-                val systemMessageId = messageRepo.saveSystemMessage(
-                    roomId,
-                    "${user.username} left the room"
-                )
-                val leaveMessage = ChatMessage.System(
-                    id = systemMessageId,
-                    content = "${user.username} left the room",
-                    timestamp = System.currentTimeMillis()
-                )
-
-                LeaveWork(leaveMessage)
+                // Only broadcast offline state when no active connections remain.
+                remainingConnections == null
             }
         }
 
-        if (work != null) {
-            broadcastToRoom(roomId, WsEvent.Message(work.leaveMessage))
+        if (wentOffline) {
             broadcastToRoom(roomId, WsEvent.UserLeft(user.id, user.username))
             broadcastToRoom(roomId, WsEvent.Users(getRoomUsers(roomId)))
         }
@@ -215,6 +201,36 @@ class ChatService(
         if (userCounts?.isEmpty() == true) {
             roomUserConnectionCounts.remove(roomId)
         }
+    }
+
+    /**
+     * Explicitly remove a user from a room (persistent leave).
+     * Removes them from room_members, closes all their room connections,
+     * and broadcasts the updated user list to remaining members.
+     */
+    fun leaveRoomExplicit(roomId: Int, user: User) {
+        roomMemberRepo.removeMember(roomId, user.id)
+
+        // Close all connections for this user in this room (handles multi-tab).
+        // Remove from roomConnections first so each subsequent onClose call sees
+        // wasPresent=false and exits leaveRoom() early — preventing double broadcasts.
+        val userConns = roomUserConnections[roomId]?.remove(user.id)?.toList() ?: emptyList()
+        for (conn in userConns) {
+            roomConnections[roomId]?.remove(conn)
+            if (userConnections[user.id] == conn) userConnections.remove(user.id)
+        }
+        synchronized(userRoomLock(roomId, user.id)) {
+            synchronized(roomLock(roomId)) {
+                roomUserConnectionCounts[roomId]?.remove(user.id)
+            }
+        }
+        // Close connections after removing from tracking maps to prevent double broadcasts
+        for (conn in userConns) {
+            runCatching { conn.close() }
+        }
+
+        broadcastToRoom(roomId, WsEvent.UserLeft(user.id, user.username))
+        broadcastToRoom(roomId, WsEvent.Users(getRoomUsers(roomId)))
     }
 
     /** Send a text message to a room. Returns false if user is muted/disabled. */
@@ -349,8 +365,11 @@ class ChatService(
     }
 
     fun getRoomUsers(roomId: Int): List<User> {
-        val users = roomMemberRepo.getRoomMembers(roomId)
-        return personaChatEngine?.enrichUsers(users, roomId) ?: users
+        val members = roomMemberRepo.getRoomMembers(roomId)
+        val onlineUserIds = roomUserConnectionCounts[roomId]?.keys ?: emptySet<Int>()
+        // Bots are always considered online; humans are online when they have active connections.
+        val enriched = members.map { user -> user.copy(isOnline = user.isBot || user.id in onlineUserIds) }
+        return personaChatEngine?.enrichUsers(enriched, roomId) ?: enriched
     }
 
     /** Returns the number of online users per room based on active WebSocket connections. */

@@ -41,7 +41,7 @@ export function UserCard({ send }: UserCardProps) {
 
   if (!userId || !profile || !currentUser) return null;
 
-  const isOnline = users.some((u) => u.id === userId);
+  const isOnline = users.find((u) => u.id === userId)?.isOnline ?? false;
 
   // Kick permission logic
   const roomCreatorId = rooms.find((r) => r.id === currentRoomId)?.creatorId ?? null;

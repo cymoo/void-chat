@@ -92,7 +92,7 @@ class ChatServiceTest {
     }
 
     @Test
-    fun `leaveRoom broadcasts updated Users list`() {
+    fun `leaveRoom broadcasts updated Users list with offline member`() {
         val userA = createUser("charlie")
         val userB = createUser("dave")
         val connA = mockConnection()
@@ -107,15 +107,18 @@ class ChatServiceTest {
         chatService.leaveRoom(room2Id, userB, connB)
         awaitBroadcasts()
 
-        // User A should receive a Users event with only charlie
+        // User A should receive a Users event; dave is still a member but offline
         val msgsA = capturedMessages(connA)
         val usersEvents = msgsA.filter { it["type"] == "users" }
         assertTrue(usersEvents.isNotEmpty(), "User A should receive a 'users' event after B leaves")
 
         @Suppress("UNCHECKED_CAST")
-        val lastUsersList = (usersEvents.last()["users"] as List<Map<String, Any>>).map { it["username"] }
-        assertTrue(lastUsersList.contains("charlie"), "Users list should contain charlie")
-        assertFalse(lastUsersList.contains("dave"), "Users list should not contain dave")
+        val lastUsersList = usersEvents.last()["users"] as List<Map<String, Any>>
+        assertTrue(lastUsersList.any { it["username"] == "charlie" }, "Users list should contain charlie")
+        // dave is still a persistent member — now offline, not removed
+        val daveEntry = lastUsersList.find { it["username"] == "dave" }
+        assertNotNull(daveEntry, "dave should still appear in users list as offline member")
+        assertFalse(daveEntry!!["isOnline"] as Boolean, "dave should be offline")
     }
 
     // ---------------------------------------------------------------
@@ -235,10 +238,7 @@ class ChatServiceTest {
     /**
      * The React Strict-Mode pattern produces TWO overlapping connections:
      *   conn1 opens → conn2 opens → conn1 closes (in that order)
-     * Only one "joined" should broadcast, and no "left" should appear.
-     *
-     * This is distinct from a fully sequential reconnect (join→leave→join),
-     * which correctly emits two "joined" and one "left".
+     * Only one UserJoined broadcast should fire, and no system messages at all.
      */
     @Test
     fun `overlapping reconnect join-join-leave produces single join broadcast`() {
@@ -254,26 +254,26 @@ class ChatServiceTest {
         clearMocks(connObs, answers = false)
 
         // Simulate overlap: conn2 opens before conn1 closes.
-        chatService.joinRoom(room1Id, connA1, userA)  // count 0→1, broadcast "joined"
+        chatService.joinRoom(room1Id, connA1, userA)  // count 0→1, broadcast UserJoined
         chatService.joinRoom(room1Id, connA2, userA)  // count 1→2, no broadcast
         chatService.leaveRoom(room1Id, userA, connA1) // count 2→1, no broadcast
         awaitBroadcasts()
 
         val msgs = capturedMessages(connObs)
+
+        // No system messages should be emitted in the new presence model
         val systemMessages = msgs
             .filter { it["type"] == "message" }
             .mapNotNull {
                 @Suppress("UNCHECKED_CAST")
                 (it["message"] as? Map<String, Any>)
                     ?.takeIf { m -> m["messageType"] == "system" }
-                    ?.get("content") as? String
             }
+        assertEquals(0, systemMessages.size, "No system messages expected in presence model")
 
-        val joinCount = systemMessages.count { it.contains("joined") }
-        val leaveCount = systemMessages.count { it.contains("left") }
-
-        assertEquals(1, joinCount, "Expected exactly 1 'joined' system message, got: $systemMessages")
-        assertEquals(0, leaveCount, "Expected no 'left' system message, got: $systemMessages")
+        // Exactly one user_joined broadcast for the initial connection
+        val userJoinedEvents = msgs.filter { it["type"] == "user_joined" }
+        assertEquals(1, userJoinedEvents.size, "Expected exactly 1 user_joined event")
 
         // User must be visible in the room at the end (conn2 is still active).
         val roomUsers = chatService.getRoomUsers(room1Id)
@@ -281,9 +281,8 @@ class ChatServiceTest {
     }
 
     /**
-     * Sequential reconnect (fully disconnects then reconnects) correctly
-     * emits "joined", "left", "joined" — the backend is not expected to suppress
-     * these; the frontend fix prevents this sequence from occurring in practice.
+     * Sequential reconnect (fully disconnects then reconnects) emits
+     * UserJoined twice and UserLeft once — no system messages.
      */
     @Test
     fun `sequential reconnect join-leave-join produces two join broadcasts`() {
@@ -297,23 +296,25 @@ class ChatServiceTest {
         awaitBroadcasts()
         clearMocks(connObs, answers = false)
 
-        chatService.joinRoom(room1Id, connA1, userA)   // count 0→1, "joined"
-        chatService.leaveRoom(room1Id, userA, connA1)  // count 1→0, "left"
-        chatService.joinRoom(room1Id, connA2, userA)   // count 0→1, "joined"
+        chatService.joinRoom(room1Id, connA1, userA)   // count 0→1, UserJoined
+        chatService.leaveRoom(room1Id, userA, connA1)  // count 1→0, UserLeft
+        chatService.joinRoom(room1Id, connA2, userA)   // count 0→1, UserJoined
         awaitBroadcasts()
 
         val msgs = capturedMessages(connObs)
+
+        // No system messages
         val systemMessages = msgs
             .filter { it["type"] == "message" }
             .mapNotNull {
                 @Suppress("UNCHECKED_CAST")
                 (it["message"] as? Map<String, Any>)
                     ?.takeIf { m -> m["messageType"] == "system" }
-                    ?.get("content") as? String
             }
+        assertEquals(0, systemMessages.size, "No system messages expected in presence model")
 
-        assertEquals(2, systemMessages.count { it.contains("joined") }, "Sequential: 2 joined")
-        assertEquals(1, systemMessages.count { it.contains("left") }, "Sequential: 1 left")
+        assertEquals(2, msgs.count { it["type"] == "user_joined" }, "Sequential: 2 user_joined events")
+        assertEquals(1, msgs.count { it["type"] == "user_left" }, "Sequential: 1 user_left event")
         assertTrue(
             chatService.getRoomUsers(room1Id).any { it.id == userA.id },
             "User should be in room after final join"
@@ -322,7 +323,7 @@ class ChatServiceTest {
 
     /**
      * After many concurrent join→leave pairs for the same user finish, the user
-     * must not be in the DB and the online count must be 0.
+     * must not be online but remains in the DB as a persistent member.
      */
     @Test
     fun `concurrent join and leave are serialised correctly`() {
@@ -346,13 +347,63 @@ class ChatServiceTest {
         executor.shutdown()
         awaitBroadcasts()
 
-        // All connections have left: user must not appear in DB or online counts.
+        // All connections have left: online count must be 0.
+        // User remains in DB as a persistent member (not removed on WS disconnect).
         val onlineCount = chatService.getOnlineUserCounts().getOrDefault(room3Id, 0)
         val dbMembers = chatService.getRoomUsers(room3Id)
         val userInDb = dbMembers.any { it.id == user.id }
 
         assertEquals(0, onlineCount, "Online count should be 0 after all leaves")
-        assertFalse(userInDb, "User should not be in DB after all leaves")
+        assertTrue(userInDb, "User should remain as persistent member after WS disconnects")
+    }
+
+    // ---------------------------------------------------------------
+    // leaveRoomExplicit (persistent leave)
+    // ---------------------------------------------------------------
+
+    @Test
+    fun `leaveRoomExplicit removes member from DB and closes connections`() {
+        val userA = createUser("explicit-alice")
+        val userB = createUser("explicit-bob")
+        val connA = mockConnection()
+        val connB = mockConnection()
+
+        chatService.joinRoom(room1Id, connA, userA)
+        chatService.joinRoom(room1Id, connB, userB)
+        awaitBroadcasts()
+        clearMocks(connA, connB, answers = false)
+
+        chatService.leaveRoomExplicit(room1Id, userB)
+        awaitBroadcasts()
+
+        // bob should be fully removed from DB
+        val members = chatService.getRoomUsers(room1Id)
+        assertFalse(members.any { it.id == userB.id }, "bob should be removed from room members")
+        // online count should drop to 1
+        assertEquals(1, chatService.getOnlineUserCounts().getOrDefault(room1Id, 0))
+        // user_left broadcast should reach alice
+        val msgsA = capturedMessages(connA)
+        assertTrue(msgsA.any { it["type"] == "user_left" }, "alice should receive user_left event")
+        assertTrue(msgsA.any { it["type"] == "users" }, "alice should receive updated users list")
+    }
+
+    @Test
+    fun `leaveRoomExplicit does not remove other members`() {
+        val userA = createUser("explicit2-alice")
+        val userB = createUser("explicit2-bob")
+        val connA = mockConnection()
+        val connB = mockConnection()
+
+        chatService.joinRoom(room2Id, connA, userA)
+        chatService.joinRoom(room2Id, connB, userB)
+        awaitBroadcasts()
+
+        chatService.leaveRoomExplicit(room2Id, userB)
+        awaitBroadcasts()
+
+        val members = chatService.getRoomUsers(room2Id)
+        assertTrue(members.any { it.id == userA.id }, "alice should remain in room")
+        assertFalse(members.any { it.id == userB.id }, "bob should be removed")
     }
 
     // ---------------------------------------------------------------
