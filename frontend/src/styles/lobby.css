@@ -167,7 +167,6 @@
   flex-direction: column;
   gap: 10px;
   position: relative;
-  overflow: hidden;
   min-height: 130px;
 }
 
@@ -181,6 +180,7 @@
   background: var(--color-accent);
   opacity: 0;
   transition: opacity var(--transition-fast);
+  pointer-events: none;
 }
 
 .room-card:hover {

@@ -139,8 +139,12 @@ export function ChatView({
 
       {/* Chat Content */}
       <div className="chat-content">
-        <div className="messages-panel">
-          <MessageList send={send} currentUser={currentUser} />
+        <div className="messages-col">
+          <div className="messages-panel">
+            <MessageList send={send} currentUser={currentUser} />
+          </div>
+          <TypingIndicator currentUserId={currentUser.id} />
+          <MessageInput send={send} currentUser={currentUser} />
         </div>
         <button
           type="button"
@@ -156,10 +160,6 @@ export function ChatView({
           onLeaveRoom={onLeaveRoom}
         />
       </div>
-
-      {/* Input */}
-      <TypingIndicator currentUserId={currentUser.id} />
-      <MessageInput send={send} currentUser={currentUser} />
 
       {/* Invite Persona Modal */}
       {personaModalOpen && currentRoomId && (

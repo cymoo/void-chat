@@ -54,6 +54,7 @@ export function useMessageComposer({
   const [uploading, setUploading] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const addToast = useUiStore((s) => s.addToast);
+  const emojiTriggeredByColon = useRef(false);
 
   const canSend = text.trim().length > 0;
 
@@ -102,7 +103,20 @@ export function useMessageComposer({
 
   const handleSelectEmoji = useCallback(
     (emoji: string) => {
-      insertAtCursor(emoji);
+      if (emojiTriggeredByColon.current) {
+        // Replace the triggering ':' with the selected emoji
+        emojiTriggeredByColon.current = false;
+        setText((prev) => (prev.endsWith(":") ? prev.slice(0, -1) + emoji : prev + emoji));
+        requestAnimationFrame(() => {
+          const el = textareaRef.current;
+          if (el) {
+            el.focus();
+            el.setSelectionRange(el.value.length, el.value.length);
+          }
+        });
+      } else {
+        insertAtCursor(emoji);
+      }
       setEmojiOpen(false);
     },
     [insertAtCursor],
@@ -133,6 +147,11 @@ export function useMessageComposer({
       const val = e.target.value;
       setText(val);
       onTextChangeRef.current?.(val, textareaRef.current);
+      // Open emoji picker when user types a standalone ':'
+      if (val.endsWith(":")) {
+        emojiTriggeredByColon.current = true;
+        setEmojiOpen(true);
+      }
     },
     [],
   );

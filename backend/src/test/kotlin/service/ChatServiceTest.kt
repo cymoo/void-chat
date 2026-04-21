@@ -173,8 +173,8 @@ class ChatServiceTest {
         val firstJoin = chatService.joinRoom(limitedRoom.id, connA, userA)
         val secondJoin = chatService.joinRoom(limitedRoom.id, connB, userB)
 
-        assertTrue(firstJoin)
-        assertFalse(secondJoin)
+        assertTrue(firstJoin.isJoined)
+        assertFalse(secondJoin.isJoined)
         assertEquals(1, chatService.getOnlineUserCounts()[limitedRoom.id])
         assertEquals(listOf("limit-a"), chatService.getRoomUsers(limitedRoom.id).map { it.username })
     }

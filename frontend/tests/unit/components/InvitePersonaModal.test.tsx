@@ -29,8 +29,8 @@ describe("InvitePersonaModal", () => {
     renderModal();
     expect(screen.getByText("INVITE AI PERSONA")).toBeInTheDocument();
     expect(screen.getByLabelText(/PERSONA NAME/)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/叔本华/)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/辛辣嘲讽/)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Schopenhauer/)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/pirate/)).toBeInTheDocument();
   });
 
   it("submit button is disabled when name is empty", () => {
@@ -61,7 +61,7 @@ describe("InvitePersonaModal", () => {
       target: { value: "牛顿" },
     });
     fireEvent.change(
-      screen.getByPlaceholderText(/辛辣嘲讽/),
+      screen.getByPlaceholderText(/pirate/),
       { target: { value: "幽默一些" } },
     );
     fireEvent.click(screen.getByRole("button", { name: /INVOKE PERSONA/i }));

@@ -1,4 +1,4 @@
-import { useState, useCallback, type KeyboardEvent } from "react";
+import { useState, useCallback, useEffect, useRef, type KeyboardEvent } from "react";
 import { COMMON_EMOJIS } from "@/lib/emojis";
 import { Popover } from "@/components/ui/Popover";
 
@@ -12,6 +12,14 @@ interface EmojiPickerProps {
 
 export function EmojiPicker({ open, onToggle, onSelect }: EmojiPickerProps) {
   const [focusIndex, setFocusIndex] = useState(0);
+  const gridRef = useRef<HTMLDivElement>(null);
+
+  // Auto-focus the grid when picker opens so keyboard nav works immediately
+  useEffect(() => {
+    if (open && gridRef.current) {
+      gridRef.current.focus();
+    }
+  }, [open]);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -48,7 +56,7 @@ export function EmojiPicker({ open, onToggle, onSelect }: EmojiPickerProps) {
   );
 
   const emojiGrid = (
-    <div className="emoji-picker" role="grid" aria-label="Emoji picker" onKeyDown={handleKeyDown} tabIndex={0}>
+    <div ref={gridRef} className="emoji-picker" role="grid" aria-label="Emoji picker" onKeyDown={handleKeyDown} tabIndex={0}>
       <div className="emoji-grid">
         {COMMON_EMOJIS.map((emoji, i) => (
           <button

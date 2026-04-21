@@ -13,6 +13,7 @@ import repository.RoomMemberRepository
 import repository.RoomRepository
 import repository.UserRepository
 import persona.PersonaChatEngine
+import config.Env
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArraySet
@@ -26,7 +27,8 @@ import java.util.concurrent.Executors
 class ChatService(
     dsl: DSLContext,
     private val objectMapper: ObjectMapper,
-    private val jedisPool: JedisPool? = null
+    private val jedisPool: JedisPool? = null,
+    private val kickCooldownSeconds: Long = (Env["KICK_COOLDOWN_SECONDS"]?.toLongOrNull() ?: 300L)
 ) {
     private val log = LoggerFactory.getLogger(ChatService::class.java)
     private val instanceId = UUID.randomUUID().toString()
@@ -72,14 +74,49 @@ class ChatService(
     /** Optional persona engine — injected after construction to break circular dependency. */
     var personaChatEngine: PersonaChatEngine? = null
 
+    /** Result of a room join attempt. */
+    sealed class JoinOutcome {
+        object Joined : JoinOutcome()
+        data class Rejected(val message: String) : JoinOutcome()
+
+        val isJoined: Boolean get() = this is Joined
+    }
+    private fun kickCooldownKey(roomId: Int, userId: Int) = "kick:room:$roomId:user:$userId"
+
+    private fun isKickCooldownActive(roomId: Int, userId: Int): Boolean {
+        if (jedisPool == null) return false
+        return try {
+            jedisPool.resource.use { jedis -> jedis.exists(kickCooldownKey(roomId, userId)) }
+        } catch (e: Exception) {
+            log.warn("Redis kick cooldown check failed: {}", e.message)
+            false
+        }
+    }
+
+    private fun setKickCooldown(roomId: Int, userId: Int) {
+        if (jedisPool == null || kickCooldownSeconds <= 0) return
+        try {
+            jedisPool.resource.use { jedis ->
+                jedis.setex(kickCooldownKey(roomId, userId), kickCooldownSeconds, "1")
+            }
+        } catch (e: Exception) {
+            log.warn("Redis kick cooldown set failed: {}", e.message)
+        }
+    }
+
     /**
      * Register a user's WebSocket connection into a chat room.
-     * Handles room capacity enforcement, connection counting (for multi-tab),
-     * and first-occupant broadcasts (system message, user list update).
+     * Handles room capacity enforcement, kick cooldown, connection counting (for multi-tab),
+     * and first-occupant broadcasts (user list update).
      *
-     * @return true if the connection was added; false if room is full.
+     * @return JoinOutcome.Joined if successful; JoinOutcome.Rejected with a message otherwise.
      */
-    fun joinRoom(roomId: Int, connection: WsConnection, user: User): Boolean {
+    fun joinRoom(roomId: Int, connection: WsConnection, user: User): JoinOutcome {
+        // Kick cooldown check — Redis lookup before acquiring any lock
+        if (isKickCooldownActive(roomId, user.id)) {
+            return JoinOutcome.Rejected("You were recently kicked from this room. Please wait before rejoining.")
+        }
+
         // Serialise join/leave for the same user+room so the count check and the
         // DB write + broadcast happen atomically relative to each other.
         data class JoinWork(
@@ -136,12 +173,12 @@ class ChatService(
 
         // Broadcasts happen outside the lock — they're async and must not hold
         // the per-user lock while waiting for the thread pool.
-        if (!result.joined) return false
+        if (!result.joined) return JoinOutcome.Rejected("Room is full")
         if (result.work != null) {
             broadcastToRoom(roomId, WsEvent.UserJoined(result.work.joinedUser))
             broadcastToRoom(roomId, WsEvent.Users(result.work.allUsers))
         }
-        return true
+        return JoinOutcome.Joined
     }
 
     /** Register a user's direct-message WebSocket connection. */
@@ -501,6 +538,9 @@ class ChatService(
         }
 
         roomMemberRepo.removeMember(roomId, targetUserId)
+
+        // Apply kick cooldown so the user can't immediately rejoin
+        setKickCooldown(roomId, targetUserId)
 
         // Persona hook: clean up room bot tracking
         personaChatEngine?.onUserKicked(roomId, targetUserId)

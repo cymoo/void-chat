@@ -86,7 +86,7 @@
   width: 40px;
   height: 40px;
   background: var(--color-bg);
-  border: 1px solid var(--color-border-bright);
+  border: 1px solid var(--color-border);
   border-radius: 2px;
   display: flex;
   align-items: center;
@@ -109,7 +109,7 @@
 .message:not(.system) .message-content {
   flex: initial;
   background: rgba(var(--color-bg-rgb), 0.55);
-  border: 1px solid rgba(var(--color-text-dim-rgb), 0.22);
+  border: 1px solid rgba(var(--color-text-dim-rgb), 0.12);
   padding: 10px 14px;
   border-radius: 4px;
   max-width: min(80%, 600px);

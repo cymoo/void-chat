@@ -80,7 +80,7 @@ export function InvitePersonaModal({ roomId, onClose, onSuccess }: InvitePersona
                 id="persona-name"
                 className="terminal-input"
                 type="text"
-                placeholder="e.g. 叔本华, Newton, 孔子..."
+                placeholder="e.g. Schopenhauer, Newton, Confucius..."
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 disabled={loading}
@@ -95,7 +95,7 @@ export function InvitePersonaModal({ roomId, onClose, onSuccess }: InvitePersona
                 id="persona-personality"
                 className="terminal-input"
                 type="text"
-                placeholder="e.g. 辛辣嘲讽的语气, Speak like a pirate..."
+                placeholder="e.g. Speak like a pirate, cynical and sharp-tongued..."
                 value={personality}
                 onChange={(e) => setPersonality(e.target.value)}
                 disabled={loading}

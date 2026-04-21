@@ -31,7 +31,8 @@ export function UserSidebar({ send, currentUser, isOpen, onClose, onLeaveRoom }:
   const offlineMembers = [...users.filter((u) => !u.isOnline)].sort(sortByBot);
 
   const handleDm = (user: User) => {
-    onClose();
+    // On mobile, the sidebar is a drawer overlay — close it before opening DM
+    if (window.innerWidth <= 768) onClose();
     openPrivateChat(user.id, user.username);
     send({ type: "private_history", targetUserId: user.id });
   };

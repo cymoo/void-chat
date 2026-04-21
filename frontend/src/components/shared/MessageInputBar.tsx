@@ -3,8 +3,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import { Paperclip, Send } from "lucide-react";
-import { COMMON_EMOJIS } from "@/lib/emojis";
-import { Popover } from "@/components/ui/Popover";
+import { EmojiPicker } from "@/components/shared/EmojiPicker";
 import { useMessageComposer, type MessageComposerReturn } from "@/hooks/useMessageComposer";
 
 interface MessageInputBarProps {
@@ -57,23 +56,6 @@ export function MessageInputBar({
     [onKeyDownCapture, composer],
   );
 
-  const emojiGrid = (
-    <div className="emoji-picker" role="menu" aria-label="Emoji picker">
-      <div className="emoji-grid">
-        {COMMON_EMOJIS.map((emoji) => (
-          <button
-            key={emoji}
-            type="button"
-            className="emoji-btn"
-            onClick={() => composer.handleSelectEmoji(emoji)}
-          >
-            {emoji}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-
   return (
     <>
       {renderAbove?.(composer)}
@@ -102,23 +84,11 @@ export function MessageInputBar({
             aria-label={ariaLabel}
           />
           <div className="input-actions">
-            <Popover
+            <EmojiPicker
               open={composer.emojiOpen}
-              onOpenChange={composer.setEmojiOpen}
-              content={emojiGrid}
-              placement="top-end"
-              offsetPx={8}
-              className="emoji-popover"
-            >
-              <button
-                type="button"
-                className={`icon-btn emoji-toggle-btn${composer.emojiOpen ? " active" : ""}`}
-                title="Insert Emoji"
-                aria-label="Insert emoji"
-              >
-                🙂
-              </button>
-            </Popover>
+              onToggle={composer.setEmojiOpen}
+              onSelect={composer.handleSelectEmoji}
+            />
             <label className="icon-btn attach-btn" title="Attach File">
               <Paperclip size={20} />
               <input

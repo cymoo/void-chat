@@ -93,8 +93,9 @@ class ChatController(
         }
 
         // Join room
-        if (!chatService.joinRoom(roomId, conn, currentUser)) {
-            conn.send(chatService.serializeEvent(WsEvent.Error("Room is full")))
+        val joinOutcome = chatService.joinRoom(roomId, conn, currentUser)
+        if (joinOutcome is ChatService.JoinOutcome.Rejected) {
+            conn.send(chatService.serializeEvent(WsEvent.Error(joinOutcome.message)))
             conn.close()
             return
         }
