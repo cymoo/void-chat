@@ -367,15 +367,6 @@
   border-color: var(--color-accent);
 }
 
-.bot-avatar-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  color: #f59e0b;
-}
-
 .user-item-bot {
   opacity: 0.9;
 }
