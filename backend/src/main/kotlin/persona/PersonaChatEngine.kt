@@ -176,6 +176,7 @@ class PersonaChatEngine(
                 This message was NOT directly addressed to you. $othersClause
                 You must evaluate whether to speak AT ALL before composing a reply.
                 For auto-engage, default to silence.
+                Speaking should be exceptional (roughly <= 1 out of 10 opportunities).
                 Respond with exactly: $NO_RESPONSE_SENTINEL unless ALL "Speak only if" conditions are satisfied.
                 Stay silent (respond with exactly: $NO_RESPONSE_SENTINEL) if ANY of the following apply:
                 - The message addresses a specific other persona or person by name (not you).
@@ -185,14 +186,17 @@ class PersonaChatEngine(
                   immediate acknowledgment.
                 - The topic has no meaningful connection to your era, expertise, philosophy, or works.
                 - The message is mostly small talk, casual social chatter, or routine compliments
-                  between users (e.g. "明天想去哪里玩", "你穿的很好看", "周末吃什么").
+                  between users (e.g. "Where should we go tomorrow?", "You look great today", "What should we eat this weekend?").
+                - The message is mainly social planning, flirting, greetings, banter, or logistics between users.
+                - The discussion is already flowing well without your perspective.
                 - Your response would be generic and replaceable by most people.
                 - Another persona is already a more natural fit for the topic.
                 - You are unsure whether to respond — when in doubt, stay silent.
                 Speak only if ALL of the following are true:
                 1) The topic directly intersects your signature ideas, works, era, or worldview.
                 2) You can add a distinctive perspective that materially improves the discussion.
-                3) Entering now will not feel like interrupting a user-to-user exchange.
+                3) The latest message implicitly invites broad perspectives (not just user-to-user social exchange).
+                4) Entering now will not feel like interrupting a user-to-user exchange.
                 If any condition fails, output exactly: $NO_RESPONSE_SENTINEL
                 """.trimIndent()
             } else ""

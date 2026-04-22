@@ -315,7 +315,7 @@ class PersonaChatEngineTest {
     }
 
     @Test
-    fun `chatSystemPrompt auto-engage uses default-silent and casual-chat guardrails`() {
+    fun `chatSystemPrompt auto-engage uses stricter default-silent english guardrails`() {
         val prompt = invokeChatSystemPrompt(
             personaPrompt = "You are Schopenhauer",
             displayName = "叔本华",
@@ -324,9 +324,11 @@ class PersonaChatEngineTest {
         )
 
         assertTrue(prompt.contains("default to silence"), "Expected default-to-silence rule in auto-engage prompt")
+        assertTrue(prompt.contains("<= 1 out of 10"), "Expected low-participation cadence guidance")
         assertTrue(prompt.contains("small talk"), "Expected small-talk guardrail in auto-engage prompt")
-        assertTrue(prompt.contains("明天想去哪里玩"), "Expected concrete casual-chat example in prompt")
-        assertTrue(prompt.contains("你穿的很好看"), "Expected compliment example in prompt")
+        assertTrue(prompt.contains("Where should we go tomorrow?"), "Expected concrete casual-chat example in prompt")
+        assertTrue(prompt.contains("You look great today"), "Expected compliment example in prompt")
+        assertTrue(prompt.contains("social planning"), "Expected social-planning guardrail in prompt")
     }
 
     @Test
@@ -339,7 +341,7 @@ class PersonaChatEngineTest {
         )
 
         assertFalse(prompt.contains("default to silence"))
-        assertFalse(prompt.contains("明天想去哪里玩"))
+        assertFalse(prompt.contains("Where should we go tomorrow?"))
     }
 
     private fun invokeChatSystemPrompt(
