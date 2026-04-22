@@ -77,8 +77,12 @@ class PersonaChatEngineTest {
 
     // ── enrichUsers ─────────────────────────────────────────────────────
 
-    private fun makeUser(id: Int, username: String, role: String = "user") =
-        User(id = id, username = username, role = role, createdAt = 1000L, lastSeen = 1000L)
+    private fun makeUser(
+        id: Int,
+        username: String,
+        role: String = "user",
+        isBot: Boolean = false
+    ) = User(id = id, username = username, role = role, isBot = isBot, createdAt = 1000L, lastSeen = 1000L)
 
     @Test
     fun `enrichUsers marks bot users with isBot and displayName`() {
@@ -93,7 +97,7 @@ class PersonaChatEngineTest {
 
         val users = listOf(
             makeUser(1, "alice"),
-            makeUser(5, "schopenhauer_bot", "member"),
+            makeUser(5, "schopenhauer_bot", "bot", isBot = true),
         )
 
         val enriched = engine.enrichUsers(users, roomId = 1)
@@ -109,7 +113,7 @@ class PersonaChatEngineTest {
     fun `enrichUsers marks bot user as isBot even without Redis config`() {
         every { jedis.get("persona:config:5") } returns null
 
-        val users = listOf(makeUser(5, "newton_bot", "member"))
+        val users = listOf(makeUser(5, "newton_bot", "bot", isBot = true))
 
         val enriched = engine.enrichUsers(users, roomId = 1)
         assertTrue(enriched[0].isBot)
@@ -129,7 +133,7 @@ class PersonaChatEngineTest {
 
         val users = listOf(
             makeUser(1, "alice"),
-            makeUser(10, "confucius_bot", "member"),
+            makeUser(10, "confucius_bot", "bot", isBot = true),
         )
 
         engine.enrichUsers(users, roomId = 7)
@@ -308,5 +312,53 @@ class PersonaChatEngineTest {
         } finally {
             System.clearProperty("PERSONA_AUTO_ENGAGE")
         }
+    }
+
+    @Test
+    fun `chatSystemPrompt auto-engage uses default-silent and casual-chat guardrails`() {
+        val prompt = invokeChatSystemPrompt(
+            personaPrompt = "You are Schopenhauer",
+            displayName = "叔本华",
+            isAutoEngage = true,
+            otherPersonaNames = listOf("孔子", "庄子")
+        )
+
+        assertTrue(prompt.contains("default to silence"), "Expected default-to-silence rule in auto-engage prompt")
+        assertTrue(prompt.contains("small talk"), "Expected small-talk guardrail in auto-engage prompt")
+        assertTrue(prompt.contains("明天想去哪里玩"), "Expected concrete casual-chat example in prompt")
+        assertTrue(prompt.contains("你穿的很好看"), "Expected compliment example in prompt")
+    }
+
+    @Test
+    fun `chatSystemPrompt explicit trigger should not include auto-engage guardrails`() {
+        val prompt = invokeChatSystemPrompt(
+            personaPrompt = "You are Schopenhauer",
+            displayName = "叔本华",
+            isAutoEngage = false,
+            otherPersonaNames = listOf("孔子")
+        )
+
+        assertFalse(prompt.contains("default to silence"))
+        assertFalse(prompt.contains("明天想去哪里玩"))
+    }
+
+    private fun invokeChatSystemPrompt(
+        personaPrompt: String,
+        displayName: String,
+        isAutoEngage: Boolean,
+        otherPersonaNames: List<String>
+    ): String {
+        val companionField = PersonaChatEngine::class.java.getDeclaredField("Companion")
+        val companion = companionField.get(null)
+        val companionClass = Class.forName("persona.PersonaChatEngine\$Companion")
+        val method = companionClass.getDeclaredMethod(
+            "chatSystemPrompt",
+            String::class.java,
+            String::class.java,
+            java.lang.Boolean.TYPE,
+            List::class.java
+        )
+        method.isAccessible = true
+        return method.invoke(companion, personaPrompt, displayName, isAutoEngage, otherPersonaNames) as String
     }
 }

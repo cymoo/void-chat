@@ -175,6 +175,8 @@ class PersonaChatEngine(
                 [Deciding whether to join this conversation]
                 This message was NOT directly addressed to you. $othersClause
                 You must evaluate whether to speak AT ALL before composing a reply.
+                For auto-engage, default to silence.
+                Respond with exactly: $NO_RESPONSE_SENTINEL unless ALL "Speak only if" conditions are satisfied.
                 Stay silent (respond with exactly: $NO_RESPONSE_SENTINEL) if ANY of the following apply:
                 - The message addresses a specific other persona or person by name (not you).
                 - The message is clearly a reply to, or follow-up on, another persona's statement.
@@ -182,9 +184,16 @@ class PersonaChatEngine(
                   wait, or hold off until called upon — and it does NOT simultaneously ask for
                   immediate acknowledgment.
                 - The topic has no meaningful connection to your era, expertise, philosophy, or works.
+                - The message is mostly small talk, casual social chatter, or routine compliments
+                  between users (e.g. "明天想去哪里玩", "你穿的很好看", "周末吃什么").
+                - Your response would be generic and replaceable by most people.
+                - Another persona is already a more natural fit for the topic.
                 - You are unsure whether to respond — when in doubt, stay silent.
-                Only speak up when the topic DIRECTLY and UNIQUELY draws on YOUR known ideas or
-                when you have a genuinely distinctive perspective to add that no one else could offer.
+                Speak only if ALL of the following are true:
+                1) The topic directly intersects your signature ideas, works, era, or worldview.
+                2) You can add a distinctive perspective that materially improves the discussion.
+                3) Entering now will not feel like interrupting a user-to-user exchange.
+                If any condition fails, output exactly: $NO_RESPONSE_SENTINEL
                 """.trimIndent()
             } else ""
 
@@ -297,6 +306,13 @@ class PersonaChatEngine(
             triggered
         }
 
+        if (botsToProcess.isNotEmpty()) {
+            log.debug(
+                "Persona dispatch room={} sender={} triggered={} explicit={} dispatched={}",
+                roomId, senderUsername, triggered.size, hasExplicitTrigger, botsToProcess.size
+            )
+        }
+
         for (bot in botsToProcess) {
             val otherNames = botConfigs.filterKeys { it != bot.userId }.values.map { it.displayName }
             executor.execute {
@@ -399,6 +415,9 @@ class PersonaChatEngine(
             if (reply != null) {
                 val replyTo = if (trigger == TriggerType.EXPLICIT_REPLY) replyToId else messageId
                 bridge.sendBotMessage(roomId, botUserId, reply, replyTo)
+                log.debug("Persona '{}' replied in room {} (trigger={})", config.displayName, roomId, trigger)
+            } else {
+                log.debug("Persona '{}' stayed silent in room {} (trigger={})", config.displayName, roomId, trigger)
             }
         } finally {
             if (showTyping) bridge.sendTypingStatus(roomId, botUserId, botUsername, false)
@@ -492,9 +511,15 @@ class PersonaChatEngine(
             llmMessages.add(mapOf("role" to "user", "content" to "$senderUsername: $latestContent"))
         }
 
-        val response = callLlm(messages = llmMessages) ?: return null
+        val response = callLlm(messages = llmMessages) ?: run {
+            log.debug("Persona '{}' got empty LLM response (trigger={})", config.displayName, trigger)
+            return null
+        }
 
-        if (isAutoEngage && NO_RESPONSE_SENTINEL in response) return null
+        if (isAutoEngage && NO_RESPONSE_SENTINEL in response) {
+            log.debug("Persona '{}' declined auto-engage via sentinel", config.displayName)
+            return null
+        }
 
         return response
     }
