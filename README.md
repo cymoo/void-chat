@@ -2,7 +2,7 @@
 
 [简体中文说明 / README-zh](./README-zh.md)
 
-VOID.CHAT is a real-time chat app with a terminal-inspired look and practical moderation tools. It is designed for communities that want fast messaging, lightweight operations, and clear permission controls without a heavy setup.
+VOID.CHAT is a real-time chat platform with a terminal-inspired interface, room/DM workflows, and practical moderation controls. It is built for teams and communities that want fast interaction, clear permissions, and a deployment model they can fully own.
 
 ![VOID.CHAT Hero Screenshot Placeholder](./docs/images/placeholder-hero.png)
 
@@ -14,6 +14,7 @@ VOID.CHAT is a real-time chat app with a terminal-inspired look and practical mo
 - **Built-in moderation**: platform roles, room roles, mute/disable, invite links.
 - **Message workflow support**: replies, mentions, search, edit/delete, unread indicators.
 - **Media-friendly**: image and file uploads with size limits.
+- **Invite virtual celebrities**: bring configurable AI personas into a room for themed interaction.
 - **Distinctive UI**: terminal/brutalist style that still stays usable on mobile.
 
 ## Product Highlights
@@ -21,6 +22,17 @@ VOID.CHAT is a real-time chat app with a terminal-inspired look and practical mo
 ![Room View Placeholder](./docs/images/placeholder-room.png)
 ![Admin Dashboard Placeholder](./docs/images/placeholder-admin.png)
 ![Mobile View Placeholder](./docs/images/placeholder-mobile.png)
+
+### Designed for actual community operations
+
+- Create public or protected rooms, adjust member limits, and manage roles per room.
+- Use invite-based registration when you want controlled onboarding.
+- Keep admin actions centralized through a dashboard (roles, mute/disable, invite links).
+- Support both quick synchronous chat and longer conversation threads with search.
+
+### Persona-enabled chat
+
+VOID.CHAT supports inviting AI personas into specific rooms. This makes it easy to run role-play sessions, themed communities, or interactive Q&A-style spaces with "virtual celebrity" participants while still keeping moderation in your control.
 
 ## Quick Start
 
@@ -46,7 +58,7 @@ Backend runs at `http://localhost:8000`.
 
 ```bash
 cd frontend
-npm install --legacy-peer-deps
+npm install
 npm run dev
 ```
 
@@ -67,7 +79,7 @@ Visit `http://localhost:5173`, register an account, and start a room.
 3. Build frontend static assets:
    ```bash
    cd frontend
-   npm install --legacy-peer-deps
+   npm install
    npm run build
    ```
 4. Run backend:

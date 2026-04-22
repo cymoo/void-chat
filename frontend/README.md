@@ -1,6 +1,6 @@
 # void-chat Frontend
 
-React + TypeScript frontend for VOID.CHAT. It provides the chat UI, admin pages, profile flows, and WebSocket-driven real-time interactions.
+React + TypeScript frontend for VOID.CHAT. It delivers the full product experience: room chat, DMs, admin workflows, profile management, and persona-invite interaction flows on top of WebSocket real-time events.
 
 ## Stack
 
@@ -17,7 +17,7 @@ React + TypeScript frontend for VOID.CHAT. It provides the chat UI, admin pages,
 
 ```bash
 cd frontend
-npm install --legacy-peer-deps
+npm install
 npm run dev
 ```
 
@@ -66,12 +66,13 @@ frontend/
 - **Message rendering**: supports text/image/file/system message types.
 - **Markdown safety**: markdown rendering uses `marked` + `DOMPurify`.
 - **State isolation**: auth/chat/room/ui are split into focused Zustand stores.
+- **Persona operations**: admins can configure personas and users can invite persona participants into rooms.
 
 ## Build & Deploy
 
 ```bash
 cd frontend
-npm install --legacy-peer-deps
+npm install
 npm run build
 ```
 
