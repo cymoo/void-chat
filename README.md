@@ -1,159 +1,88 @@
-# VOID.CHAT — Real-time Chat Room Application
+# VOID.CHAT
 
-A feature-rich, real-time chat room application with a Kotlin backend and React frontend, featuring WebSocket communication, file uploads, and a distinctive terminal aesthetic.
+[简体中文说明 / README-zh](./README-zh.md)
 
-## Project Structure
+VOID.CHAT is a real-time chat app with a terminal-inspired look and practical moderation tools. It is designed for communities that want fast messaging, lightweight operations, and clear permission controls without a heavy setup.
 
-```
-void-chat/
-├── backend/                # Kotlin API + WebSocket server
-│   ├── pom.xml
-│   └── src/main/kotlin/
-│       ├── Main.kt
-│       ├── config/         # Database & Redis configuration
-│       ├── controller/     # REST & WebSocket controllers
-│       ├── model/          # Data models
-│       ├── repository/     # jOOQ database repositories
-│       ├── service/        # Business logic
-│       └── util/           # Utilities
-├── frontend/               # React SPA
-│   ├── package.json
-│   ├── vite.config.ts
-│   ├── src/
-│   │   ├── api/            # HTTP client & TypeScript types
-│   │   ├── stores/         # Zustand state management
-│   │   ├── hooks/          # WebSocket hook
-│   │   ├── components/     # React components
-│   │   ├── pages/          # Page-level components
-│   │   └── lib/            # Utilities
-│   └── tests/
-│       ├── unit/           # Vitest unit tests
-│       └── e2e/            # Playwright E2E tests
-└── uploads/                # Uploaded files
-```
+![VOID.CHAT Hero Screenshot Placeholder](./docs/images/placeholder-hero.png)
 
-## Features
+> Replace image placeholders with your own screenshots later.
 
-- **Real-time chat** via WebSocket with reconnection
-- **Multiple rooms** with private (password-protected) room support
-- **Room capacity control** configurable on room create/edit (default `100`)
-- **Authentication** (register/login with token-based sessions)
-- **Invitation links** with registration mode support (`open` / `invite_only`)
-- **Message features**: edit, delete, reply-to, @mentions, search
-- **File sharing**: images (5MB) and files (20MB) with upload
-- **Private messages** (DMs) between users
-- **Mailbox view** for browsing DM contacts and unread counts
-- **User profiles** with username, avatar, bio, and status
-- **Role management**:
-  - Platform roles: `super_admin`, `platform_admin`, `user`
-  - Room roles: `owner`, `admin`, `moderator`, `member`
-  - Centralized authorization checks for room moderation actions
-- **Admin dashboard** for user-role management and room overview
-- **User moderation**: disable account, mute room messaging (with confirmations)
-- **Admin access control**: invite management + registration mode switching
-- **Terminal aesthetic**: IBM Plex Mono, green-on-black, ASCII decorations
+## Why VOID.CHAT
 
-## Technology Stack
+- **Real-time by default**: room chat and direct messages over WebSocket.
+- **Built-in moderation**: platform roles, room roles, mute/disable, invite links.
+- **Message workflow support**: replies, mentions, search, edit/delete, unread indicators.
+- **Media-friendly**: image and file uploads with size limits.
+- **Distinctive UI**: terminal/brutalist style that still stays usable on mobile.
 
-| Layer | Tech |
-|-------|------|
-| Backend | Kotlin, Colleen framework, jOOQ, PostgreSQL, Redis, Flyway |
-| Frontend | React, TypeScript, Vite, Zustand, Tailwind CSS |
-| Testing | JUnit 5 + MockK (backend), Vitest (unit), Playwright (E2E) |
+## Product Highlights
 
-## Getting Started
+![Room View Placeholder](./docs/images/placeholder-room.png)
+![Admin Dashboard Placeholder](./docs/images/placeholder-admin.png)
+![Mobile View Placeholder](./docs/images/placeholder-mobile.png)
 
-### Prerequisites
+## Quick Start
 
-- Java 21+, Maven 3.6+
-- Node.js 20+, npm 10+
+### 1) Prerequisites
+
+- Java 21+
+- Maven 3.9+
+- Node.js 20+
 - PostgreSQL 15+
 - Redis 7+
 
-### Database Setup
-
-```bash
-# Create the database (adjust credentials as needed)
-createdb -U postgres void_chat
-```
-
-### Backend
+### 2) Start backend
 
 ```bash
 cd backend
-mvn clean compile       # Also runs Flyway migrations and jOOQ codegen
-mvn exec:java           # Server runs on http://localhost:8000
+cp .env.example .env
+make run
 ```
 
-Environment variables (all optional, shown with defaults):
+Backend runs at `http://localhost:8000`.
 
-```bash
-DATABASE_URL=jdbc:postgresql://localhost:5432/void_chat
-DATABASE_USER=postgres
-DATABASE_PASSWORD=postgres
-REDIS_URL=redis://localhost:6379
-```
-
-### Frontend
+### 3) Start frontend
 
 ```bash
 cd frontend
 npm install --legacy-peer-deps
 npm run dev
-# Dev server runs on http://localhost:5173 (proxies API to :8000)
 ```
 
-### Testing
+Frontend runs at `http://localhost:5173` and proxies `/api`, `/chat`, `/uploads` to backend.
 
-```bash
-# Backend tests (requires local PostgreSQL with void_chat database)
-cd backend
-mvn test
+### 4) Open the app
 
-# Frontend tests
-cd frontend
-npm test          # Vitest unit tests
-npm run test:e2e  # Playwright E2E tests (requires backend running)
-```
+Visit `http://localhost:5173`, register an account, and start a room.
 
-### Production Build
+## Deployment Guide (Production)
 
-```bash
-cd frontend
-npm run build     # Output in frontend/dist/
-```
+1. Prepare PostgreSQL and Redis instances.
+2. Build backend JAR:
+   ```bash
+   cd backend
+   make build
+   ```
+3. Build frontend static assets:
+   ```bash
+   cd frontend
+   npm install --legacy-peer-deps
+   npm run build
+   ```
+4. Run backend:
+   ```bash
+   java -jar backend/target/void-chat-*.jar
+   ```
+5. Serve `frontend/dist` with Nginx/CDN and reverse-proxy `/api`, `/chat`, `/uploads` to the backend service.
 
-## API Endpoints
+For environment variables and deeper production notes, see backend docs below.
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/auth/register` | Register user (optional `inviteCode`) |
-| POST | `/api/auth/login` | Login |
-| POST | `/api/auth/logout` | Logout |
-| GET | `/api/auth/me` | Current user |
-| GET | `/api/auth/registration-mode` | Public registration mode |
-| GET | `/api/rooms` | List rooms |
-| GET | `/api/dms/inbox` | Mailbox contacts with unread counts |
-| POST | `/api/rooms` | Create room (`maxUsers` optional, default `100`) |
-| PATCH | `/api/rooms/{roomId}` | Update room (owner or platform admin, supports `maxUsers`) |
-| DELETE | `/api/rooms/{roomId}` | Delete room (owner or platform admin) |
-| GET | `/api/admin/dashboard` | Admin dashboard data (users + rooms + invites + mode) |
-| PATCH | `/api/admin/users/{userId}/role` | Update platform role |
-| PATCH | `/api/admin/users/{userId}/disable` | Disable / enable user |
-| PATCH | `/api/admin/users/{userId}/mute` | Mute / unmute user room messaging |
-| POST | `/api/admin/invites` | Create invite link |
-| PATCH | `/api/admin/invites/{inviteId}/revoke` | Revoke invite link |
-| PATCH | `/api/admin/registration-mode` | Update registration mode |
-| POST | `/api/upload/image` | Upload image |
-| POST | `/api/upload/file` | Upload file |
-| PATCH | `/api/users/me` | Update profile (`username`, `avatarUrl`, `bio`, `status`) |
-| WS | `/chat/{roomId}?token=...` | WebSocket chat |
-| WS | `/chat/dm?token=...` | WebSocket direct messaging without joining a room |
+## Where to find detailed docs
 
-## Design Philosophy
-
-Terminal aesthetic: IBM Plex Mono font, Bebas Neue headers, green (#00ff41) on dark backgrounds, sharp borders, scanline effects, ASCII decorations.
+- **Backend details**: [backend/README.md](./backend/README.md)
+- **Frontend details**: [frontend/README.md](./frontend/README.md)
 
 ## License
 
-This project follows the same license as the Colleen framework.
+[MIT](./LICENSE)
