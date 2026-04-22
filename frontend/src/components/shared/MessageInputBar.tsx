@@ -1,11 +1,13 @@
 import {
   useCallback,
   useRef,
+  useEffect,
   type KeyboardEvent,
 } from "react";
 import { Paperclip, Send } from "lucide-react";
 import { EmojiPicker } from "@/components/shared/EmojiPicker";
 import { useMessageComposer, type MessageComposerReturn } from "@/hooks/useMessageComposer";
+import { useSoftKeyboardHeight } from "@/hooks/useSoftKeyboardHeight";
 
 interface MessageInputBarProps {
   onSubmit: (text: string) => void;
@@ -44,10 +46,23 @@ export function MessageInputBar({
     onTextChange,
   });
 
+  // Detect soft keyboard visibility and height (mobile)
+  const { isKeyboardVisible } = useSoftKeyboardHeight();
+  const inputPanelRef = useRef<HTMLDivElement | null>(null);
+
   // Expose composer to parent if requested
   if (composerRef) {
     composerRef.current = composer;
   }
+
+  // Scroll input into view when keyboard appears (mobile optimization)
+  useEffect(() => {
+    if (!isKeyboardVisible || !inputPanelRef.current) return;
+
+    requestAnimationFrame(() => {
+      inputPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+  }, [isKeyboardVisible]);
 
   // Grid ref used to route keyboard events in colon-triggered emoji mode
   const emojiGridRef = useRef<HTMLDivElement | null>(null);
@@ -85,7 +100,7 @@ export function MessageInputBar({
         </div>
       )}
 
-      <div className="input-panel">
+      <div className="input-panel" ref={inputPanelRef}>
         <div className="input-wrapper">
           <textarea
             ref={composer.textareaRef}

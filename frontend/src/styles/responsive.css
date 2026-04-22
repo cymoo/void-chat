@@ -350,3 +350,481 @@
   }
 }
 
+/* ============================================
+   ENHANCED MOBILE: 430px and below
+   ============================================ */
+
+@media (max-width: 430px) {
+  /* ---- Phase 1: Core input and message experience ---- */
+
+  /* Compact message spacing and sizing */
+  .message {
+    gap: 8px;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .message-avatar {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+
+  .messages-container {
+    padding: 8px 0;
+  }
+
+  /* Ensure long content wraps properly on small screens */
+  .message:not(.system) .message-content {
+    max-width: min(85%, 500px);
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+
+  /* Message text content: slightly larger for readability */
+  .message-text {
+    font-size: 15px;
+    line-height: 1.4;
+  }
+
+  /* Code blocks and preformatted text wrap properly */
+  .message-text code,
+  .message-text pre {
+    overflow-x: auto;
+    max-width: 100%;
+    font-size: 13px;
+  }
+
+  /* URLs and long words break */
+  .message-text a {
+    word-break: break-all;
+  }
+
+  /* ---- Phase 1: Input panel optimizations ---- */
+
+  .input-panel {
+    padding: 8px 10px;
+  }
+
+  .input-wrapper {
+    gap: 6px;
+  }
+
+  .message-input {
+    font-size: 16px;
+    padding: 10px 12px;
+    min-height: 44px;
+  }
+
+  .input-actions {
+    gap: 6px;
+  }
+
+  /* Emoji picker adjustment */
+  .emoji-picker {
+    width: 200px;
+  }
+
+  .emoji-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .typing-indicator {
+    padding: 4px 10px 0;
+    font-size: 12px;
+  }
+}
+
+/* ---- Compact mode for very small screens (iPhone SE, etc) ---- */
+@media (max-width: 375px) {
+  .message {
+    gap: 6px;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .message-avatar {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    min-height: 28px;
+    font-size: 11px;
+  }
+
+  .message-text {
+    font-size: 14px;
+  }
+
+  .input-panel {
+    padding: 6px 8px;
+  }
+
+  .message-input {
+    min-height: 40px;
+    padding: 8px 10px;
+  }
+}
+
+/* ============================================
+   PHASE 2: Header and Navigation (430px)
+   ============================================ */
+
+@media (max-width: 430px) {
+  /* Header layout adjustments */
+  .chat-header {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  .header-left {
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .room-name {
+    font-size: 18px;
+    letter-spacing: 1px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .header-right {
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .header-tools,
+  .header-session {
+    gap: 3px;
+  }
+
+  .header-tools .icon-btn,
+  .header-session .icon-btn {
+    padding: 4px;
+    font-size: 18px;
+  }
+
+  /* Hide user count in header to save space */
+  .header-icon-count {
+    display: none;
+  }
+
+  /* Auth title adjustment */
+  .title {
+    font-size: 32px;
+  }
+
+  .login-container {
+    padding: 20px 16px;
+  }
+
+  /* Lobby title adjustment */
+  .lobby-title {
+    font-size: 20px;
+    letter-spacing: 1px;
+  }
+
+  .lobby-header {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+}
+
+/* ---- Very small screens (≤375px) header adjustments ---- */
+@media (max-width: 375px) {
+  .chat-header {
+    padding: 6px 8px;
+  }
+
+  .room-name {
+    font-size: 16px;
+    letter-spacing: 0.5px;
+  }
+
+  .header-left {
+    gap: 4px;
+  }
+
+  .header-tools .icon-btn,
+  .header-session .icon-btn {
+    padding: 3px;
+    font-size: 16px;
+  }
+
+  .title {
+    font-size: 28px;
+  }
+
+  .lobby-title {
+    font-size: 18px;
+  }
+}
+
+/* ============================================
+   PHASE 3: Sidebar and Modal (430px)
+   ============================================ */
+
+@media (max-width: 430px) {
+  /* Sidebar width adjustment for 430px */
+  .users-sidebar {
+    width: min(280px, 75vw);
+  }
+
+  .users-sidebar.collapsed {
+    width: min(280px, 75vw);
+  }
+
+  /* Sidebar header and items */
+  .sidebar-header {
+    padding: 10px 12px;
+  }
+
+  .users-list {
+    padding: 8px 0;
+  }
+
+  .user-item {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .user-avatar {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    font-size: 11px;
+  }
+
+  .user-info-text {
+    font-size: 12px;
+    gap: 2px;
+  }
+
+  .user-status-label {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+
+  /* Modal compact mode */
+  .modal {
+    padding: 12px;
+  }
+
+  .modal-overlay {
+    padding: 12px;
+  }
+
+  .modal-header {
+    padding: 10px 0;
+    margin-bottom: 12px;
+  }
+
+  .modal-title {
+    font-size: 16px;
+  }
+
+  .modal-close {
+    padding: 2px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Form inputs in modals */
+  .modal input[type="text"],
+  .modal input[type="password"],
+  .modal input[type="email"],
+  .modal textarea,
+  .modal select {
+    font-size: 16px;
+    padding: 10px 12px;
+  }
+
+  .modal input[type="checkbox"],
+  .modal input[type="radio"] {
+    min-width: 20px;
+    min-height: 20px;
+    cursor: pointer;
+  }
+
+  .form-group {
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+
+  .form-label {
+    font-size: 13px;
+  }
+
+  /* Room password modal full treatment */
+  .room-password-modal {
+    width: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .room-password-modal .modal-content {
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  /* Private chat modal - full screen on 430px */
+  .modal:has(.private-chat-panel) {
+    padding: 0;
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
+  }
+}
+
+/* ---- Very small screens (≤375px) sidebar and modal ---- */
+@media (max-width: 375px) {
+  .users-sidebar {
+    width: min(260px, 70vw);
+  }
+
+  .user-item {
+    padding: 8px 10px;
+  }
+
+  .user-avatar {
+    width: 24px;
+    height: 24px;
+    font-size: 10px;
+  }
+
+  .modal {
+    padding: 10px;
+  }
+
+  .modal-overlay {
+    padding: 10px;
+  }
+
+  .modal-title {
+    font-size: 15px;
+  }
+
+  .form-label {
+    font-size: 12px;
+  }
+}
+
+/* ============================================
+   PHASE 4: Visual and Accessibility (430px)
+   ============================================ */
+
+@media (max-width: 430px) {
+  /* Typography adjustments */
+  .message-meta {
+    font-size: 11px;
+    gap: 4px;
+  }
+
+  .message-username {
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .message-timestamp {
+    font-size: 10px;
+    opacity: 0.7;
+  }
+
+  /* Reduce animation complexity on small screens */
+  @keyframes headerPulse-mobile {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.7; }
+  }
+
+  .chat-header::after {
+    animation: headerPulse-mobile 4s ease-in-out infinite;
+  }
+
+  /* Drawer animation simplification */
+  .users-sidebar {
+    transition: transform 0.25s ease;
+  }
+
+  .users-sidebar-backdrop {
+    transition: opacity 0.25s ease;
+  }
+}
+
+/* ============================================
+   PHASE 5: Touch and Interaction (430px)
+   ============================================ */
+
+@media (max-width: 430px) {
+  /* Ensure all interactive elements meet 44×44px minimum */
+  .icon-btn,
+  .msg-action-btn,
+  .msg-more-btn,
+  .modal-close,
+  .panel-close-btn,
+  .kick-btn,
+  .dm-btn,
+  .emoji-toggle-btn {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Button group spacing to prevent accidental taps */
+  button + button {
+    margin-left: 4px;
+  }
+
+  /* Message action buttons spacing */
+  .message-actions-mobile {
+    gap: 8px;
+    padding: 6px 8px;
+  }
+
+  .msg-action-btn {
+    min-width: 40px;
+    min-height: 40px;
+    font-size: 16px;
+  }
+
+  /* Focus states for better tactile feedback */
+  button:active {
+    opacity: 0.8;
+    transform: scale(0.95);
+  }
+
+  input:focus,
+  textarea:focus,
+  select:focus {
+    outline: 2px solid var(--color-info);
+    outline-offset: 2px;
+  }
+
+  /* User list item touch target */
+  .user-item {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+
+  .user-card-inner {
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Prevent text selection on repeated taps */
+  .message-actions-mobile .msg-action-btn {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}
+

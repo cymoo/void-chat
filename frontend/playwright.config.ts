@@ -16,6 +16,13 @@ export default defineConfig({
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
     },
+    {
+      name: "iPhone-430",
+      use: {
+        ...devices["iPhone 15 Pro Max"], // 430×932px
+        viewport: { width: 430, height: 932 },
+      },
+    },
   ],
   webServer: {
     command: "npm run dev",
