@@ -1,6 +1,7 @@
 import { useMemo, useRef, useCallback } from "react";
-import type { WsEvent } from "@/api/types";
+import type { WsEvent, SystemMessage } from "@/api/types";
 import { useUiStore } from "@/stores/uiStore";
+import { useChatStore } from "@/stores/chatStore";
 import { useBaseWebSocket } from "./useBaseWebSocket";
 
 interface UseWebSocketOptions {
@@ -70,6 +71,15 @@ export function useWebSocket({
     if (event.type === "effect") {
       const { triggerEffect } = useUiStore.getState();
       triggerEffect(event.effectName, event.triggeredBy);
+
+      const emoji: Record<string, string> = { snow: "❄️", confetti: "🎊", fireworks: "🎆", rain: "🌧️" };
+      const notice: SystemMessage = {
+        id: -Date.now(),
+        messageType: "system",
+        content: `${event.triggeredBy} triggered /${event.effectName} ${emoji[event.effectName] ?? "✨"}`,
+        timestamp: Date.now(),
+      };
+      useChatStore.getState().addMessage(notice);
       return false; // skip store dispatch
     }
 

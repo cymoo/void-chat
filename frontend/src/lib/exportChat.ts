@@ -27,17 +27,14 @@ function renderRoomMessage(msg: ChatMessage): string {
   const time = formatDate(msg.timestamp);
 
   if (msg.messageType === "system") {
-    return `<div class="msg system">
-  <span class="meta-time">${safe(time)}</span>
-  <span class="content sys">${safe(msg.content)}</span>
-</div>`;
+    return `<div class="msg system"><span class="time">${safe(time)}</span><span class="body">${safe(msg.content)}</span></div>`;
   }
 
   const author = safe(msg.username);
   let body = "";
 
   if (msg.messageType === "text") {
-    body = `<span class="content">${safe(msg.content)}</span>`;
+    body = safe(msg.content);
   } else if (msg.messageType === "image") {
     const url = safeUrl(msg.imageUrl);
     body = `<a href="${url}" target="_blank" rel="noopener noreferrer">[image: ${url}]</a>`;
@@ -46,11 +43,7 @@ function renderRoomMessage(msg: ChatMessage): string {
     body = `<a href="${url}" target="_blank" rel="noopener noreferrer">${safe(msg.fileName)}</a>`;
   }
 
-  return `<div class="msg">
-  <span class="meta-author">${author}</span>
-  <span class="meta-time">${safe(time)}</span>
-  <span class="content">${body}</span>
-</div>`;
+  return `<div class="msg"><div class="meta"><b>${author}</b><br><span class="time">${safe(time)}</span></div><div class="body">${body}</div></div>`;
 }
 
 function renderPrivateMessage(msg: PrivateMessage): string {
@@ -59,7 +52,7 @@ function renderPrivateMessage(msg: PrivateMessage): string {
   let body = "";
 
   if (msg.messageType === "text") {
-    body = `<span class="content">${safe(msg.content ?? "")}</span>`;
+    body = safe(msg.content ?? "");
   } else if (msg.messageType === "image") {
     const url = safeUrl(msg.fileUrl ?? "");
     body = `<a href="${url}" target="_blank" rel="noopener noreferrer">[image: ${url}]</a>`;
@@ -68,17 +61,13 @@ function renderPrivateMessage(msg: PrivateMessage): string {
     body = `<a href="${url}" target="_blank" rel="noopener noreferrer">${safe(msg.fileName ?? "file")}</a>`;
   }
 
-  return `<div class="msg">
-  <span class="meta-author">${author}</span>
-  <span class="meta-time">${safe(time)}</span>
-  <span class="content">${body}</span>
-</div>`;
+  return `<div class="msg"><div class="meta"><b>${author}</b><br><span class="time">${safe(time)}</span></div><div class="body">${body}</div></div>`;
 }
 
 function buildHtml(title: string, bodyRows: string[], total: number): string {
   const capped = total >= 10000;
   const footer = capped
-    ? `<p class="footer">Showing first 10,000 messages (export cap). Older messages may be omitted.</p>`
+    ? `<p class="footer">Showing first 10,000 messages (export cap).</p>`
     : `<p class="footer">${total} message${total !== 1 ? "s" : ""} exported.</p>`;
 
   return `<!DOCTYPE html>
@@ -87,17 +76,16 @@ function buildHtml(title: string, bodyRows: string[], total: number): string {
 <meta charset="UTF-8">
 <title>${safe(title)}</title>
 <style>
-  body { background: #0a0e14; color: #c5cdd9; font-family: "IBM Plex Mono", monospace; font-size: 13px; margin: 0; padding: 20px; }
-  h1 { color: #00ff41; font-family: "Bebas Neue", sans-serif; letter-spacing: 2px; font-size: 28px; margin-bottom: 4px; }
-  .subtitle { color: #4a6480; font-size: 11px; margin-bottom: 24px; }
-  .msg { display: grid; grid-template-columns: 140px 180px 1fr; gap: 8px; padding: 6px 0; border-bottom: 1px solid #0d1117; }
-  .msg.system { grid-template-columns: 140px 1fr; }
-  .meta-author { color: #00d9ff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .meta-time { color: #4a6480; font-size: 11px; align-self: center; }
-  .content { word-break: break-word; }
-  .sys { color: #4a6480; font-style: italic; }
-  a { color: #00d9ff; }
-  .footer { margin-top: 24px; color: #4a6480; font-size: 11px; border-top: 1px solid #0d1117; padding-top: 12px; }
+  body { font-family: system-ui, sans-serif; max-width: 900px; margin: 0 auto; padding: 24px; color: #333; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  .subtitle { color: #666; font-size: 13px; margin-bottom: 20px; }
+  .msg { display: flex; gap: 16px; padding: 6px 0; border-bottom: 1px solid #eee; word-break: break-word; }
+  .msg.system { color: #888; font-style: italic; gap: 8px; align-items: baseline; }
+  .meta { flex: 0 0 150px; font-size: 13px; overflow: hidden; }
+  .time { color: #999; font-size: 11px; }
+  .body { flex: 1; }
+  a { color: #0066cc; }
+  .footer { margin-top: 20px; color: #888; font-size: 12px; border-top: 1px solid #eee; padding-top: 12px; }
 </style>
 </head>
 <body>

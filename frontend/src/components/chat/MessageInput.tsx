@@ -130,14 +130,6 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
 
   const onSubmit = useCallback(
     (text: string) => {
-      // Execute selected slash command on Enter
-      if (slashCmds.menuOpen && slashCmds.filteredCommands.length > 0) {
-        const cmd = slashCmds.filteredCommands[slashCmds.selectedIndex];
-        if (cmd) {
-          void executeSlashCommand(cmd.name);
-          return;
-        }
-      }
       // Check if the entire input is a complete slash command (no menu open but exact match)
       const trimmed = text.trim();
       if (/^\/[a-z]+$/.test(trimmed)) {
@@ -170,7 +162,7 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
         localStorage.removeItem(`${DRAFT_PREFIX}${currentRoomId}`);
       }
     },
-    [editingMessageId, send, sendTyping, setEditingMessage, setReplyingTo, currentRoomId],
+    [editingMessageId, send, sendTyping, setEditingMessage, setReplyingTo, currentRoomId, executeSlashCommand],
   );
 
   const onImageUploaded = useCallback(
@@ -308,7 +300,7 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
         if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Escape") {
           return slashCmds.onKeyDown(e);
         }
-        if (e.key === "Tab") {
+        if (e.key === "Tab" || e.key === "Enter") {
           e.preventDefault();
           const cmd = slashCmds.filteredCommands[slashCmds.selectedIndex];
           if (cmd) void executeSlashCommand(cmd.name);

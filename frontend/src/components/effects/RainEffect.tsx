@@ -14,7 +14,7 @@ export function RainEffect() {
     let w = 0;
     let h = 0;
 
-    interface Drop { x: number; y: number; length: number; speed: number; alpha: number }
+    interface Drop { x: number; y: number; length: number; speed: number; alpha: number; slant: number; width: number }
     let drops: Drop[] = [];
 
     const resize = () => {
@@ -27,12 +27,14 @@ export function RainEffect() {
       canvas.style.height = `${h}px`;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.scale(dpr, dpr);
-      drops = Array.from({ length: 150 }, () => ({
-        x: Math.random() * w,
+      drops = Array.from({ length: 250 }, () => ({
+        x: Math.random() * (w + 200) - 100,
         y: Math.random() * h,
-        length: 12 + Math.random() * 24,
-        speed: 4 + Math.random() * 8,
-        alpha: 0.3 + Math.random() * 0.5,
+        length: 15 + Math.random() * 25,
+        speed: 6 + Math.random() * 10,
+        alpha: 0.4 + Math.random() * 0.5,
+        slant: 0.2 + Math.random() * 0.15,
+        width: 1 + Math.random(),
       }));
     };
 
@@ -40,15 +42,16 @@ export function RainEffect() {
       ctx.clearRect(0, 0, w, h);
       for (const d of drops) {
         ctx.strokeStyle = `rgba(0,217,255,${d.alpha})`;
-        ctx.lineWidth = 1;
+        ctx.lineWidth = d.width;
         ctx.beginPath();
         ctx.moveTo(d.x, d.y);
-        ctx.lineTo(d.x - 1, d.y + d.length);
+        ctx.lineTo(d.x + d.slant * d.length, d.y + d.length);
         ctx.stroke();
         d.y += d.speed;
+        d.x += d.slant * d.speed;
         if (d.y > h + d.length) {
           d.y = -d.length;
-          d.x = Math.random() * w;
+          d.x = Math.random() * (w + 200) - 100;
         }
       }
       animId = requestAnimationFrame(draw);

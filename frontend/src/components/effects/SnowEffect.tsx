@@ -14,7 +14,7 @@ export function SnowEffect() {
     let w = 0;
     let h = 0;
 
-    interface Flake { x: number; y: number; r: number; speed: number; drift: number; angle: number }
+    interface Flake { x: number; y: number; r: number; speed: number; drift: number; angle: number; opacity: number }
     let flakes: Flake[] = [];
 
     const resize = () => {
@@ -27,20 +27,22 @@ export function SnowEffect() {
       canvas.style.height = `${h}px`;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.scale(dpr, dpr);
-      flakes = Array.from({ length: 120 }, () => ({
+      flakes = Array.from({ length: 160 }, () => ({
         x: Math.random() * w,
         y: Math.random() * h,
         r: 2 + Math.random() * 4,
         speed: 0.5 + Math.random() * 2,
         drift: (Math.random() - 0.5) * 0.5,
         angle: Math.random() * Math.PI * 2,
+        opacity: 0.5 + Math.random() * 0.5,
       }));
     };
 
     const draw = () => {
       ctx.clearRect(0, 0, w, h);
-      ctx.fillStyle = "rgba(255,255,255,0.85)";
       for (const f of flakes) {
+        ctx.globalAlpha = f.opacity;
+        ctx.fillStyle = "rgba(255,255,255,0.9)";
         ctx.beginPath();
         ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
         ctx.fill();
@@ -51,6 +53,7 @@ export function SnowEffect() {
         if (f.x > w + f.r) f.x = -f.r;
         if (f.x < -f.r) f.x = w + f.r;
       }
+      ctx.globalAlpha = 1;
       animId = requestAnimationFrame(draw);
     };
 

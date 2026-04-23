@@ -212,7 +212,7 @@ export function PrivateChat({ send, currentUser }: PrivateChatProps) {
         if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Escape") {
           return slashCmds.onKeyDown(e);
         }
-        if (e.key === "Tab") {
+        if (e.key === "Tab" || e.key === "Enter") {
           e.preventDefault();
           const cmd = slashCmds.filteredCommands[slashCmds.selectedIndex];
           if (cmd) void executeSlashCommand(cmd.name);

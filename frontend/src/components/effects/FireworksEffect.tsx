@@ -11,6 +11,7 @@ export function FireworksEffect() {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
     let animId = 0;
+    let running = true;
     let w = 0;
     let h = 0;
 
@@ -52,13 +53,15 @@ export function FireworksEffect() {
       }
     };
 
-    // Launch 4 fireworks spread across screen
+    // Launch fireworks in two waves
     const launchAll = () => {
-      const positions = [
-        [0.2, 0.3], [0.4, 0.2], [0.6, 0.25], [0.8, 0.3],
-      ];
-      for (const [rx, ry] of positions) {
-        setTimeout(() => explode(w * rx!, h * ry!), Math.random() * 600);
+      const wave1 = [[0.2, 0.3], [0.5, 0.2], [0.8, 0.3]];
+      const wave2 = [[0.35, 0.25], [0.65, 0.2], [0.5, 0.35]];
+      for (const [rx, ry] of wave1) {
+        setTimeout(() => { if (running) explode(w * rx!, h * ry!); }, Math.random() * 400);
+      }
+      for (const [rx, ry] of wave2) {
+        setTimeout(() => { if (running) explode(w * rx!, h * ry!); }, 800 + Math.random() * 600);
       }
     };
 
@@ -96,9 +99,7 @@ export function FireworksEffect() {
         if (p.alpha <= 0) particles.splice(i, 1);
       }
       ctx.globalAlpha = 1;
-      if (particles.length > 0) {
-        animId = requestAnimationFrame(draw);
-      }
+      if (running) animId = requestAnimationFrame(draw);
     };
 
     resize();
@@ -106,6 +107,7 @@ export function FireworksEffect() {
     animId = requestAnimationFrame(draw);
     window.addEventListener("resize", resize);
     return () => {
+      running = false;
       cancelAnimationFrame(animId);
       window.removeEventListener("resize", resize);
     };

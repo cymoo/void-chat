@@ -23,6 +23,7 @@ export function ConfettiEffect() {
     }
 
     let pieces: Piece[] = [];
+    let running = true;
 
     const resize = () => {
       const dpr = Math.max(1, window.devicePixelRatio || 1);
@@ -36,18 +37,26 @@ export function ConfettiEffect() {
       ctx.scale(dpr, dpr);
     };
 
+    const spawnBurst = (originX: number, originY: number, count: number) => {
+      for (let i = 0; i < count; i++) {
+        pieces.push({
+          x: originX + (Math.random() - 0.5) * 120,
+          y: originY,
+          vx: (Math.random() - 0.5) * 14,
+          vy: -10 - Math.random() * 12,
+          color: COLORS[Math.floor(Math.random() * COLORS.length)]!,
+          rotation: Math.random() * Math.PI * 2,
+          rotSpeed: (Math.random() - 0.5) * 0.35,
+          width: 6 + Math.random() * 8,
+          height: 3 + Math.random() * 5,
+        });
+      }
+    };
+
     const burst = () => {
-      pieces = Array.from({ length: 200 }, () => ({
-        x: w / 2 + (Math.random() - 0.5) * w * 0.4,
-        y: h * 0.3,
-        vx: (Math.random() - 0.5) * 12,
-        vy: -8 - Math.random() * 10,
-        color: COLORS[Math.floor(Math.random() * COLORS.length)]!,
-        rotation: Math.random() * Math.PI * 2,
-        rotSpeed: (Math.random() - 0.5) * 0.3,
-        width: 6 + Math.random() * 8,
-        height: 3 + Math.random() * 5,
-      }));
+      spawnBurst(w * 0.3, h * 0.2, 120);
+      spawnBurst(w * 0.7, h * 0.2, 120);
+      setTimeout(() => { if (running) spawnBurst(w / 2, h * 0.15, 100); }, 500);
     };
 
     const draw = () => {
@@ -66,7 +75,7 @@ export function ConfettiEffect() {
         p.vx *= 0.99;
       }
       pieces = pieces.filter((p) => p.y < h + 20);
-      if (pieces.length > 0) {
+      if (running) {
         animId = requestAnimationFrame(draw);
       }
     };
@@ -76,6 +85,7 @@ export function ConfettiEffect() {
     animId = requestAnimationFrame(draw);
     window.addEventListener("resize", resize);
     return () => {
+      running = false;
       cancelAnimationFrame(animId);
       window.removeEventListener("resize", resize);
     };
