@@ -67,6 +67,12 @@ export function useWebSocket({
       addToastRef.current(`@${event.mentionedBy} mentioned you`, "info");
     }
 
+    if (event.type === "effect") {
+      const { triggerEffect } = useUiStore.getState();
+      triggerEffect(event.effectName, event.triggeredBy);
+      return false; // skip store dispatch
+    }
+
     return true; // dispatch to store
   }, []);
 

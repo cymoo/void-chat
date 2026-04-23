@@ -78,8 +78,29 @@ class PrivateMessageRepository(private val dsl: DSLContext) {
         return records.reversed().map(::mapRecord)
     }
 
-    /** Mark all messages from [senderId] to [receiverId] as read. */
-    fun markAsRead(senderId: Int, receiverId: Int) {
+    /** Fetch all messages between two users, chronologically. Capped at [limit]. */
+    fun getAllMessages(userId1: Int, userId2: Int, limit: Int = 10000): List<PrivateMessage> {
+        val records = dsl.select(
+            PRIVATE_MESSAGES.ID, PRIVATE_MESSAGES.SENDER_ID, PRIVATE_MESSAGES.RECEIVER_ID,
+            PRIVATE_MESSAGES.MESSAGE_TYPE, PRIVATE_MESSAGES.CONTENT,
+            PRIVATE_MESSAGES.IS_READ, PRIVATE_MESSAGES.CREATED_AT,
+            SENDER.USERNAME, SENDER.AVATAR_URL,
+            RECEIVER.USERNAME
+        )
+            .from(PRIVATE_MESSAGES)
+            .join(SENDER).on(PRIVATE_MESSAGES.SENDER_ID.eq(SENDER.ID))
+            .join(RECEIVER).on(PRIVATE_MESSAGES.RECEIVER_ID.eq(RECEIVER.ID))
+            .where(
+                PRIVATE_MESSAGES.SENDER_ID.eq(userId1).and(PRIVATE_MESSAGES.RECEIVER_ID.eq(userId2))
+                    .or(PRIVATE_MESSAGES.SENDER_ID.eq(userId2).and(PRIVATE_MESSAGES.RECEIVER_ID.eq(userId1)))
+            )
+            .orderBy(PRIVATE_MESSAGES.ID.asc())
+            .limit(limit)
+            .fetch()
+        return records.map(::mapRecord)
+    }
+
+    /** Mark all messages from [senderId] to [receiverId] as read. */    fun markAsRead(senderId: Int, receiverId: Int) {
         dsl.update(PRIVATE_MESSAGES)
             .set(PRIVATE_MESSAGES.IS_READ, true)
             .where(PRIVATE_MESSAGES.SENDER_ID.eq(senderId))

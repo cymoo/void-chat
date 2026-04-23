@@ -22,4 +22,5 @@ data class WsPayload(
     val status: String? = null,
     val fileSize: Long? = null,
     val isTyping: Boolean? = null,
+    val effectName: String? = null,
 )

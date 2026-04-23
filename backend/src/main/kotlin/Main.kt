@@ -16,6 +16,8 @@ import persona.PersonaBridge
 import persona.PersonaChatEngine
 import repository.RoomMemberRepository
 import repository.UserRepository
+import repository.MessageRepository
+import repository.PrivateMessageRepository
 import service.ChatService
 import service.FileService
 import service.RoomService
@@ -109,7 +111,7 @@ fun main() {
 
     // Controllers
     app.addController(AuthController(userService, sessionService, invitationService))
-    app.addController(ApiController(roomService, fileService, userService, invitationService, sessionService, chatService, authorizationService))
+    app.addController(ApiController(roomService, fileService, userService, invitationService, sessionService, chatService, authorizationService, MessageRepository(dsl), PrivateMessageRepository(dsl), RoomMemberRepository(dsl, UserRepository(dsl))))
     app.addController(FileController(fileService))
     app.addController(ChatController(userService, chatService, roomService, sessionService, objectMapper))
     if (personaChatEngine != null) {

@@ -7,12 +7,18 @@ import {
 } from "react";
 import { X } from "lucide-react";
 import { useChatStore } from "@/stores/chatStore";
+import { useUiStore } from "@/stores/uiStore";
 import { renderMarkdown } from "@/lib/markdown";
 import { formatTime } from "@/lib/utils";
 import { MessageInputBar } from "@/components/shared/MessageInputBar";
+import { SlashCommandMenu } from "@/components/shared/SlashCommandMenu";
 import { MessageContent } from "@/components/chat/MessageContent";
 import { Modal } from "@/components/ui/Modal";
 import { openImageGallery } from "@/components/ui/ImageViewer";
+import { useSlashCommands } from "@/hooks/useSlashCommands";
+import { fetchDmExportMessages } from "@/lib/slashCommands";
+import { exportDmChat } from "@/lib/exportChat";
+import type { MessageComposerReturn } from "@/hooks/useMessageComposer";
 import type { PrivateMessage, User, WsSendPayload } from "@/api/types";
 
 interface PrivateChatProps {
@@ -100,10 +106,14 @@ const PrivateMessageItem = memo(
 
 export function PrivateChat({ send, currentUser }: PrivateChatProps) {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const composerRef = useRef<MessageComposerReturn | null>(null);
   const privateChatUserId = useChatStore((s) => s.privateChatUserId);
   const privateChatUsername = useChatStore((s) => s.privateChatUsername);
   const privateMessages = useChatStore((s) => s.privateMessages);
   const closePrivateChat = useChatStore((s) => s.closePrivateChat);
+  const clearPrivateMessages = useChatStore((s) => s.clearPrivateMessages);
+  const { addToast } = useUiStore();
+  const slashCmds = useSlashCommands("dm");
 
   // Mark messages as read when opening
   useEffect(() => {
@@ -131,12 +141,48 @@ export function PrivateChat({ send, currentUser }: PrivateChatProps) {
     syncToBottom();
   }, [privateMessages, syncToBottom]);
 
+  const executeSlashCommand = useCallback(
+    async (name: string) => {
+      slashCmds.closeMenu();
+      composerRef.current?.setText("");
+
+      if (name === "clear") {
+        clearPrivateMessages();
+        return;
+      }
+
+      if (name === "export") {
+        if (!privateChatUserId) return;
+        addToast("Exporting chat…", "info");
+        try {
+          const msgs = await fetchDmExportMessages(privateChatUserId);
+          exportDmChat(privateChatUsername, msgs);
+        } catch {
+          addToast("Export failed. Please try again.", "error");
+        }
+        return;
+      }
+
+      // broadcast effects not available in DMs
+      addToast("Effects only work in rooms.", "info");
+    },
+    [slashCmds, clearPrivateMessages, privateChatUserId, privateChatUsername, addToast],
+  );
+
   const onSubmit = useCallback(
     (text: string) => {
+      // Execute selected slash command on Enter
+      if (slashCmds.menuOpen && slashCmds.filteredCommands.length > 0) {
+        const cmd = slashCmds.filteredCommands[slashCmds.selectedIndex];
+        if (cmd) {
+          void executeSlashCommand(cmd.name);
+          return;
+        }
+      }
       if (!privateChatUserId) return;
       send({ type: "private_message", targetUserId: privateChatUserId, content: text });
     },
-    [privateChatUserId, send],
+    [slashCmds, executeSlashCommand, privateChatUserId, send],
   );
 
   const onImageUploaded = useCallback(
@@ -153,6 +199,42 @@ export function PrivateChat({ send, currentUser }: PrivateChatProps) {
       send({ type: "private_message", targetUserId: privateChatUserId, fileName, fileUrl, fileSize, mimeType });
     },
     [privateChatUserId, send],
+  );
+
+  const onTextChange = useCallback(
+    (val: string) => slashCmds.onTextChange(val),
+    [slashCmds],
+  );
+
+  const onKeyDownCapture = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>): boolean => {
+      if (slashCmds.menuOpen && slashCmds.filteredCommands.length > 0) {
+        if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Escape") {
+          return slashCmds.onKeyDown(e);
+        }
+        if (e.key === "Tab") {
+          e.preventDefault();
+          const cmd = slashCmds.filteredCommands[slashCmds.selectedIndex];
+          if (cmd) void executeSlashCommand(cmd.name);
+          return true;
+        }
+      }
+      return false;
+    },
+    [slashCmds, executeSlashCommand],
+  );
+
+  const renderAbove = useCallback(
+    (composer: MessageComposerReturn) => (
+      <SlashCommandMenu
+        commands={slashCmds.filteredCommands}
+        selectedIndex={slashCmds.selectedIndex}
+        onSelect={(cmd) => void executeSlashCommand(cmd.name)}
+        onClose={slashCmds.closeMenu}
+        anchorEl={composer.textareaRef.current}
+      />
+    ),
+    [slashCmds, executeSlashCommand],
   );
 
   return (
@@ -175,11 +257,15 @@ export function PrivateChat({ send, currentUser }: PrivateChatProps) {
           ))}
         </div>
         <MessageInputBar
+          composerRef={composerRef}
           onSubmit={onSubmit}
           onImageUploaded={onImageUploaded}
           onFileUploaded={onFileUploaded}
+          onTextChange={onTextChange}
+          onKeyDownCapture={onKeyDownCapture}
+          renderAbove={renderAbove}
           placeholder="Message..."
-          hintText="Enter send • Shift+Enter new line • Paste image / emoji supported"
+          hintText="Enter send • Shift+Enter new line • / for commands • Paste image / emoji supported"
           autoFocus
           ariaLabel="direct message"
         />

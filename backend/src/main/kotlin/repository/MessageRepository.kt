@@ -145,6 +145,16 @@ class MessageRepository(private val dsl: DSLContext) {
         return mapRecordsToMessages(records.reversed())
     }
 
+    /** Fetch all visible messages for a room, ordered chronologically. Capped at [limit]. */
+    fun getAllMessages(roomId: Int, limit: Int = 10000): List<ChatMessage> {
+        val records = baseQuery()
+            .where(MESSAGES.ROOM_ID.eq(roomId)).and(visibleCondition)
+            .orderBy(MESSAGES.ID.asc())
+            .limit(limit)
+            .fetch()
+        return mapRecordsToMessages(records)
+    }
+
     /** Get reply info for a single message. */
     fun getReplyInfo(messageId: Int): ReplyInfo? =
         getReplyInfoMap(listOf(messageId))[messageId]

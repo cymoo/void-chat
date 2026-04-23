@@ -70,6 +70,8 @@ interface ChatState {
   clearSearch: () => void;
   setUnreadDmCount: (count: number) => void;
   clearWsError: () => void;
+  clearMessages: () => void;
+  clearPrivateMessages: () => void;
   reset: () => void;
 }
 
@@ -366,6 +368,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
   setUnreadDmCount: (count) => set({ unreadDmCount: count }),
 
   clearWsError: () => set({ wsError: null }),
+
+  clearMessages: () =>
+    set({ messages: [], hasMore: false, oldestMessageId: null }),
+
+  clearPrivateMessages: () =>
+    set({ privateMessages: [], privateHasMore: false }),
 
   reset: () =>
     set({

@@ -9,6 +9,7 @@ import { UserSidebar } from "./UserSidebar";
 import { SearchPanel } from "./SearchPanel";
 import { TypingIndicator } from "./TypingIndicator";
 import { InvitePersonaModal } from "./InvitePersonaModal";
+import { EffectsLayer } from "@/components/effects/EffectsLayer";
 import type { User, WsSendPayload } from "@/api/types";
 
 interface ChatViewProps {
@@ -169,6 +170,9 @@ export function ChatView({
           onSuccess={() => {}}
         />
       )}
+
+      {/* Full-screen effect overlays (snow, confetti, etc.) */}
+      <EffectsLayer />
     </div>
   );
 }

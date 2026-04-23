@@ -28,6 +28,10 @@ class ChatController(
 ) {
     private val log = org.slf4j.LoggerFactory.getLogger(ChatController::class.java)
 
+    companion object {
+        private val ALLOWED_EFFECTS = setOf("snow", "confetti", "fireworks", "rain")
+    }
+
     @WsUse
     fun validateUser(ctx: Context, next: Next) {
         val token = ctx.query("token")
@@ -205,6 +209,14 @@ class ChatController(
                         // Explicit persistent leave: remove from room membership.
                         if (joinedRoom.compareAndSet(true, false)) {
                             chatService.leaveRoomExplicit(roomId, currentUser)
+                        }
+                    }
+                    "effect" -> {
+                        val name = p.effectName
+                        if (name != null && name in ALLOWED_EFFECTS) {
+                            chatService.broadcastToRoom(
+                                roomId, WsEvent.Effect(name, currentUser.username)
+                            )
                         }
                     }
                     "update_profile" -> {

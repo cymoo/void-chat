@@ -7,8 +7,13 @@ import {
 } from "react";
 import { useChatStore, getMessageContent } from "@/stores/chatStore";
 import { useRoomStore } from "@/stores/roomStore";
+import { useUiStore } from "@/stores/uiStore";
 import { MessageInputBar } from "@/components/shared/MessageInputBar";
 import { MentionDropdown } from "@/components/shared/MentionDropdown";
+import { SlashCommandMenu } from "@/components/shared/SlashCommandMenu";
+import { useSlashCommands } from "@/hooks/useSlashCommands";
+import { fetchRoomExportMessages, filterCommands } from "@/lib/slashCommands";
+import { exportRoomChat } from "@/lib/exportChat";
 import type { MessageComposerReturn } from "@/hooks/useMessageComposer";
 import type { User, WsSendPayload } from "@/api/types";
 
@@ -25,12 +30,19 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
   const setEditingMessage = useChatStore((s) => s.setEditingMessage);
   const setReplyingTo = useChatStore((s) => s.setReplyingTo);
   const messages = useChatStore((s) => s.messages);
+  const clearMessages = useChatStore((s) => s.clearMessages);
   const users = useChatStore((s) => s.users);
   const currentRoomId = useRoomStore((s) => s.currentRoomId);
+  const rooms = useRoomStore((s) => s.rooms);
+  const { addToast } = useUiStore();
+  const currentRoomName = rooms.find((r) => r.id === currentRoomId)?.name ?? "";
 
   // Typing indicator refs
   const typingTimerRef = useRef<number | null>(null);
   const typingStateRef = useRef(false);
+
+  // Slash commands
+  const slashCmds = useSlashCommands("room");
 
   // Mention dropdown state
   const [, setMentionQuery] = useState<string | null>(null);
@@ -88,8 +100,55 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
   const replyingToRef = useRef(replyingTo);
   replyingToRef.current = replyingTo;
 
+  const executeSlashCommand = useCallback(
+    async (name: string) => {
+      slashCmds.closeMenu();
+      composerRef.current?.setText("");
+
+      if (name === "clear") {
+        clearMessages();
+        return;
+      }
+
+      if (name === "export") {
+        if (!currentRoomId) return;
+        addToast("Exporting chat…", "info");
+        try {
+          const msgs = await fetchRoomExportMessages(currentRoomId);
+          exportRoomChat(currentRoomName, msgs);
+        } catch {
+          addToast("Export failed. Please try again.", "error");
+        }
+        return;
+      }
+
+      // broadcast effect commands
+      send({ type: "effect", effectName: name } as WsSendPayload);
+    },
+    [slashCmds, clearMessages, currentRoomId, currentRoomName, addToast, send],
+  );
+
   const onSubmit = useCallback(
     (text: string) => {
+      // Execute selected slash command on Enter
+      if (slashCmds.menuOpen && slashCmds.filteredCommands.length > 0) {
+        const cmd = slashCmds.filteredCommands[slashCmds.selectedIndex];
+        if (cmd) {
+          void executeSlashCommand(cmd.name);
+          return;
+        }
+      }
+      // Check if the entire input is a complete slash command (no menu open but exact match)
+      const trimmed = text.trim();
+      if (/^\/[a-z]+$/.test(trimmed)) {
+        const cmdName = trimmed.slice(1);
+        const exactMatches = filterCommands(cmdName, "room");
+        const exact = exactMatches.find((c) => c.name === cmdName);
+        if (exact) {
+          void executeSlashCommand(cmdName);
+          return;
+        }
+      }
       if (editingMessageId) {
         send({ type: "edit", messageId: editingMessageId, content: text });
         setEditingMessage(null);
@@ -144,6 +203,9 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
 
   const onTextChange = useCallback(
     (val: string, textarea: HTMLTextAreaElement | null) => {
+      // Slash command detection
+      slashCmds.onTextChange(val);
+
       // Typing indicator
       if (val.trim().length > 0) {
         sendTyping(true);
@@ -189,7 +251,7 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
         setMentionResults([]);
       }
     },
-    [currentUser.id, scheduleStopTyping, sendTyping, users, currentRoomId, editingMessageId],
+    [slashCmds, currentUser.id, scheduleStopTyping, sendTyping, users, currentRoomId, editingMessageId],
   );
 
   // Populate edit text
@@ -241,6 +303,18 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
 
   const onKeyDownCapture = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
+      // Slash command menu takes priority
+      if (slashCmds.menuOpen && slashCmds.filteredCommands.length > 0) {
+        if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Escape") {
+          return slashCmds.onKeyDown(e);
+        }
+        if (e.key === "Tab") {
+          e.preventDefault();
+          const cmd = slashCmds.filteredCommands[slashCmds.selectedIndex];
+          if (cmd) void executeSlashCommand(cmd.name);
+          return true;
+        }
+      }
       if (mentionResults.length > 0) {
         if (e.key === "ArrowDown") {
           e.preventDefault();
@@ -265,7 +339,7 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
       }
       return false;
     },
-    [mentionResults, mentionIndex, insertMention],
+    [slashCmds, executeSlashCommand, mentionResults, mentionIndex, insertMention],
   );
 
   const cancelIndicator = useCallback(() => {
@@ -295,6 +369,15 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
         </div>
       )}
 
+      {/* Slash command menu */}
+      <SlashCommandMenu
+        commands={slashCmds.filteredCommands}
+        selectedIndex={slashCmds.selectedIndex}
+        onSelect={(cmd) => void executeSlashCommand(cmd.name)}
+        onClose={slashCmds.closeMenu}
+        anchorEl={composer.textareaRef.current}
+      />
+
       {/* Mention dropdown anchored to textarea */}
       <MentionDropdown
         results={mentionResults}
@@ -304,7 +387,7 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
         anchorEl={composer.textareaRef.current}
       />
     </>
-  ), [editingMessageId, replyingTo, mentionResults, mentionIndex, cancelIndicator, insertMention, closeMention]);
+  ), [editingMessageId, replyingTo, slashCmds, executeSlashCommand, mentionResults, mentionIndex, cancelIndicator, insertMention, closeMention]);
 
   return (
     <MessageInputBar

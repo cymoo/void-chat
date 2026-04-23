@@ -214,7 +214,8 @@ data class DmInboxEntry(
     JsonSubTypes.Type(value = WsEvent.RoleChanged::class, name = "role_changed"),
     JsonSubTypes.Type(value = WsEvent.SearchResults::class, name = "search_results"),
     JsonSubTypes.Type(value = WsEvent.UnreadCounts::class, name = "unread_counts"),
-    JsonSubTypes.Type(value = WsEvent.Typing::class, name = "typing")
+    JsonSubTypes.Type(value = WsEvent.Typing::class, name = "typing"),
+    JsonSubTypes.Type(value = WsEvent.Effect::class, name = "effect")
 )
 sealed class WsEvent {
     data class History(val messages: List<ChatMessage>, val hasMore: Boolean = false) : WsEvent()
@@ -234,6 +235,7 @@ sealed class WsEvent {
     data class SearchResults(val messages: List<ChatMessage>, val query: String) : WsEvent()
     data class UnreadCounts(val unreadDms: Int) : WsEvent()
     data class Typing(val userId: Int, val username: String, val isTyping: Boolean) : WsEvent()
+    data class Effect(val effectName: String, val triggeredBy: String) : WsEvent()
 }
 
 /**

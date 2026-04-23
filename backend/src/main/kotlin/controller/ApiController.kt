@@ -2,6 +2,9 @@ package controller
 
 import io.github.cymoo.colleen.*
 import model.*
+import repository.MessageRepository
+import repository.PrivateMessageRepository
+import repository.RoomMemberRepository
 import service.AuthorizationService
 import service.ChatService
 import service.FileService
@@ -23,7 +26,10 @@ class ApiController(
     private val invitationService: InvitationService,
     private val sessionService: SessionService,
     private val chatService: ChatService,
-    private val authorizationService: AuthorizationService
+    private val authorizationService: AuthorizationService,
+    private val messageRepo: MessageRepository,
+    private val privateMessageRepo: PrivateMessageRepository,
+    private val roomMemberRepo: RoomMemberRepository,
 ) {
 
     @Get("/rooms")
@@ -259,6 +265,21 @@ class ApiController(
         } catch (e: IllegalArgumentException) {
             throw BadRequest(e.message ?: "Failed to update registration mode")
         }
+    }
+
+    @Get("/rooms/{roomId}/export")
+    fun exportRoom(roomId: Path<Int>, token: BearerToken): List<ChatMessage> {
+        val actor = requireAuthUser(token)
+        if (roomMemberRepo.getMemberRole(roomId.value, actor.id) == null) {
+            throw Unauthorized("You are not a member of this room")
+        }
+        return messageRepo.getAllMessages(roomId.value)
+    }
+
+    @Get("/dm/{userId}/export")
+    fun exportDm(userId: Path<Int>, token: BearerToken): List<PrivateMessage> {
+        val actor = requireAuthUser(token)
+        return privateMessageRepo.getAllMessages(actor.id, userId.value)
     }
 
     private fun requireAuthUser(token: BearerToken): User =

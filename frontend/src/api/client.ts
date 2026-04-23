@@ -1,6 +1,7 @@
 import type {
   AdminDashboardResponse,
   AuthResponse,
+  ChatMessage,
   CreateInviteLinkResponse,
   CreateRoomRequest,
   DmInboxEntry,
@@ -8,6 +9,7 @@ import type {
   InvitePersonaRequest,
   InvitePersonaResponse,
   PersonaConfig,
+  PrivateMessage,
   UpdatePersonaRequest,
   RegistrationMode,
   RegistrationModeResponse,
@@ -384,6 +386,14 @@ export async function updateAdminPersona(
   req: UpdatePersonaRequest,
 ): Promise<PersonaConfig> {
   return request("PATCH", `/api/personas/${userId}`, req);
+}
+
+export async function getRoomExportMessages(roomId: number): Promise<ChatMessage[]> {
+  return request("GET", `/api/rooms/${roomId}/export`);
+}
+
+export async function getDmExportMessages(userId: number): Promise<PrivateMessage[]> {
+  return request("GET", `/api/dm/${userId}/export`);
 }
 
 export { ApiError };

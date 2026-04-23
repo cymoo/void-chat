@@ -29,6 +29,11 @@ export interface ImageViewerItem {
   alt?: string;
 }
 
+export interface ActiveEffect {
+  name: string;
+  triggeredBy: string;
+}
+
 interface UiState {
   searchOpen: boolean;
   userCardUserId: number | null;
@@ -36,6 +41,7 @@ interface UiState {
   imageViewerIndex: number;
   toasts: Toast[];
   confirmDialog: ConfirmDialog | null;
+  activeEffect: ActiveEffect | null;
 
   toggleSearch: () => void;
   setSearchOpen: (open: boolean) => void;
@@ -47,6 +53,8 @@ interface UiState {
   removeToast: (id: string) => void;
   confirm: (options: ConfirmOptions) => Promise<boolean>;
   resolveConfirm: (confirmed: boolean) => void;
+  triggerEffect: (name: string, triggeredBy: string) => void;
+  clearEffect: () => void;
 }
 
 let toastCounter = 0;
@@ -59,6 +67,7 @@ export const useUiStore = create<UiState>((set) => ({
   imageViewerIndex: 0,
   toasts: [],
   confirmDialog: null,
+  activeEffect: null,
 
   toggleSearch: () => set((s) => ({ searchOpen: !s.searchOpen })),
   setSearchOpen: (open) => set({ searchOpen: open }),
@@ -100,4 +109,7 @@ export const useUiStore = create<UiState>((set) => ({
     set({ confirmDialog: null });
     resolver?.(confirmed);
   },
+
+  triggerEffect: (name, triggeredBy) => set({ activeEffect: { name, triggeredBy } }),
+  clearEffect: () => set({ activeEffect: null }),
 }));

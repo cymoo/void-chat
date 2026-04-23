@@ -157,6 +157,7 @@ export interface WsSendPayload {
   avatarUrl?: string;
   bio?: string;
   status?: string;
+  effectName?: string;
 }
 
 // WebSocket events (server → client)
@@ -256,6 +257,12 @@ export interface WsTypingEvent {
   isTyping: boolean;
 }
 
+export interface WsEffectEvent {
+  type: "effect";
+  effectName: string;
+  triggeredBy: string;
+}
+
 export type WsEvent =
   | WsHistoryEvent
   | WsUsersEvent
@@ -273,7 +280,8 @@ export type WsEvent =
   | WsRoleChangedEvent
   | WsSearchResultsEvent
   | WsUnreadCountsEvent
-  | WsTypingEvent;
+  | WsTypingEvent
+  | WsEffectEvent;
 
 // API request/response types
 export interface AuthResponse {
