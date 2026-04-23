@@ -1,8 +1,14 @@
-import DOMPurify from "dompurify";
 import type { ChatMessage, PrivateMessage } from "@/api/types";
 
+// Escape text for safe insertion into HTML content/attributes.
+// Using entity escaping rather than DOMPurify because this is static
+// HTML generation — we want to PRESERVE all content, not strip tags.
 const safe = (str: string) =>
-  DOMPurify.sanitize(str, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
+  str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 
 const safeUrl = (url: string) => {
   try {
@@ -11,7 +17,7 @@ const safeUrl = (url: string) => {
   } catch {
     // ignore invalid urls
   }
-  return "#";
+  return null;
 };
 
 const formatDate = (ts: number) =>
@@ -37,10 +43,14 @@ function renderRoomMessage(msg: ChatMessage): string {
     body = safe(msg.content);
   } else if (msg.messageType === "image") {
     const url = safeUrl(msg.imageUrl);
-    body = `<a href="${url}" target="_blank" rel="noopener noreferrer">[image: ${url}]</a>`;
+    body = url
+      ? `<a href="${url}" target="_blank" rel="noopener noreferrer">[image: ${url}]</a>`
+      : `[image]`;
   } else if (msg.messageType === "file") {
     const url = safeUrl(msg.fileUrl);
-    body = `<a href="${url}" target="_blank" rel="noopener noreferrer">${safe(msg.fileName)}</a>`;
+    body = url
+      ? `<a href="${url}" target="_blank" rel="noopener noreferrer">${safe(msg.fileName)}</a>`
+      : safe(msg.fileName);
   }
 
   return `<div class="msg"><div class="meta"><b>${author}</b><br><span class="time">${safe(time)}</span></div><div class="body">${body}</div></div>`;
@@ -55,10 +65,15 @@ function renderPrivateMessage(msg: PrivateMessage): string {
     body = safe(msg.content ?? "");
   } else if (msg.messageType === "image") {
     const url = safeUrl(msg.fileUrl ?? "");
-    body = `<a href="${url}" target="_blank" rel="noopener noreferrer">[image: ${url}]</a>`;
+    body = url
+      ? `<a href="${url}" target="_blank" rel="noopener noreferrer">[image: ${url}]</a>`
+      : "[image]";
   } else if (msg.messageType === "file") {
     const url = safeUrl(msg.fileUrl ?? "");
-    body = `<a href="${url}" target="_blank" rel="noopener noreferrer">${safe(msg.fileName ?? "file")}</a>`;
+    const name = safe(msg.fileName ?? "file");
+    body = url
+      ? `<a href="${url}" target="_blank" rel="noopener noreferrer">${name}</a>`
+      : name;
   }
 
   return `<div class="msg"><div class="meta"><b>${author}</b><br><span class="time">${safe(time)}</span></div><div class="body">${body}</div></div>`;

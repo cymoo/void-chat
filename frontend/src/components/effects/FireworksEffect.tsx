@@ -1,6 +1,10 @@
 import { useEffect, useRef } from "react";
 
-export function FireworksEffect() {
+interface Props {
+  onDone?: () => void;
+}
+
+export function FireworksEffect({ onDone }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -53,15 +57,30 @@ export function FireworksEffect() {
       }
     };
 
-    // Launch fireworks in two waves
+    // Three waves; track pending launches so we know when all have fired
+    const wave1 = [[0.2, 0.3], [0.5, 0.2], [0.8, 0.3]];
+    const wave2 = [[0.35, 0.25], [0.65, 0.2], [0.5, 0.35]];
+    const wave3 = [[0.3, 0.4], [0.7, 0.25]];
+    let pendingLaunches = wave1.length + wave2.length + wave3.length;
+
     const launchAll = () => {
-      const wave1 = [[0.2, 0.3], [0.5, 0.2], [0.8, 0.3]];
-      const wave2 = [[0.35, 0.25], [0.65, 0.2], [0.5, 0.35]];
       for (const [rx, ry] of wave1) {
-        setTimeout(() => { if (running) explode(w * rx!, h * ry!); }, Math.random() * 400);
+        setTimeout(() => {
+          if (running) explode(w * rx!, h * ry!);
+          pendingLaunches--;
+        }, Math.random() * 400);
       }
       for (const [rx, ry] of wave2) {
-        setTimeout(() => { if (running) explode(w * rx!, h * ry!); }, 800 + Math.random() * 600);
+        setTimeout(() => {
+          if (running) explode(w * rx!, h * ry!);
+          pendingLaunches--;
+        }, 800 + Math.random() * 600);
+      }
+      for (const [rx, ry] of wave3) {
+        setTimeout(() => {
+          if (running) explode(w * rx!, h * ry!);
+          pendingLaunches--;
+        }, 1700 + Math.random() * 600);
       }
     };
 
@@ -74,7 +93,6 @@ export function FireworksEffect() {
         p.trail.push({ x: p.x, y: p.y });
         if (p.trail.length > 5) p.trail.shift();
 
-        // Draw trail
         for (let t = 0; t < p.trail.length; t++) {
           const pt = p.trail[t]!;
           ctx.globalAlpha = (t / p.trail.length) * p.alpha * 0.4;
@@ -83,23 +101,31 @@ export function FireworksEffect() {
           ctx.arc(pt.x, pt.y, 1.5, 0, Math.PI * 2);
           ctx.fill();
         }
-        // Draw head
         ctx.globalAlpha = p.alpha;
         ctx.fillStyle = p.color;
         ctx.beginPath();
         ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2);
         ctx.fill();
 
-        p.vy += 0.08; // gravity
+        p.vy += 0.08;
         p.x += p.vx;
         p.y += p.vy;
         p.vx *= 0.97;
         p.vy *= 0.97;
-        p.alpha -= 0.018;
+        p.alpha -= 0.012; // slower fade — particles last ~1.4s at 60fps
         if (p.alpha <= 0) particles.splice(i, 1);
       }
       ctx.globalAlpha = 1;
-      if (running) animId = requestAnimationFrame(draw);
+
+      if (running) {
+        // All launches fired and all particles gone → unmount immediately
+        if (pendingLaunches === 0 && particles.length === 0) {
+          running = false;
+          onDone?.();
+          return;
+        }
+        animId = requestAnimationFrame(draw);
+      }
     };
 
     resize();
@@ -111,7 +137,7 @@ export function FireworksEffect() {
       cancelAnimationFrame(animId);
       window.removeEventListener("resize", resize);
     };
-  }, []);
+  }, [onDone]);
 
   return <canvas ref={canvasRef} className="effect-layer" aria-hidden="true" />;
 }
