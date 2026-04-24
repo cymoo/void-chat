@@ -79,26 +79,26 @@ npm run dev
 git clone <repo-url> && cd void-chat
 
 # 2. 创建环境配置文件
-cp .env.example .env
-# 编辑 .env，至少设置 DB_PASSWORD 和 INIT_ADMIN_PASSWORD
+cp deploy/.env.example deploy/.env
+# 编辑 deploy/.env，至少设置 DB_PASSWORD 和 INIT_ADMIN_PASSWORD
 
 # 3. 构建镜像并启动所有服务
-docker compose up -d --build
+docker compose -f deploy/docker-compose.yml up -d --build
 ```
 
 将依次启动四个服务：**PostgreSQL**、**Redis**、**后端**（Kotlin）、**前端**（nginx）。  
-应用默认监听 `http://localhost`（可通过 `HTTP_PORT` 调整端口）。
+应用默认监听 `http://localhost`（可通过 `deploy/.env` 中的 `HTTP_PORT` 调整端口）。
 
 **常用命令：**
 ```bash
-docker compose logs -f backend    # 实时查看后端日志
-docker compose restart backend    # 修改配置后重启后端
-docker compose down -v            # 停止并删除数据卷（⚠ 会清空数据）
+docker compose -f deploy/docker-compose.yml logs -f backend    # 实时查看后端日志
+docker compose -f deploy/docker-compose.yml restart backend    # 修改配置后重启后端
+docker compose -f deploy/docker-compose.yml down -v            # 停止并删除数据卷（⚠ 会清空数据）
 ```
 
 > **数据库迁移** — Flyway 在后端启动时自动执行，无需手动操作。
 
-> **Persona 引擎** — 在 `.env` 中填写 `PERSONA_LLM_API_KEY` 即可启用 LLM 机器人功能。
+> **Persona 引擎** — 在 `deploy/.env` 中填写 `PERSONA_LLM_API_KEY` 即可启用 LLM 机器人功能。
 
 ### 方式 B — 手动部署
 

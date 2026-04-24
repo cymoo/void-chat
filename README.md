@@ -79,26 +79,26 @@ The easiest way to run everything in one command:
 git clone <repo-url> && cd void-chat
 
 # 2. Create your environment file
-cp .env.example .env
-# Edit .env — at minimum set DB_PASSWORD and INIT_ADMIN_PASSWORD
+cp deploy/.env.example deploy/.env
+# Edit deploy/.env — at minimum set DB_PASSWORD and INIT_ADMIN_PASSWORD
 
 # 3. Build images and start all services
-docker compose up -d --build
+docker compose -f deploy/docker-compose.yml up -d --build
 ```
 
 This starts four services: **PostgreSQL**, **Redis**, **backend** (Kotlin), and **frontend** (nginx).  
-The app is available at `http://localhost` (or whatever `HTTP_PORT` you set).
+The app is available at `http://localhost` (or whatever `HTTP_PORT` you set in `deploy/.env`).
 
 **Useful commands:**
 ```bash
-docker compose logs -f backend    # stream backend logs
-docker compose restart backend    # restart after config change
-docker compose down -v            # stop and remove volumes (⚠ deletes data)
+docker compose -f deploy/docker-compose.yml logs -f backend    # stream backend logs
+docker compose -f deploy/docker-compose.yml restart backend    # restart after config change
+docker compose -f deploy/docker-compose.yml down -v            # stop and remove volumes (⚠ deletes data)
 ```
 
 > **Schema updates** — Flyway runs automatically on backend startup; no manual migration step needed.
 
-> **Persona engine** — set `PERSONA_LLM_API_KEY` in `.env` to enable the LLM bot feature.
+> **Persona engine** — set `PERSONA_LLM_API_KEY` in `deploy/.env` to enable the LLM bot feature.
 
 ### Option B — Manual
 

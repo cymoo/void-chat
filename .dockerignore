@@ -5,7 +5,9 @@
 # Environment files (may contain secrets)
 .env
 .env.*
+deploy/.env
 !.env.example
+!deploy/.env.example
 
 # Backend build artifacts (we only need source)
 backend/target/
