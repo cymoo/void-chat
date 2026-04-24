@@ -1,0 +1,30 @@
+# Git
+.git/
+.gitignore
+
+# Environment files (may contain secrets)
+.env
+.env.*
+!.env.example
+
+# Backend build artifacts (we only need source)
+backend/target/
+backend/.env
+backend/.env.*
+backend/.env.local
+
+# Frontend build artifacts and cache
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/playwright-report/
+frontend/test-results/
+
+# Uploaded files (served from a Docker volume at runtime)
+uploads/
+
+# IDE and OS noise
+.idea/
+.vscode/
+*.DS_Store
+*.iml

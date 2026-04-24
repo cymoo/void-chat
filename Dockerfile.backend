@@ -1,0 +1,33 @@
+# syntax=docker/dockerfile:1
+
+# ── Stage 1: Build fat JAR ─────────────────────────────────────────────────
+FROM maven:3.9-eclipse-temurin-21-alpine AS builder
+
+WORKDIR /app
+
+# Cache Maven dependencies in a separate layer
+COPY backend/pom.xml ./pom.xml
+RUN mvn dependency:go-offline -q --batch-mode
+
+# Copy sources (includes committed jOOQ generated sources in src/main/generated/)
+COPY backend/src ./src
+
+# Build fat JAR; skip DB-dependent plugins (Flyway runs at runtime, jOOQ code already committed)
+RUN mvn package -DskipTests \
+        -Dflyway.skip=true \
+        -Djooq.codegen.skip=true \
+        -q --batch-mode
+
+# ── Stage 2: Minimal runtime ──────────────────────────────────────────────
+FROM eclipse-temurin:21-jre-alpine
+
+RUN addgroup -g 1001 app && adduser -u 1001 -G app -s /bin/sh -D app
+
+WORKDIR /app
+COPY --from=builder /app/target/void-chat-*.jar app.jar
+RUN mkdir -p uploads && chown -R app:app /app
+
+USER app
+EXPOSE 8000
+
+ENTRYPOINT ["java", "-jar", "app.jar"]

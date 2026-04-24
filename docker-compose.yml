@@ -1,0 +1,73 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: void_chat
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d void_chat"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      COLLEEN_ENV: prod
+      DATABASE_URL: jdbc:postgresql://postgres:5432/void_chat
+      DATABASE_USER: ${DB_USER:-postgres}
+      DATABASE_PASSWORD: ${DB_PASSWORD:-postgres}
+      REDIS_URL: redis://redis:6379
+      SERVER_PORT: "8000"
+      UPLOAD_DIR: /app/uploads
+      MAX_REQUEST_SIZE: "31457280"
+      MAX_IMAGE_SIZE: "5242880"
+      MAX_FILE_SIZE: "20971520"
+      SESSION_TTL_DAYS: "${SESSION_TTL_DAYS:-7}"
+      INIT_ADMIN_USERNAME: "${INIT_ADMIN_USERNAME:-}"
+      INIT_ADMIN_PASSWORD: "${INIT_ADMIN_PASSWORD:-}"
+      # Optional: LLM persona engine (leave blank to disable)
+      PERSONA_LLM_API_KEY: "${PERSONA_LLM_API_KEY:-}"
+      PERSONA_LLM_BASE_URL: "${PERSONA_LLM_BASE_URL:-}"
+      PERSONA_LLM_MODEL: "${PERSONA_LLM_MODEL:-}"
+      PERSONA_AUTO_ENGAGE: "${PERSONA_AUTO_ENGAGE:-false}"
+    volumes:
+      - uploads:/app/uploads
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    depends_on:
+      - backend
+    ports:
+      - "${HTTP_PORT:-80}:80"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  uploads:

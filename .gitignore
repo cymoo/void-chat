@@ -188,7 +188,7 @@ jacoco.exec
 # ============================================================
 # Docker
 # ============================================================
-.dockerignore  # keep this only if you want to ignore it from VCS
+
 docker-compose.override.yml
 
 

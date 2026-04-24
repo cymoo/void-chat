@@ -70,6 +70,38 @@ Visit `http://localhost:5173`, register an account, and start a room.
 
 ## Deployment Guide (Production)
 
+### Option A — Docker Compose (recommended)
+
+The easiest way to run everything in one command:
+
+```bash
+# 1. Clone the repo and enter it
+git clone <repo-url> && cd void-chat
+
+# 2. Create your environment file
+cp .env.example .env
+# Edit .env — at minimum set DB_PASSWORD and INIT_ADMIN_PASSWORD
+
+# 3. Build images and start all services
+docker compose up -d --build
+```
+
+This starts four services: **PostgreSQL**, **Redis**, **backend** (Kotlin), and **frontend** (nginx).  
+The app is available at `http://localhost` (or whatever `HTTP_PORT` you set).
+
+**Useful commands:**
+```bash
+docker compose logs -f backend    # stream backend logs
+docker compose restart backend    # restart after config change
+docker compose down -v            # stop and remove volumes (⚠ deletes data)
+```
+
+> **Schema updates** — Flyway runs automatically on backend startup; no manual migration step needed.
+
+> **Persona engine** — set `PERSONA_LLM_API_KEY` in `.env` to enable the LLM bot feature.
+
+### Option B — Manual
+
 1. Prepare PostgreSQL and Redis instances.
 2. Build backend JAR:
    ```bash

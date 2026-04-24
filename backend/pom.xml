@@ -183,7 +183,7 @@
                         <configuration>
                             <sourceDirs>
                                 <sourceDir>src/main/kotlin</sourceDir>
-                                <sourceDir>target/generated-sources/jooq</sourceDir>
+                                <sourceDir>src/main/generated/jooq</sourceDir>
                             </sourceDirs>
                         </configuration>
                     </execution>
@@ -224,6 +224,61 @@
                 <configuration>
                     <mainClass>MainKt</mainClass>
                 </configuration>
+            </plugin>
+
+            <!-- Build Helper: register src/main/generated/jooq as a Java source root -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>3.6.0</version>
+                <executions>
+                    <execution>
+                        <id>add-jooq-sources</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>add-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>src/main/generated/jooq</source>
+                            </sources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Shade Plugin: produce executable fat JAR -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>${maven-shade-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>MainKt</mainClass>
+                                </transformer>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                            </transformers>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
 
             <!-- Flyway Migration Plugin -->
@@ -280,7 +335,7 @@
                         </database>
                         <target>
                             <packageName>chatroom.jooq.generated</packageName>
-                            <directory>target/generated-sources/jooq</directory>
+                            <directory>src/main/generated/jooq</directory>
                         </target>
                         <generate>
                             <pojos>true</pojos>

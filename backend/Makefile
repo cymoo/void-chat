@@ -22,7 +22,8 @@ run-jar: build ## Run the fat jar
 migrate: ## Run Flyway migrations
 	$(MVN) flyway:migrate
 
-codegen: migrate ## Regenerate jOOQ sources
+codegen: migrate ## Regenerate jOOQ sources (cleans stale files first)
+	rm -rf src/main/generated/jooq
 	$(MVN) jooq-codegen:generate
 
 clean:   ## Remove build artifacts
