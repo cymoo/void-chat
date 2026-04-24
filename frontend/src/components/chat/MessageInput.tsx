@@ -105,6 +105,15 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
     async (name: string) => {
       slashCmds.closeMenu();
       composerRef.current?.setText("");
+      // setText() bypasses onTextChange, so we must cancel the pending draft timer
+      // and eagerly remove the saved draft ourselves.
+      if (draftTimerRef.current !== null) {
+        window.clearTimeout(draftTimerRef.current);
+        draftTimerRef.current = null;
+      }
+      if (currentRoomId) {
+        localStorage.removeItem(`${DRAFT_PREFIX}${currentRoomId}`);
+      }
 
       if (name === "clear") {
         clearMessages();
