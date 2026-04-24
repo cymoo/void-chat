@@ -60,10 +60,14 @@ data class RoomInfo(
 /**
  * Base message type with discriminator for JSON serialization
  */
+// Note: As.EXISTING_PROPERTY is required for Kotlin sealed classes — As.PROPERTY does not
+// inject the discriminator field into serialized output with the Kotlin Jackson module.
+// Each subclass explicitly declares `messageType` so it appears in REST API responses.
 @JsonTypeInfo(
     use = JsonTypeInfo.Id.NAME,
-    include = JsonTypeInfo.As.PROPERTY,
-    property = "messageType"
+    include = JsonTypeInfo.As.EXISTING_PROPERTY,
+    property = "messageType",
+    visible = true
 )
 @JsonSubTypes(
     JsonSubTypes.Type(value = ChatMessage.Text::class, name = "text"),
@@ -84,7 +88,8 @@ sealed class ChatMessage {
         val content: String,
         val editedAt: Long? = null,
         override val timestamp: Long,
-        override val replyTo: ReplyInfo? = null
+        override val replyTo: ReplyInfo? = null,
+        val messageType: String = "text"
     ) : ChatMessage()
 
     data class Image(
@@ -97,7 +102,8 @@ sealed class ChatMessage {
         val width: Int? = null,
         val height: Int? = null,
         override val timestamp: Long,
-        override val replyTo: ReplyInfo? = null
+        override val replyTo: ReplyInfo? = null,
+        val messageType: String = "image"
     ) : ChatMessage()
 
     data class File(
@@ -110,14 +116,16 @@ sealed class ChatMessage {
         val fileSize: Long,
         val mimeType: String,
         override val timestamp: Long,
-        override val replyTo: ReplyInfo? = null
+        override val replyTo: ReplyInfo? = null,
+        val messageType: String = "file"
     ) : ChatMessage()
 
     data class System(
         override val id: Int,
         val content: String,
         override val timestamp: Long,
-        override val replyTo: ReplyInfo? = null
+        override val replyTo: ReplyInfo? = null,
+        val messageType: String = "system"
     ) : ChatMessage()
 }
 

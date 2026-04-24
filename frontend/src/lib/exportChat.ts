@@ -89,6 +89,7 @@ function buildHtml(title: string, bodyRows: string[], total: number): string {
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src * data:; font-src *;">
 <title>${safe(title)}</title>
 <style>
   body { font-family: system-ui, sans-serif; max-width: 900px; margin: 0 auto; padding: 24px; color: #333; }
