@@ -1,6 +1,3 @@
-import { getRoomExportMessages, getDmExportMessages } from "@/api/client";
-import type { ChatMessage, PrivateMessage } from "@/api/types";
-
 export type CommandCategory = "local" | "rest" | "broadcast";
 export type CommandScope = "room" | "dm";
 
@@ -66,18 +63,4 @@ export function filterCommands(
       cmd.availableIn.includes(scope) &&
       (q === "" || cmd.name.startsWith(q)),
   );
-}
-
-/** Fetch all room messages for export (capped at 10k server-side). */
-export async function fetchRoomExportMessages(
-  roomId: number,
-): Promise<ChatMessage[]> {
-  return getRoomExportMessages(roomId);
-}
-
-/** Fetch all DM messages for export (capped at 10k server-side). */
-export async function fetchDmExportMessages(
-  userId: number,
-): Promise<PrivateMessage[]> {
-  return getDmExportMessages(userId);
 }

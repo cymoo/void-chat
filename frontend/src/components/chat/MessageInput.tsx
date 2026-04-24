@@ -12,7 +12,8 @@ import { MessageInputBar } from "@/components/shared/MessageInputBar";
 import { MentionDropdown } from "@/components/shared/MentionDropdown";
 import { SlashCommandMenu } from "@/components/shared/SlashCommandMenu";
 import { useSlashCommands } from "@/hooks/useSlashCommands";
-import { fetchRoomExportMessages, filterCommands } from "@/lib/slashCommands";
+import { getRoomExportMessages } from "@/api/client";
+import { filterCommands } from "@/lib/slashCommands";
 import { exportRoomChat } from "@/lib/exportChat";
 import type { MessageComposerReturn } from "@/hooks/useMessageComposer";
 import type { User, WsSendPayload } from "@/api/types";
@@ -114,7 +115,7 @@ export function MessageInput({ send, currentUser }: MessageInputProps) {
         if (!currentRoomId) return;
         addToast("Exporting chat…", "info");
         try {
-          const msgs = await fetchRoomExportMessages(currentRoomId);
+          const msgs = await getRoomExportMessages(currentRoomId);
           exportRoomChat(currentRoomName, msgs);
         } catch {
           addToast("Export failed. Please try again.", "error");

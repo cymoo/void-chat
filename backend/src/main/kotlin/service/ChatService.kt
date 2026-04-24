@@ -383,11 +383,7 @@ class ChatService(
         }
     }
 
-    fun getMessageHistory(roomId: Int): List<ChatMessage> {
-        return messageRepo.getRecentMessages(roomId, 30)
-    }
-
-    fun getRecentMessages(roomId: Int, limit: Int): List<ChatMessage> {
+    fun getRecentMessages(roomId: Int, limit: Int = 30): List<ChatMessage> {
         return messageRepo.getRecentMessages(roomId, limit)
     }
 

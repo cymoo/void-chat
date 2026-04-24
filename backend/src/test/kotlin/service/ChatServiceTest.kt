@@ -450,7 +450,7 @@ class ChatServiceTest {
 
         chatService.sendTextMessage(room2Id, user, "original message")
         awaitBroadcasts()
-        val firstMessageId = chatService.getMessageHistory(room2Id)
+        val firstMessageId = chatService.getRecentMessages(room2Id, 30)
             .filterIsInstance<ChatMessage.Text>()
             .last { it.content == "original message" }.id
 
@@ -486,7 +486,7 @@ class ChatServiceTest {
         awaitBroadcasts()
         chatService.sendTextMessage(room3Id, userA, "original content")
         awaitBroadcasts()
-        val messageId = chatService.getMessageHistory(room3Id)
+        val messageId = chatService.getRecentMessages(room3Id, 30)
             .filterIsInstance<ChatMessage.Text>()
             .last { it.content == "original content" }.id
 
@@ -520,7 +520,7 @@ class ChatServiceTest {
         awaitBroadcasts()
         chatService.sendTextMessage(room1Id, userA, "to-be-deleted")
         awaitBroadcasts()
-        val messageId = chatService.getMessageHistory(room1Id)
+        val messageId = chatService.getRecentMessages(room1Id, 30)
             .filterIsInstance<ChatMessage.Text>()
             .last { it.content == "to-be-deleted" }.id
 
@@ -614,7 +614,7 @@ class ChatServiceTest {
         repeat(5) { i -> chatService.sendTextMessage(histRoom.id, user, "history-msg-$i") }
         awaitBroadcasts()
 
-        val textMessages = chatService.getMessageHistory(histRoom.id)
+        val textMessages = chatService.getRecentMessages(histRoom.id, 30)
             .filterIsInstance<ChatMessage.Text>()
             .filter { it.content.startsWith("history-msg-") }
         assertEquals(5, textMessages.size)

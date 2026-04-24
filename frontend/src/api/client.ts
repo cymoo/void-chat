@@ -198,25 +198,6 @@ export async function updateProfile(req: UpdateProfileRequest): Promise<User> {
   return request("PATCH", "/api/users/me", req);
 }
 
-export async function getUnreadDmSenders(): Promise<
-  Array<{ senderId: number; senderUsername: string; unreadCount: number }>
-> {
-  const data = await request<
-    Array<{
-      senderId?: number;
-      senderUsername?: string;
-      userId?: number;
-      username?: string;
-      unreadCount?: number;
-    }>
-  >("GET", "/api/dms/unread-senders");
-  return data.map((item) => ({
-    senderId: item.senderId ?? item.userId ?? 0,
-    senderUsername: item.senderUsername ?? item.username ?? "",
-    unreadCount: item.unreadCount ?? 0,
-  }));
-}
-
 export async function getDmInbox(): Promise<DmInboxEntry[]> {
   const data = await request<
     Array<{

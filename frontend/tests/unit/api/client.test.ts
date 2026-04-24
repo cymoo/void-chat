@@ -506,28 +506,6 @@ describe("API client", () => {
     });
   });
 
-  describe("getUnreadDmSenders", () => {
-    it("returns array of user IDs with unread counts", async () => {
-      localStorage.setItem("authToken", "token");
-      mockFetch.mockResolvedValue(
-        mockResponse({
-          ok: true,
-          status: 200,
-          json: [{ userId: 1, username: "alice", unreadCount: 3 }],
-        }),
-      );
-
-      const result = await client.getUnreadDmSenders();
-
-      expect(result).toEqual([{ senderId: 1, senderUsername: "alice", unreadCount: 3 }]);
-      expect(mockFetch).toHaveBeenCalledWith("/api/dms/unread-senders", {
-        method: "GET",
-        headers: { Authorization: "Bearer token" },
-        body: undefined,
-      });
-    });
-  });
-
   it("should fetch dm inbox entries", async () => {
     localStorage.setItem("authToken", "auth-token");
     mockFetch.mockResolvedValue(

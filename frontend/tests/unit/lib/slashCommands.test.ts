@@ -1,12 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { filterCommands, fetchRoomExportMessages, fetchDmExportMessages, SLASH_COMMANDS } from "@/lib/slashCommands";
+import { describe, it, expect, vi } from "vitest";
+import { filterCommands, SLASH_COMMANDS } from "@/lib/slashCommands";
 
 vi.mock("@/api/client", () => ({
   getRoomExportMessages: vi.fn(),
   getDmExportMessages: vi.fn(),
 }));
-
-import { getRoomExportMessages, getDmExportMessages } from "@/api/client";
 
 describe("filterCommands", () => {
   it("returns all room-scoped commands for empty query in room scope", () => {
@@ -49,38 +47,6 @@ describe("filterCommands", () => {
     const results = filterCommands("export", "room");
     expect(results).toHaveLength(1);
     expect(results[0]!.name).toBe("export");
-  });
-});
-
-describe("fetchRoomExportMessages", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("calls getRoomExportMessages with roomId", async () => {
-    const mockMessages = [{ id: 1, content: "hello" }];
-    vi.mocked(getRoomExportMessages).mockResolvedValue(mockMessages as any);
-
-    const result = await fetchRoomExportMessages(42);
-
-    expect(getRoomExportMessages).toHaveBeenCalledWith(42);
-    expect(result).toBe(mockMessages);
-  });
-});
-
-describe("fetchDmExportMessages", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("calls getDmExportMessages with userId", async () => {
-    const mockMessages = [{ id: 1, content: "hi" }];
-    vi.mocked(getDmExportMessages).mockResolvedValue(mockMessages as any);
-
-    const result = await fetchDmExportMessages(7);
-
-    expect(getDmExportMessages).toHaveBeenCalledWith(7);
-    expect(result).toBe(mockMessages);
   });
 });
 

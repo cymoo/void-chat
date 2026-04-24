@@ -106,7 +106,7 @@ class ChatController(
         joinedRoom.set(true)
 
         // Send message history with hasMore flag
-        val history = chatService.getMessageHistory(roomId)
+        val history = chatService.getRecentMessages(roomId, 30)
         val hasMore = history.size >= 30
         conn.send(chatService.serializeEvent(
             WsEvent.History(history, hasMore)

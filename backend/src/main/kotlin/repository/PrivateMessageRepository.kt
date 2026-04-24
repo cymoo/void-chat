@@ -52,52 +52,17 @@ class PrivateMessageRepository(private val dsl: DSLContext) {
 
     /** Fetch a conversation between two users with cursor-based pagination. */
     fun getConversation(userId1: Int, userId2: Int, limit: Int = 30, beforeId: Int? = null): List<PrivateMessage> {
-        var query = dsl.select(
-            PRIVATE_MESSAGES.ID, PRIVATE_MESSAGES.SENDER_ID, PRIVATE_MESSAGES.RECEIVER_ID,
-            PRIVATE_MESSAGES.MESSAGE_TYPE, PRIVATE_MESSAGES.CONTENT,
-            PRIVATE_MESSAGES.IS_READ, PRIVATE_MESSAGES.CREATED_AT,
-            SENDER.USERNAME, SENDER.AVATAR_URL,
-            RECEIVER.USERNAME
-        )
-            .from(PRIVATE_MESSAGES)
-            .join(SENDER).on(PRIVATE_MESSAGES.SENDER_ID.eq(SENDER.ID))
-            .join(RECEIVER).on(PRIVATE_MESSAGES.RECEIVER_ID.eq(RECEIVER.ID))
-            .where(
-                PRIVATE_MESSAGES.SENDER_ID.eq(userId1).and(PRIVATE_MESSAGES.RECEIVER_ID.eq(userId2))
-                    .or(PRIVATE_MESSAGES.SENDER_ID.eq(userId2).and(PRIVATE_MESSAGES.RECEIVER_ID.eq(userId1)))
-            )
-
-        if (beforeId != null) {
-            query = query.and(PRIVATE_MESSAGES.ID.lt(beforeId))
-        }
-
-        val records = query.orderBy(PRIVATE_MESSAGES.ID.desc())
-            .limit(limit)
-            .fetch()
-
-        return records.reversed().map(::mapRecord)
+        var query = dmBaseQuery().where(participantsCondition(userId1, userId2))
+        if (beforeId != null) query = query.and(PRIVATE_MESSAGES.ID.lt(beforeId))
+        return query.orderBy(PRIVATE_MESSAGES.ID.desc()).limit(limit).fetch()
+            .reversed().map(::mapRecord)
     }
 
     /** Fetch all messages between two users, chronologically. Capped at [limit]. */
     fun getAllMessages(userId1: Int, userId2: Int, limit: Int = 10000): List<PrivateMessage> {
-        val records = dsl.select(
-            PRIVATE_MESSAGES.ID, PRIVATE_MESSAGES.SENDER_ID, PRIVATE_MESSAGES.RECEIVER_ID,
-            PRIVATE_MESSAGES.MESSAGE_TYPE, PRIVATE_MESSAGES.CONTENT,
-            PRIVATE_MESSAGES.IS_READ, PRIVATE_MESSAGES.CREATED_AT,
-            SENDER.USERNAME, SENDER.AVATAR_URL,
-            RECEIVER.USERNAME
-        )
-            .from(PRIVATE_MESSAGES)
-            .join(SENDER).on(PRIVATE_MESSAGES.SENDER_ID.eq(SENDER.ID))
-            .join(RECEIVER).on(PRIVATE_MESSAGES.RECEIVER_ID.eq(RECEIVER.ID))
-            .where(
-                PRIVATE_MESSAGES.SENDER_ID.eq(userId1).and(PRIVATE_MESSAGES.RECEIVER_ID.eq(userId2))
-                    .or(PRIVATE_MESSAGES.SENDER_ID.eq(userId2).and(PRIVATE_MESSAGES.RECEIVER_ID.eq(userId1)))
-            )
-            .orderBy(PRIVATE_MESSAGES.ID.asc())
-            .limit(limit)
-            .fetch()
-        return records.map(::mapRecord)
+        return dmBaseQuery().where(participantsCondition(userId1, userId2))
+            .orderBy(PRIVATE_MESSAGES.ID.asc()).limit(limit).fetch()
+            .map(::mapRecord)
     }
 
     /** Mark all messages from [senderId] to [receiverId] as read. */    fun markAsRead(senderId: Int, receiverId: Int) {
@@ -186,6 +151,21 @@ class PrivateMessageRepository(private val dsl: DSLContext) {
     }
 
     // ---- Internal helpers ----
+
+    private fun dmBaseQuery() = dsl.select(
+        PRIVATE_MESSAGES.ID, PRIVATE_MESSAGES.SENDER_ID, PRIVATE_MESSAGES.RECEIVER_ID,
+        PRIVATE_MESSAGES.MESSAGE_TYPE, PRIVATE_MESSAGES.CONTENT,
+        PRIVATE_MESSAGES.IS_READ, PRIVATE_MESSAGES.CREATED_AT,
+        SENDER.USERNAME, SENDER.AVATAR_URL,
+        RECEIVER.USERNAME
+    )
+        .from(PRIVATE_MESSAGES)
+        .join(SENDER).on(PRIVATE_MESSAGES.SENDER_ID.eq(SENDER.ID))
+        .join(RECEIVER).on(PRIVATE_MESSAGES.RECEIVER_ID.eq(RECEIVER.ID))
+
+    private fun participantsCondition(userId1: Int, userId2: Int) =
+        PRIVATE_MESSAGES.SENDER_ID.eq(userId1).and(PRIVATE_MESSAGES.RECEIVER_ID.eq(userId2))
+            .or(PRIVATE_MESSAGES.SENDER_ID.eq(userId2).and(PRIVATE_MESSAGES.RECEIVER_ID.eq(userId1)))
 
     private fun insertMessage(senderId: Int, receiverId: Int, type: String, content: JSONB): Int {
         return dsl.insertInto(PRIVATE_MESSAGES)

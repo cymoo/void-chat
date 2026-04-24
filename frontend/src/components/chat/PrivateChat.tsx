@@ -16,7 +16,7 @@ import { MessageContent } from "@/components/chat/MessageContent";
 import { Modal } from "@/components/ui/Modal";
 import { openImageGallery } from "@/components/ui/ImageViewer";
 import { useSlashCommands } from "@/hooks/useSlashCommands";
-import { fetchDmExportMessages } from "@/lib/slashCommands";
+import { getDmExportMessages } from "@/api/client";
 import { exportDmChat } from "@/lib/exportChat";
 import type { MessageComposerReturn } from "@/hooks/useMessageComposer";
 import type { PrivateMessage, User, WsSendPayload } from "@/api/types";
@@ -155,7 +155,7 @@ export function PrivateChat({ send, currentUser }: PrivateChatProps) {
         if (!privateChatUserId) return;
         addToast("Exporting chat…", "info");
         try {
-          const msgs = await fetchDmExportMessages(privateChatUserId);
+          const msgs = await getDmExportMessages(privateChatUserId);
           exportDmChat(privateChatUsername, msgs);
         } catch {
           addToast("Export failed. Please try again.", "error");
