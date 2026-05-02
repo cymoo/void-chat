@@ -25,7 +25,7 @@ git clone https://github.com/cymoo/void-chat.git ~/void-chat
 
 cd /opt/void-chat/deploy
 cp .env.example .env      # edit: DOMAIN, DB_PASSWORD, INIT_ADMIN_PASSWORD
-make setup
+sudo make setup
 ```
 
 `make setup` will:
@@ -49,12 +49,14 @@ Before running `make setup`, ensure:
 SSH into the server, `cd /opt/void-chat/deploy`, then:
 
 ```bash
-make deploy    # backup → git pull → rebuild → restart
-make backup    # manual backup
-make logs      # tail backend logs
-make ps        -- container status
-make restart   # restart all containers
+sudo make deploy    # backup → git pull → rebuild → restart
+make backup         # manual backup
+make logs           # tail backend logs
+make ps             # container status
+make restart        # restart all containers
 ```
+
+`setup` and `deploy` require root. Other targets run as a regular user.
 
 To deploy from a branch other than `main`:
 
@@ -67,7 +69,7 @@ make deploy BRANCH=my-feature
 Backups are stored in `/opt/void-chat/backups/`. Each backup set contains:
 
 - `void_chat.sql.gz` — PostgreSQL database dump
-- `uploads.tar.gz` — user-uploaded files
+- `uploads.tar` — user-uploaded files
 
 The last 5 backup sets are kept automatically.
 
@@ -86,7 +88,7 @@ docker compose -f compose.yml start backend
 
 ```bash
 docker compose -f compose.yml exec -T backend \
-    tar -xzf - -C /app < ../backups/backup-YYYYMMDD-HHMMSS/uploads.tar.gz
+    tar -xf - -C /app < ../backups/backup-YYYYMMDD-HHMMSS/uploads.tar
 ```
 
 ## Data Layout

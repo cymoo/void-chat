@@ -33,15 +33,16 @@ else
     rm -f "${backup_path}/void_chat.sql.gz"
 fi
 
-# Uploads: archive directly from the backend container's volume mount
+# Uploads: archive directly from the backend container's volume mount.
+# No gzip — uploaded files (images, docs) are already compressed.
 if docker compose -f compose.yml exec -T backend \
-        tar -czf - -C /app uploads 2>/dev/null \
-        > "${backup_path}/uploads.tar.gz" && \
-        [[ -s "${backup_path}/uploads.tar.gz" ]]; then
-    echo "[INFO] Uploads backed up ($(du -h "${backup_path}/uploads.tar.gz" | cut -f1))"
+        tar -cf - -C /app uploads 2>/dev/null \
+        > "${backup_path}/uploads.tar" && \
+        [[ -s "${backup_path}/uploads.tar" ]]; then
+    echo "[INFO] Uploads backed up ($(du -h "${backup_path}/uploads.tar" | cut -f1))"
     backed_up=true
 else
-    rm -f "${backup_path}/uploads.tar.gz"
+    rm -f "${backup_path}/uploads.tar"
 fi
 
 if [[ "$backed_up" == false ]]; then
