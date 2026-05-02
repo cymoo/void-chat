@@ -70,9 +70,33 @@ Visit `http://localhost:5173`, register an account, and start a room.
 
 ## Deployment Guide (Production)
 
-### Option A — Docker Compose (recommended)
+Full deployment documentation with HTTPS support is in [deploy/README.md](./deploy/README.md).
 
-The easiest way to run everything in one command:
+### Option A — Recommended: Host nginx + Docker (`make setup`)
+
+This deploys with automatic HTTPS via Let's Encrypt. Host nginx handles TLS and serves the React SPA; the Kotlin backend, PostgreSQL, and Redis run in Docker.
+
+**Prerequisites on the server:** Docker (Compose plugin v2.21+), nginx, certbot, git.
+
+```bash
+# Clone to your preferred location
+sudo git clone https://github.com/cymoo/void-chat.git /opt/void-chat
+cd /opt/void-chat/deploy
+
+# Configure environment (edit DOMAIN, DB_PASSWORD, INIT_ADMIN_PASSWORD)
+cp .env.example .env
+
+# One-command setup: builds images, starts containers, obtains TLS cert, configures nginx
+make setup
+```
+
+After first setup, deploy updates with `make deploy` (backup → pull → rebuild → restart).
+
+See [deploy/README.md](./deploy/README.md) for the full guide including backup/restore.
+
+### Option B — Simple HTTP (Docker Compose)
+
+Runs all services in Docker with HTTP only. Useful for internal networks or behind an existing reverse proxy.
 
 ```bash
 # 1. Clone the repo and enter it
@@ -80,14 +104,13 @@ git clone <repo-url> && cd void-chat
 
 # 2. Create your environment file
 cp deploy/.env.example deploy/.env
-# Edit deploy/.env — at minimum set DB_PASSWORD and INIT_ADMIN_PASSWORD
+# Edit deploy/.env — set DB_PASSWORD and INIT_ADMIN_PASSWORD
 
 # 3. Build images and start all services
 docker compose -f deploy/docker-compose.yml up -d --build
 ```
 
-This starts four services: **PostgreSQL**, **Redis**, **backend** (Kotlin), and **frontend** (nginx).  
-The app is available at `http://localhost` (or whatever `HTTP_PORT` you set in `deploy/.env`).
+The app is available at `http://localhost` (or `HTTP_PORT` in `deploy/.env`).
 
 **Useful commands:**
 ```bash
@@ -100,7 +123,7 @@ docker compose -f deploy/docker-compose.yml down -v            # stop and remove
 
 > **Persona engine** — set `PERSONA_LLM_API_KEY` in `deploy/.env` to enable the LLM bot feature.
 
-### Option B — Manual
+### Option C — Manual
 
 1. Prepare PostgreSQL and Redis instances.
 2. Build backend JAR:
@@ -111,7 +134,7 @@ docker compose -f deploy/docker-compose.yml down -v            # stop and remove
 3. Build frontend static assets:
    ```bash
    cd frontend
-   npm install
+   npm install --legacy-peer-deps
    npm run build
    ```
 4. Run backend:
