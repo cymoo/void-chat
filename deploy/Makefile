@@ -6,11 +6,13 @@
 #   3. cp .env.example .env  # edit: DOMAIN, DB_PASSWORD, INIT_ADMIN_PASSWORD
 #   4. sudo make setup
 #
-# Usage:
+# Usage (setup/deploy require sudo; others run as a regular user):
+#   sudo make setup     -- first-time: build, start containers, configure nginx + TLS
 #   sudo make deploy    -- backup, pull latest, rebuild, restart
 #   make backup         -- manual backup
 #   make logs           -- tail backend logs
 #   make ps             -- container status
+#   make restart        -- restart all containers
 
 GREEN  := \033[0;32m
 YELLOW := \033[0;33m
@@ -22,8 +24,9 @@ WEB_DIR         := $(APP_DIR)/web
 NGINX_CONF      := /etc/nginx/conf.d/void-chat.conf
 CERTBOT_WEBROOT := /var/www/certbot
 # sed handles values that contain '=' (e.g. base64 passwords)
-DOMAIN          := $(shell sed -n 's/^DOMAIN=//p' .env 2>/dev/null)
-DB_PASSWORD     := $(shell sed -n 's/^DB_PASSWORD=//p' .env 2>/dev/null)
+DOMAIN               := $(shell sed -n 's/^DOMAIN=//p' .env 2>/dev/null)
+DB_PASSWORD          := $(shell sed -n 's/^DB_PASSWORD=//p' .env 2>/dev/null)
+INIT_ADMIN_PASSWORD  := $(shell sed -n 's/^INIT_ADMIN_PASSWORD=//p' .env 2>/dev/null)
 BRANCH          ?= main
 # When invoked via sudo, SUDO_USER/UID/GID are set automatically.
 # When running directly as root (no sudo), they are empty.
@@ -40,9 +43,11 @@ help: ## Show available targets
 setup: ## First-time: build images, start containers, configure nginx + TLS
 	@[ "$$(id -u)" = "0" ] || { printf '$(RED)ERROR: run as: sudo make $@$(NC)\n' >&2; exit 1; }
 	@test -f .env || { echo "$(RED)ERROR: create .env from .env.example first$(NC)" >&2; exit 1; }
-	@test -n "$(DOMAIN)"      || { echo "$(RED)ERROR: DOMAIN not set in .env$(NC)" >&2; exit 1; }
-	@test -n "$(DB_PASSWORD)" || { echo "$(RED)ERROR: DB_PASSWORD not set in .env$(NC)" >&2; exit 1; }
-	@[ "$(DB_PASSWORD)" != "change-me" ] || { echo "$(RED)ERROR: change DB_PASSWORD from the default$(NC)" >&2; exit 1; }
+	@test -n "$(DOMAIN)"               || { echo "$(RED)ERROR: DOMAIN not set in .env$(NC)" >&2; exit 1; }
+	@test -n "$(DB_PASSWORD)"          || { echo "$(RED)ERROR: DB_PASSWORD not set in .env$(NC)" >&2; exit 1; }
+	@test -n "$(INIT_ADMIN_PASSWORD)"  || { echo "$(RED)ERROR: INIT_ADMIN_PASSWORD not set in .env$(NC)" >&2; exit 1; }
+	@[ "$(DB_PASSWORD)"         != "change-me" ] || { echo "$(RED)ERROR: change DB_PASSWORD from the default$(NC)" >&2; exit 1; }
+	@[ "$(INIT_ADMIN_PASSWORD)" != "change-me" ] || { echo "$(RED)ERROR: change INIT_ADMIN_PASSWORD from the default$(NC)" >&2; exit 1; }
 	@command -v nginx   > /dev/null 2>&1 || { echo "$(RED)ERROR: nginx not installed$(NC)" >&2; exit 1; }
 	@command -v certbot > /dev/null 2>&1 || { echo "$(RED)ERROR: certbot not installed$(NC)" >&2; exit 1; }
 	@echo "$(YELLOW)-> Creating directories...$(NC)"

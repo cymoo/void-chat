@@ -70,7 +70,8 @@ lerna-debug.log*
 .yarn/install-state.gz
 .pnp.*
 
-package-lock.json   # uncomment if using yarn/pnpm exclusively
+# package-lock.json — keep when using npm (uncomment if using yarn/pnpm exclusively)
+# package-lock.json
 # yarn.lock          # uncomment if using npm/pnpm exclusively
 
 
@@ -190,6 +191,13 @@ jacoco.exec
 # ============================================================
 
 docker-compose.override.yml
+
+
+# ============================================================
+# Deployment runtime (generated at deploy time, not tracked)
+# ============================================================
+web/
+backups/
 
 
 # ============================================================
