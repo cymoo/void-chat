@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { describe, it, expect, beforeEach } from "vitest";
+import { render, act } from "@testing-library/react";
 import { TypingIndicator } from "@/components/chat/TypingIndicator";
 import { useChatStore } from "@/stores/chatStore";
 

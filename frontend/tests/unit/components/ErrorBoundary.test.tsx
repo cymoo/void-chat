@@ -28,7 +28,7 @@ class ErrorBoundary extends Component<
   }
 }
 
-function ThrowingComponent({ message }: { message: string }) {
+function ThrowingComponent({ message }: { message: string }): never {
   throw new Error(message);
 }
 

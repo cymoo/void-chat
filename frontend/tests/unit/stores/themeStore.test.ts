@@ -8,7 +8,7 @@ vi.mock("@/lib/themeBootstrap", () => ({
 }));
 
 import { useThemeStore } from "@/stores/themeStore";
-import { getInitialTheme, applyTheme, saveTheme } from "@/lib/themeBootstrap";
+import { applyTheme, saveTheme } from "@/lib/themeBootstrap";
 
 describe("themeStore", () => {
   beforeEach(() => {
