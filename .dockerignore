@@ -31,6 +31,7 @@ backups/
 # Deployment scripts (only nginx-http.conf is COPY'd into the frontend image)
 deploy/
 !deploy/nginx-http.conf
+!deploy/maven-settings.xml
 
 # IDE and OS noise
 .idea/
