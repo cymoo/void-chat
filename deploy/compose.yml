@@ -57,7 +57,8 @@ services:
       DATABASE_USER: ${DB_USER:-postgres}
       DATABASE_PASSWORD: ${DB_PASSWORD}
       REDIS_URL: redis://redis:6379
-      SERVER_PORT: "8000"
+      SERVER_IP: "0.0.0.0"
+      SERVER_PORT: "8001"
       UPLOAD_DIR: /app/uploads
       MAX_REQUEST_SIZE: "31457280"
       MAX_IMAGE_SIZE: "5242880"
@@ -70,12 +71,12 @@ services:
       PERSONA_LLM_MODEL: "${PERSONA_LLM_MODEL:-}"
       PERSONA_AUTO_ENGAGE: "${PERSONA_AUTO_ENGAGE:-false}"
     ports:
-      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:8001:8001"
     volumes:
       - uploads:/app/uploads
       - /etc/localtime:/etc/localtime:ro
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/auth/registration-mode"]
+      test: ["CMD", "curl", "-f", "http://localhost:8001/api/auth/registration-mode"]
       interval: 10s
       timeout: 5s
       retries: 5

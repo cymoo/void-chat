@@ -38,7 +38,7 @@ COPY --from=builder /app/target/void-chat-*.jar app.jar
 RUN mkdir -p uploads && chown -R app:app /app
 
 USER app
-EXPOSE 8000
+EXPOSE 8001
 
 # MaxRAMPercentage: use 75% of container memory for the JVM heap.
 # urandom: avoids SecureRandom blocking on entropy-starved containers.
