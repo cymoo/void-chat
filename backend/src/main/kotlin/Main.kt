@@ -121,9 +121,10 @@ fun main() {
     // Start Redis pub/sub subscriber for cross-instance messaging
     chatService.startRedisSubscriber()
 
-    val port = Env["SERVER_PORT"]?.toIntOrNull() ?: 8000
-    app.listen(port)
-    logger.info("✅ Chat API Server running on http://localhost:$port")
+    val ip = Env["SERVER_IP"] ?: "127.0.0.1"
+    val port = Env["SERVER_PORT"]?.toIntOrNull() ?: 8001
+    app.listen(port, ip)
+    logger.info("✅ Chat API Server running on http://$ip:$port")
 }
 
 /**
